@@ -1,102 +1,205 @@
 #!/usr/bin/env python3
-from numpy.random import poisson, choice
+from numpy.random import geometric, uniform, choice
 from numpy import ndarray, array
 from numba import jit
 
 
-class Population:
-    """ Defines the population class, which evolves a single population of 2N alleles given a common ancestor and
-    mutation rates. """
+@jit(nopython=True, nogil=True, target='cpu')
+def _triangle_n(a: int) -> int:
+    """ Triangle number generator. Given 'a', return a choose 2. Optimized by Numba.
 
-    def __init__(self, mu_u: float, mu_d: float, i_0: int, kappa: int = 0):
-        """ Constructor. A upward mutation rate mu_u and downward mutation rate mu_d must be specified, each of which
-        must exist in [0, 1]. Ancestor length must also be specified. A stationary lower bound kappa can be specified,
-        which prevents any additional mutations from occurring if the length moves toward this.
+    :param a: Which triangle number to return.
+    :return: The a'th triangle number.
+    """
+    return int(a * (a + 1) / 2)
 
-        :param mu_u: Upward mutation rate. Must exist in [0, 1].
-        :param mu_d: Downward mutation rate. Must exist in [0, 1].
-        :param i_0: Start of the population chain. Specifies the original ancestor.
-        :param kappa: Stationary lower bound on repeat lengths.
+
+@jit(nopython=True, nogil=True, target='cpu')
+def _gamma_n(omega: int, kappa: int, m: float) -> int:
+    """ Draw from the truncated geometric distribution bounded by omega and kappa, to obtain the number of
+    expansions or contractions for mutations greater than 1. Optimized by Numba.
+
+    :param omega: Upper bound of possible repeat lengths (maximum of state space).
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
+    :return: The number of contractions or expansions.
+    """
+    return max(kappa, min(omega, geometric(m)))
+
+
+@jit(nopython=True, nogil=True, target='cpu')
+def _beta_n(i: int, mu: float, kappa: int, s: float) -> float:
+    """ Determine the mutation rate of some allele i, which is dependent on the current repeat length. Optimized by
+    Numba.
+
+    :param i: Repeat length of the allele to mutate.
+    :param mu: Mutation rate, bounded by (0, infinity).
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
+    :return: Mutation rate given the current repeat length.
+    """
+    return mu * (1 + (i - kappa) * s)
+
+
+@jit(nopython=True, nogil=True, target='cpu')
+def _alpha_n(i: int, u: float, v: float, kappa: int) -> float:
+    """ Determine the probability that a mutation results in a expansion. The probability that a mutation results
+    in a contraction is (1 - alpha). Optimized by Numba.
+
+    The focal bias 'f' is defined as: f = ((u - 0.5) / v) + kappa
+
+    :param i: Repeat length of the allele to mutate.
+    :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
+    :param v: Linear bias parameter, used to determine the probability of an expansion.
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :return: Probability that the current allele will expand.
+    """
+    return max(0.0, min(1.0, u - v * (i - kappa)))
+
+
+@jit(nopython=True, nogil=True, target='cpu')
+def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float, m: float, prob_p: float) -> int:
+    """ TODO: Finish this documentation. Optimized by Numba.
+
+    :param i: Repeat length of ancestor to mutate with.
+    :param mu: Mutation rate, bounded by (0, infinity).
+    :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :param omega: Upper bound of possible repeat lengths (maximum of state space).
+    :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
+    :param v: Linear bias parameter, used to determine the probability of an expansion.
+    :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
+    :param prob_p: Probability that the geometric distribution will be used vs. single repeat length mutations.
+    :return: 'j', or the mutated repeat length from 'i'.
+    """
+    # Compute mutation rate and the probability of expansion.
+    beta_i, alpha_i = _beta_n(i, mu, kappa, s), _alpha_n(i, u, v, kappa)
+
+    # Determine if a mutation occurs or not.
+    y_1 = (1 if uniform(0, 1) < beta_i else 0)
+
+    # Determine if a contraction or expansion occurs.
+    y_2 = (1 if uniform(0, 1) < alpha_i else -1)
+
+    # Determine the length of the contraction or expansion.
+    y_3 = (_gamma_n(omega, kappa, m) if uniform(0, 1) < prob_p else 1)
+
+    # Determine the new length. Restrict lengths to [kappa, omega]. Note that if kappa is reached, an allele stays.
+    return i if (i == kappa) else max(kappa, min(omega, (y_1 * y_2 * y_3) + i))
+
+
+@jit(nopython=True, nogil=True, target='cpu')
+def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
+                m: float, p: float) -> None:
+    """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Optimized by
+    Numba.
+
+    :param c: Number of coalescence events + 1 to generate. Represents the current distance of the chain from the start.
+    :param ell: Ancestor history chain, whose generations are indexed by triangle numbers.
+    :param big_n: Effective population size, used for determining the number of generations between events.
+    :param mu: Mutation rate, bounded by (0, infinity).
+    :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :param omega: Upper bound of possible repeat lengths (maximum of state space).
+    :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
+    :param v: Linear bias parameter, used to determine the probability of an expansion.
+    :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
+    :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
+    :return: None.
+    """
+    # Determine the range of our ancestors and our output range (indices of descendants).
+    start_anc, end_anc = _triangle_n(c), _triangle_n(c + 1)
+    start_desc, end_desc = _triangle_n(c + 1), _triangle_n(c + 2)
+
+    # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
+    ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
+
+    # Iterate through each of the descendants and apply the mutation.
+    for a, allele in enumerate(ell[start_desc:end_desc]):
+        for _ in range(max(1, round(2 * big_n / _triangle_n(c + 1)))):
+            ell[start_desc + a] = _mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
+
+
+class Single:
+    def __init__(self, i_0: int, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float,
+                 v: float, m: float, p: float):
+        """ Constructor. Perform the bound checking for each parameter here.
+
+        :param i_0: Repeat length of the common ancestor.
+        :param big_n: Effective population size, used for determining the number of generations between events.
+        :param mu: Mutation rate, bounded by (0, infinity).
+        :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
+        :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+        :param omega: Upper bound of possible repeat lengths (maximum of state space).
+        :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
+        :param v: Linear bias parameter, used to determine the probability of an expansion.
+        :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
+        :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
         """
-        assert 0 <= mu_u <= 1 and 0 <= mu_d <= 1
-        self.mu_u, self.mu_d, self.kappa, self.i_0 = mu_u, mu_d, kappa, i_0
+        from numpy import empty
 
-        # The current ancestral chain as an array, with older generations existing in earlier indices.
-        self.ell = None
+        assert i_0 > 0 and big_n > 0 and (-1 / (omega - kappa + 1)) < s and 0 < mu
+        assert 0 <= u <= 1 and 0 <= m <= 1 and 0 <= p <= 1
 
-        # We start with zero mutations, and our current generation holds only the ancestor.
-        self.n_mu, self.ell_last = 0, array([self.i_0])
+        self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
+            = i_0, big_n, omega, kappa, s, mu, u, v, m, p
+
+        # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
+        self.ell, self.ell_evolved = empty([self._triangle(2 * big_n)]), empty([big_n])
+        self.ell[0] = i_0
 
     @staticmethod
-    @jit(nopython=True, nogil=True)
-    def mutate(ell: ndarray, g: int, n: int, mu_u: float, mu_d: float, kappa: int) -> None:
-        """ Mutate some set of individual with the given mutation parameters by drawing the total number of mutations
-        from a Poisson process. The number of generations is determined by 2N / g'th triangle number.
+    def _triangle(a):
+        """ Triangle number generator. Given 'a', return a choose 2. Using the Numba optimized version.
 
-        :param ell: Evolution chain to draw ancestors from and save descendants to.
-        :param g: Current distance of chain from start. This serves as input into the triangle number generator.
-        :param n: Effective population size. There exists 2N alleles.
-        :param mu_u: Upward mutation rate. Must exist in [0, 1].
-        :param mu_d: Downward mutation rate. Must exist in [0, 1].
-        :param kappa: Stationary lower bound on repeat lengths.
+        :param a: Which triangle number to return.
+        :return: The a'th triangle number.
         """
-        # Define our triangle number generator here.
-        triangle = lambda a: int(a * (a + 1) / 2)
+        return _triangle_n(a)
 
-        # Start and end of the history chains for the descendants.
-        start_desc, end_desc = triangle(g + 1), (triangle(g + 1) + g + 2)
+    def _coalesce(self, c: int) -> None:
+        """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Using the
+        optimized Numba version.
 
-        # Draw the direct ancestors, and create an array of descendants from ancestors.
-        direct_ancestors = ell[triangle(g):start_desc]
-        ell[start_desc:end_desc] = array([choice(direct_ancestors) for _ in range(g + 2)])
-
-        # TODO: Find a workaround that doesn't incur a race condition to count number of mutations.
-        # # Add this to our mutation count.
-        # self.n_mu = self.n_mu + x_u + x_d
-
-        # If we reach our lower bound, do not mutate further.
-        clamp = lambda a: a if a > kappa else kappa
-
-        for j in range(len(ell[start_desc:end_desc])):
-            # Compute the number of upward and downward mutations that have occurred during this period.
-            x_u = poisson(mu_u * (2 * n / triangle(g + 1)) * ell[start_desc + j] / 2.0)  # Divide two distributions.
-            x_d = poisson(mu_d * (2 * n / triangle(g + 1)) * ell[start_desc + j] / 2.0)
-
-            # Append our mutation changes to the evolution history chain.
-            ell[start_desc + j] = clamp(x_u - x_d + ell[start_desc + j])
-
-    def evolve(self, n: int) -> ndarray:
-        """ Evolve our ancestral populace to n (effective population size) individual satellite nodes.
-
-        :param n: Effective population size. There exists 2N alleles.
-        :return: Numpy array of repeat lengths evolved to a stationary distribution from the ancestral population.
+        :param c: Number of coalescence events to generate. Represents the current distance of the chain from the start.
+        :return: None.
         """
-        # Define our triangle number generator here.
-        triangle = lambda a: int(a * (a + 1) / 2)
+        _coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p)
 
-        # Reserve triangle(2*n) elements for our ancestor chain.
-        self.ell = array([0 for _ in range(triangle(2*n))])
-        self.ell[0] = self.i_0
+    def evolve(self) -> ndarray:
+        """ TODO: Finish this documentation.
 
+        :return:
+        """
         # Iterate through 2N - 1 generations, which represent periods of coalescence. Perform our mutation process.
-        [self.mutate(self.ell, g, n, self.mu_u, self.mu_d, self.kappa) for g in range(2*n - 1)]
+        [self._coalesce(c) for c in range(2 * self.big_n - 1)]
 
         # Return the current generation of ancestors.
-        self.ell_last = self.ell[-2*n:]
-        return self.ell_last
+        self.ell_evolved = self.ell[-2 * self.big_n:]
+        return self.ell_evolved
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-    from pprint import pprint
+    from matplotlib import pyplot as plt
 
     parser = ArgumentParser(description='Simulate the evolution of single population top-down (ancestor first).')
-    parser.add_argument('-kappa', help='Repeat length stationary lower bound.', type=int, default=0)
-    parser.add_argument('-n', help='Effective population size.', type=int)
     parser.add_argument('-i_0', help='Repeat length of starting ancestor.', type=int)
-    parser.add_argument('-mu_u', help='Upward mutation rate. Bounded in [0, 1].', type=float)
-    parser.add_argument('-mu_d', help='Downward mutation rate. Bounded in [0, 1].', type=float)
+    parser.add_argument('-big_n', help='Effective population size.', type=int)
+    parser.add_argument('-mu', help='Mutation rate, bounded by (0, infinity).', type=float)
+    parser.add_argument('-s', help='Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', type=float)
+    parser.add_argument('-kappa', help='Lower bound of possible repeat lengths.', type=int)
+    parser.add_argument('-omega', help='Upper bound of possible repeat lengths.', type=int)
+    parser.add_argument('-u', help='Constant bias parameter, bounded by [0, 1].', type=float)
+    parser.add_argument('-v', help='Linear bias parameter, bounded by (-infinity, infinity).', type=float)
+    parser.add_argument('-m', help='Success probability for truncated geometric distribution.', type=float)
+    parser.add_argument('-p', help='Probability that the repeat length change is +/- 1.', type=float)
     args = parser.parse_args()  # Parse our arguments.
 
-    # Print the results of evolving our ancestors.
-    pprint([x for x in Population(mu_u=args.mu_u, mu_d=args.mu_d, i_0=args.i_0, kappa=args.kappa).evolve(args.n)])
+    # Display the results of evolving our ancestors.
+    pop = Single(i_0=args.i_0, big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa, omega=args.omega,
+                 u=args.u, v=args.v, m=args.m, p=args.p)
+    pop.evolve()
+
+    # Display a histogram.
+    plt.hist(pop.ell_evolved, bins=range(args.kappa, args.omega)), plt.show()
