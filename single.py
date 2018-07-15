@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from numpy.random import geometric, uniform, choice
 from numpy import ndarray, array
-from numba import jit
+from numba import jit, prange
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -115,7 +115,7 @@ def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: in
     ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
 
     # Iterate through each of the descendants and apply the mutation.
-    for a in range(end_desc - start_desc):
+    for a in prange(end_desc - start_desc):
         for _ in range(max(1, round(2 * big_n / _triangle_n(c + 1)))):
             ell[start_desc + a] = _mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
 
