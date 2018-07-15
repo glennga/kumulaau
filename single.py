@@ -4,7 +4,7 @@ from numpy import ndarray, array
 from numba import jit
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _triangle_n(a: int) -> int:
     """ Triangle number generator. Given 'a', return a choose 2. Optimized by Numba.
 
@@ -14,7 +14,7 @@ def _triangle_n(a: int) -> int:
     return int(a * (a + 1) / 2)
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _gamma_n(omega: int, kappa: int, m: float) -> int:
     """ Draw from the truncated geometric distribution bounded by omega and kappa, to obtain the number of
     expansions or contractions for mutations greater than 1. Optimized by Numba.
@@ -27,7 +27,7 @@ def _gamma_n(omega: int, kappa: int, m: float) -> int:
     return max(kappa, min(omega, geometric(m)))
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _beta_n(i: int, mu: float, kappa: int, s: float) -> float:
     """ Determine the mutation rate of some allele i, which is dependent on the current repeat length. Optimized by
     Numba.
@@ -41,7 +41,7 @@ def _beta_n(i: int, mu: float, kappa: int, s: float) -> float:
     return mu * (1 + (i - kappa) * s)
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _alpha_n(i: int, u: float, v: float, kappa: int) -> float:
     """ Determine the probability that a mutation results in a expansion. The probability that a mutation results
     in a contraction is (1 - alpha). Optimized by Numba.
@@ -57,7 +57,7 @@ def _alpha_n(i: int, u: float, v: float, kappa: int) -> float:
     return max(0.0, min(1.0, u - v * (i - kappa)))
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float, m: float, prob_p: float) -> int:
     """ TODO: Finish this documentation. Optimized by Numba.
 
@@ -88,7 +88,7 @@ def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: 
     return i if (i == kappa) else max(kappa, min(omega, (y_1 * y_2 * y_3) + i))
 
 
-@jit(nopython=True, nogil=True, target='cpu')
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
                 m: float, p: float) -> None:
     """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Optimized by
@@ -115,7 +115,7 @@ def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: in
     ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
 
     # Iterate through each of the descendants and apply the mutation.
-    for a, allele in enumerate(ell[start_desc:end_desc]):
+    for a in range(end_desc - start_desc):
         for _ in range(max(1, round(2 * big_n / _triangle_n(c + 1)))):
             ell[start_desc + a] = _mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
 
