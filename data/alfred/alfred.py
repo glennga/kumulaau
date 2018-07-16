@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def _create_table() -> None:
+def create_table() -> None:
     """ Create the required table if it does not exist.
 
     :return: None.
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     # Connect to the database to log to.
     conn = connect(args.log)
     cur = conn.cursor()
-    _create_table()
+    create_table()
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
     with open(args.freq_f) as tsv_f:
