@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Run our exhaustive search over each distinct parameter 10-tuple.
 python3 exhaust.py \
    -i_0 15 16 17 18 \
    -big_n 1000 \
