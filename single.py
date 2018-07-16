@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from numpy.random import geometric, uniform, choice
-from numpy import ndarray, array
+from numpy.random import uniform, choice
+from numpy import ndarray, array, log, power, floor
 from numba import jit, prange
 
 
@@ -17,14 +17,15 @@ def triangle_n(a: int) -> int:
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def gamma_n(omega: int, kappa: int, m: float) -> int:
     """ Draw from the truncated geometric distribution bounded by omega and kappa, to obtain the number of
-    expansions or contractions for mutations greater than 1. Optimized by Numba.
+    expansions or contractions for mutations greater than 1. Optimized by Numba. Equation found here:
+    https://stackoverflow.com/questions/16317420/sample-integers-from-truncated-geometric-distribution
 
     :param omega: Upper bound of possible repeat lengths (maximum of state space).
     :param kappa: Lower bound of possible repeat lengths (minimum of state space).
     :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
     :return: The number of contractions or expansions.
     """
-    return max(kappa, min(omega, geometric(m)))
+    return kappa + floor(log(1 - uniform(0, 1) * (1 - power(1 - m, omega - kappa))) / log(1 - m))
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
