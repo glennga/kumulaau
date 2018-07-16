@@ -103,16 +103,17 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='Sample our simulated population and compare this to a real data set.')
     parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulated.db')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
+    parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/real.db')
     parser.add_argument('-r', help='Number of times to sample the simulated population.', type=int, default=1)
     parser.add_argument('-sei', help='ID of the simulated population to sample from.', type=str)
     parser.add_argument('-rsu', help='ID of the real sample data set to compare to.', type=str)
     parser.add_argument('-l', help='Locus of the real sample to compare to.', type=str)
     args = parser.parse_args()  # Parse our arguments.
 
-    # Connect to both databases, and create our table if it does not already exist.
-    conn_s, conn_r = connect(args.sdb), connect(args.rdb)
-    cur_s, cur_r = conn_s.cursor(), conn_r.cursor()
-    create_table(cur_s)
+    # Connect to all of our databases, and create our table if it does not already exist.
+    conn_s, conn_r, conn_ss = connect(args.sdb), connect(args.rdb), connect(args.ssdb)
+    cur_s, cur_r, cur_ss = conn_s.cursor(), conn_r.cursor(), conn_s.cursor()
+    create_table(cur_ss)
 
     freq_r = cur_r.execute(""" -- Pull the frequency distribution from the real database. --
         SELECT ELL, ELL_FREQ
@@ -135,5 +136,5 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     # Execute our sampling and record the results to the simulated database.
-    log_deltas(cur_s, compare(args.r, n2_m, freq_r, count_s), args.sei, args.rsu, args.l)
+    log_deltas(cur_ss, compare(args.r, n2_m, freq_r, count_s), args.sei, args.rsu, args.l)
     conn_s.commit()
