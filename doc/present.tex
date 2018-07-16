@@ -83,12 +83,13 @@
 			\end{itemize}
 		\end{block}\bigskip
 
-		$\gamma(m)$ represents a truncated geometric distribution:
+		$\gamma(m)$ represents a truncated geometric distribution, sampled using:
 		\begin{equation}
-			\gamma(m) = \mathit{max}(\kappa, \ \mathit{min}(\Omega, \ \mathit{Geometric}(m)))
+			\left\lfloor \frac{\log\left( 1 - X(1 - (1 - m)^{\Omega - \kappa})\right)}{\log(1 - m)}  \right\rfloor
+			+ \kappa
 		\end{equation}
-		where $m = $ success probability, and $[\kappa, \Omega]$ represent the lower and upper bounds of our repeat
-		lengths.
+		where $X\sim U(0, 1)$ represents some uniform random variable, $m = $ success probability,
+		and $[\kappa, \Omega]$ represent the lower and upper bounds of our repeat lengths.
 	\end{frame}
 
 	\subsection{Mutation Rates}\label{subsec:mutationRates}
@@ -128,9 +129,9 @@
 
 	\section{Simulation}\label{sec:simulation}
 	% https://qph.fs.quoracdn.net/main-qimg-63b52ff85dd6b1cc2040236734a92b4a
-	\subsection{Coalescence Theory Based}\label{subsec:coalescenceTheoryBased}
+	\subsection{Coalescence Based}\label{subsec:coalescenceTheoryBased}
 	\begin{frame}
-		\frametitle{Coalescence Theory \& Evolution}
+		\frametitle{Coalescence Based Simulation}
 		\begin{columns}
 			\begin{column}{0.5\textwidth}
 				\centering{\includegraphics[scale=0.3]{images/coalescence.png}}\\ \medskip
