@@ -1,13 +1,7 @@
-# coding=utf-8
-""" Record all of the frequency data obtained from ALFRED to a SQLite database. This will be used to estimate the
-parameters involved in our simulation models. We assume the following schema for the tab-separated files:
-
-    popName	popUId	sampleUId	2N	locusSymbol	siteName	alleleSymbol	entryDate	frequency
-
-"""
+#!/usr/bin/env python3
 
 
-def create_table() -> None:
+def _create_table() -> None:
     """ Create the required table if it does not exist.
 
     :return: None.
@@ -25,6 +19,8 @@ def create_table() -> None:
         );""")
 
 
+# We assume the following schema:
+# popName	popUId	sampleUId	2N	locusSymbol	siteName	alleleSymbol	entryDate	frequency
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
@@ -39,7 +35,7 @@ if __name__ == '__main__':
     # Connect to the database to log to.
     conn = connect(args.log)
     cur = conn.cursor()
-    create_table()
+    _create_table()
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
     with open(args.freq_f) as tsv_f:

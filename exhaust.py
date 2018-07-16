@@ -4,7 +4,7 @@ from single import Single
 
 
 def create_table(cur_j: Cursor) -> None:
-    """ Create the table to log our simulated to.
+    """ Create the table to log our simulated populations to.
 
     :param cur_j: Cursor to the database file to log to.
     :return: None.

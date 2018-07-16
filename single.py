@@ -5,7 +5,7 @@ from numba import jit, prange
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _triangle_n(a: int) -> int:
+def triangle_n(a: int) -> int:
     """ Triangle number generator. Given 'a', return a choose 2. Optimized by Numba.
 
     :param a: Which triangle number to return.
@@ -15,7 +15,7 @@ def _triangle_n(a: int) -> int:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _gamma_n(omega: int, kappa: int, m: float) -> int:
+def gamma_n(omega: int, kappa: int, m: float) -> int:
     """ Draw from the truncated geometric distribution bounded by omega and kappa, to obtain the number of
     expansions or contractions for mutations greater than 1. Optimized by Numba.
 
@@ -28,7 +28,7 @@ def _gamma_n(omega: int, kappa: int, m: float) -> int:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _beta_n(i: int, mu: float, kappa: int, s: float) -> float:
+def beta_n(i: int, mu: float, kappa: int, s: float) -> float:
     """ Determine the mutation rate of some allele i, which is dependent on the current repeat length. Optimized by
     Numba.
 
@@ -42,7 +42,7 @@ def _beta_n(i: int, mu: float, kappa: int, s: float) -> float:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _alpha_n(i: int, u: float, v: float, kappa: int) -> float:
+def alpha_n(i: int, u: float, v: float, kappa: int) -> float:
     """ Determine the probability that a mutation results in a expansion. The probability that a mutation results
     in a contraction is (1 - alpha). Optimized by Numba.
 
@@ -58,8 +58,8 @@ def _alpha_n(i: int, u: float, v: float, kappa: int) -> float:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float, m: float, prob_p: float) -> int:
-    """ TODO: Finish this documentation. Optimized by Numba.
+def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float, m: float, prob_p: float) -> int:
+    """ Given some allele of length i, contract or expand to this given the parameters of the model. Optimized by Numba.
 
     :param i: Repeat length of ancestor to mutate with.
     :param mu: Mutation rate, bounded by (0, infinity).
@@ -73,7 +73,7 @@ def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: 
     :return: 'j', or the mutated repeat length from 'i'.
     """
     # Compute mutation rate and the probability of expansion.
-    beta_i, alpha_i = _beta_n(i, mu, kappa, s), _alpha_n(i, u, v, kappa)
+    beta_i, alpha_i = beta_n(i, mu, kappa, s), alpha_n(i, u, v, kappa)
 
     # Determine if a mutation occurs or not.
     y_1 = (1 if uniform(0, 1) < beta_i else 0)
@@ -82,15 +82,15 @@ def _mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: 
     y_2 = (1 if uniform(0, 1) < alpha_i else -1)
 
     # Determine the length of the contraction or expansion.
-    y_3 = (_gamma_n(omega, kappa, m) if uniform(0, 1) < prob_p else 1)
+    y_3 = (gamma_n(omega, kappa, m) if uniform(0, 1) < prob_p else 1)
 
     # Determine the new length. Restrict lengths to [kappa, omega]. Note that if kappa is reached, an allele stays.
     return i if (i == kappa) else max(kappa, min(omega, (y_1 * y_2 * y_3) + i))
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
-                m: float, p: float) -> None:
+def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
+               m: float, p: float) -> None:
     """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Optimized by
     Numba.
 
@@ -108,16 +108,16 @@ def _coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: in
     :return: None.
     """
     # Determine the range of our ancestors and our output range (indices of descendants).
-    start_anc, end_anc = _triangle_n(c), _triangle_n(c + 1)
-    start_desc, end_desc = _triangle_n(c + 1), _triangle_n(c + 2)
+    start_anc, end_anc = triangle_n(c), triangle_n(c + 1)
+    start_desc, end_desc = triangle_n(c + 1), triangle_n(c + 2)
 
     # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
     ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
 
     # Iterate through each of the descendants and apply the mutation.
     for a in prange(end_desc - start_desc):
-        for _ in range(max(1, round(2 * big_n / _triangle_n(c + 1)))):
-            ell[start_desc + a] = _mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
+        for _ in range(max(1, round(2 * big_n / triangle_n(c + 1)))):
+            ell[start_desc + a] = mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
 
 
 class Single:
@@ -155,7 +155,7 @@ class Single:
         :param a: Which triangle number to return.
         :return: The a'th triangle number.
         """
-        return _triangle_n(a)
+        return triangle_n(a)
 
     def _coalesce(self, c: int) -> None:
         """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Using the
@@ -164,12 +164,12 @@ class Single:
         :param c: Number of coalescence events to generate. Represents the current distance of the chain from the start.
         :return: None.
         """
-        _coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p)
+        coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p)
 
     def evolve(self) -> ndarray:
-        """ TODO: Finish this documentation.
+        """ Using the common ancestor 'i_0', evolve the population until 'big_n' individuals are present.
 
-        :return:
+        :return: The evolved generation from the common ancestor.
         """
         # Iterate through 2N - 1 generations, which represent periods of coalescence. Perform our mutation process.
         [self._coalesce(c) for c in range(2 * self.big_n - 1)]
