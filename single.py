@@ -156,8 +156,8 @@ class Single:
             = m_p.i_0, m_p.big_n, m_p.omega, m_p.kappa, m_p.s, m_p.mu, m_p.u, m_p.v, m_p.m, m_p.p
 
         # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
-        self.ell, self.ell_evolved = empty([self._triangle(2 * m_p.big_n)]), empty([m_p.big_n])
-        self.ell[0] = m_p.i_0
+        self.ell = empty([self._triangle(2 * m_p.big_n)], dtype='int')
+        self.ell[0], self.ell_evolved = m_p.i_0, empty([m_p.big_n], dtype='int')
 
     @staticmethod
     def _triangle(a):
