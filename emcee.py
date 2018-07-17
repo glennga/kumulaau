@@ -65,7 +65,7 @@ def metro_hast(it: int, rfs: List, r: int, n: int, m_p: ModelParameters, m_p_sig
     from compare import compare
 
     # Create our chain of states and waiting times.
-    states, tau, t = [[None, 0] for _ in range(it)], 0, 0
+    states, tau, t = [[None, 0] for _ in range(it)], 0, 1
 
     for j in range(it):
         # Generate and evolve a single population given the current parameters. Compute the delta.
@@ -76,9 +76,11 @@ def metro_hast(it: int, rfs: List, r: int, n: int, m_p: ModelParameters, m_p_sig
 
         else:  # Reject our proposal. Generate a new parameter set.
             t, tau = 1, tau + 1
-            m_p = ModelParameters(i_0=normal(m_p.i_0, m_p_sigma.i_0), big_n=normal(m_p.big_n, m_p_sigma.big_n),
+            m_p = ModelParameters(i_0=round(normal(m_p.i_0, m_p_sigma.i_0)),
+                                  big_n=round(normal(m_p.big_n, m_p_sigma.big_n)),
                                   mu=normal(m_p.mu, m_p_sigma.mu), s=normal(m_p.s, m_p_sigma.s),
-                                  kappa=normal(m_p.kappa, m_p_sigma.kappa), omega=normal(m_p.omega, m_p_sigma.omega),
+                                  kappa=round(normal(m_p.kappa, m_p_sigma.kappa)),
+                                  omega=round(normal(m_p.omega, m_p_sigma.omega)),
                                   u=normal(m_p.u, m_p_sigma.u), v=normal(m_p.v, m_p_sigma.v),
                                   m=normal(m_p.m, m_p_sigma.m), p=normal(m_p.p, m_p_sigma.p))
 
@@ -114,8 +116,8 @@ if __name__ == '__main__':
     paa('-big_n_sigma', 'Step size of big_n when changing parameters.', float)
     paa('-mu_sigma', 'Step size of mu when changing parameters.', float)
     paa('-s_sigma', 'Step size of s when changing parameters.', float)
-    paa('-kappa_sigma', 'Step size of kappa when changing parameters.', int)
-    paa('-omega_sigma', 'Step size of omega when changing parameters.', int)
+    paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
+    paa('-omega_sigma', 'Step size of omega when changing parameters.', float)
     paa('-u_sigma', 'Step size of u when changing parameters.', float)
     paa('-v_sigma', 'Step size of v when changing parameters.', float)
     paa('-m_sigma', 'Step size of m when changing parameters.', float)
