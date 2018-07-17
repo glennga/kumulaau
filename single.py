@@ -25,7 +25,7 @@ def gamma_n(omega: int, kappa: int, m: float) -> int:
     :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
     :return: The number of contractions or expansions.
     """
-    return kappa + floor(log(1 - uniform(0, 1) * (1 - power(1 - m, omega - kappa))) / log(1 - m))
+    return floor(log(1 - uniform(0, 1) * (1 - power(1 - m, omega - kappa))) / log(1 - m))
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
