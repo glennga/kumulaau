@@ -149,8 +149,14 @@ class Single:
         """
         from numpy import empty
 
-        assert m_p.i_0 > 0 and m_p.big_n > 0 and (-1 / (m_p.omega - m_p.kappa + 1)) < m_p.s and 0 < m_p.mu
-        assert 0 <= m_p.u <= 1 and 0 <= m_p.m <= 1 and 0 <= m_p.p <= 1
+        # Ensure that all variables are bounded properly.
+        m_p.i_0 = max(m_p.i_0, 0)
+        m_p.big_n = max(m_p.big_n, 0)
+        m_p.s = max(m_p.s, (-1 / (m_p.omega - m_p.kappa + 1)))
+        m_p.mu = max(m_p.mu, 0.0)
+        m_p.u = max(min(m_p.u, 1.0), 0.0)
+        m_p.m = max(min(m_p.m, 1.0), 0.0)
+        m_p.p = max(min(m_p.p, 1.0), 0.0)
 
         self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
             = m_p.i_0, m_p.big_n, m_p.omega, m_p.kappa, m_p.s, m_p.mu, m_p.u, m_p.v, m_p.m, m_p.p
