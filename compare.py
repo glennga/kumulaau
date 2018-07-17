@@ -47,26 +47,33 @@ def log_deltas(cur_j: Cursor, deltas: ndarray, sei: str, rsu: str, l: str) -> No
         """, (datetime.now(), ssi, sei, rsu, l, delta))
 
 
-def compare(r: int, n2: int, rfs: List, sce: Iterable) -> ndarray:
-    """ Given the number of individuals from the effective simulated population and the frequencies of individuals from
-    a real sample, sample the same amount from the simulated population 'r' times and determine the differences in
-    distribution for each different simulated sample. Involves a butt-ton of transformation and I'm sure that this
-    can be optimized below- but given that this is already pretty fast there is no need to do so.
+def population_from_count(ruc: Iterable) -> ndarray:
+    """ Transform a list of repeat units and counts into a population of repeat units.
+
+    :param ruc: List of lists, whose first element represents the repeat unit and second represents the count.
+    :return: Population of repeat units.
+    """
+    ru = []
+    for repeat_unit, c in ruc:
+        ru = ru + [repeat_unit] * c
+    return ru
+
+
+def compare(r: int, n2: int, rfs: List, srue: Iterable) -> ndarray:
+    """ Given individuals from the effective simulated population and the frequencies of individuals from a real sample,
+    sample the same amount from the simulated population 'r' times and determine the differences in distribution for
+    each different simulated sample. Involves a butt-ton of transformation and I'm sure that this can be optimized
+    below- but given that this is already pretty fast there is no need to do so.
 
     :param r: Number of times to sample the simulated population.
     :param n2: Sample size of the alleles. Must match the real sample given here.
     :param rfs: Real frequency sample. First column is the length, second is the frequency.
-    :param sce: Simulated counts from the effective population. First column is the length, second is the count.
+    :param srue: Simulated population of repeat units (one dimensional list).
     :return: None.
     """
     from collections import Counter
     from numpy.random import choice
     from numpy import array, zeros, empty
-
-    # Construct a population of repeat units from the simulated counts.
-    srue = []
-    for repeat_unit, c in sce:
-        srue = srue + [repeat_unit] * c
 
     # Transform our sampled real population into a dictionary of ints and floats.
     rfs = {int(a[0]): float(a[1]) for a in rfs}
@@ -138,5 +145,5 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     # Execute our sampling and record the results to the simulated database.
-    log_deltas(cur_ss, compare(args.r, n2_m, freq_r, count_s), args.sei, args.rsu, args.l)
+    log_deltas(cur_ss, compare(args.r, n2_m, freq_r, population_from_count(count_s)), args.sei, args.rsu, args.l)
     conn_ss.commit(), conn_ss.close()
