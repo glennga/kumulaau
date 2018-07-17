@@ -18,6 +18,7 @@ def create_table(cur_j: Cursor) -> None:
             I_0 INT,
             BIG_N INT,
             MU FLOAT,
+            S FLOAT,
             KAPPA INT,
             OMEGA INT,
             U FLOAT,
@@ -44,7 +45,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
             INSERT INTO WAIT_POP
             VALUES ({});
         """.format(','.join('?' for _ in range(13))),
-                      (datetime.now(), rsu, l, state[0].i_0, state[0].big_n, state[0].m_u, state[0].s, state[0].kappa,
+                      (datetime.now(), rsu, l, state[0].i_0, state[0].big_n, state[0].mu, state[0].s, state[0].kappa,
                        state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1]))
 
 
