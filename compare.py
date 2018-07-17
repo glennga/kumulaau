@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from typing import List
+from typing import List, Iterable
 from numpy import ndarray
 
 
@@ -47,10 +47,10 @@ def log_deltas(cur_j: Cursor, deltas: ndarray, sei: str, rsu: str, l: str) -> No
         """, (datetime.now(), ssi, sei, rsu, l, delta))
 
 
-def compare(r: int, n2: int, rfs: List, sce: List) -> ndarray:
+def compare(r: int, n2: int, rfs: List, sce: Iterable) -> ndarray:
     """ Given the number of individuals from the effective simulated population and the frequencies of individuals from
     a real sample, sample the same amount from the simulated population 'r' times and determine the differences in
-    distribution for each different simulated sample. Involves a butt-ton of transformation, and I'm sure that this
+    distribution for each different simulated sample. Involves a butt-ton of transformation and I'm sure that this
     can be optimized below- but given that this is already pretty fast there is no need to do so.
 
     :param r: Number of times to sample the simulated population.
@@ -101,13 +101,15 @@ if __name__ == '__main__':
     from sqlite3 import connect
 
     parser = ArgumentParser(description='Sample our simulated population and compare this to a real data set.')
-    parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulated.db')
+    parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulate.db')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
-    parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str)
-    parser.add_argument('-r', help='Number of times to sample the simulated population.', type=int, default=1)
-    parser.add_argument('-sei', help='ID of the simulated population to sample from.', type=str)
-    parser.add_argument('-rsu', help='ID of the real sample data set to compare to.', type=str)
-    parser.add_argument('-l', help='Locus of the real sample to compare to.', type=str)
+    parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/sample.db')
+    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
+
+    paa('-r', 'Number of times to sample the simulated population.', int)
+    paa('-sei', 'ID of the simulated population to sample from.', str)
+    paa('-rsu', 'ID of the real sample data set to compare to.', str)
+    paa('-l', 'Locus of the real sample to compare to.', str)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to all of our databases, and create our table if it does not already exist.
