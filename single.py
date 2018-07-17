@@ -121,10 +121,10 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
             ell[start_desc + a] = mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
 
 
-class Single:
-    def __init__(self, i_0: int, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float,
-                 v: float, m: float, p: float):
-        """ Constructor. Perform the bound checking for each parameter here.
+class ModelParameters(object):
+    def __init__(self, i_0: int, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
+                 m: float, p: float):
+        """ Constructor. This is just meant to be a data class for the mutation model.
 
         :param i_0: Repeat length of the common ancestor.
         :param big_n: Effective population size, used for determining the number of generations between events.
@@ -137,17 +137,27 @@ class Single:
         :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
         :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
         """
-        from numpy import empty
-
-        assert i_0 > 0 and big_n > 0 and (-1 / (omega - kappa + 1)) < s and 0 < mu
-        assert 0 <= u <= 1 and 0 <= m <= 1 and 0 <= p <= 1
-
         self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
             = i_0, big_n, omega, kappa, s, mu, u, v, m, p
 
+
+class Single:
+    def __init__(self, m_p: ModelParameters):
+        """ Constructor. Perform the bound checking for each parameter here.
+
+        :param m_p: Parameter models to use to evolve our population.
+        """
+        from numpy import empty
+
+        assert m_p.i_0 > 0 and m_p.big_n > 0 and (-1 / (m_p.omega - m_p.kappa + 1)) < m_p.s and 0 < m_p.mu
+        assert 0 <= m_p.u <= 1 and 0 <= m_p.m <= 1 and 0 <= m_p.p <= 1
+
+        self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
+            = m_p.i_0, m_p.big_n, m_p.omega, m_p.kappa, m_p.s, m_p.mu, m_p.u, m_p.v, m_p.m, m_p.p
+
         # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
-        self.ell, self.ell_evolved = empty([self._triangle(2 * big_n)]), empty([big_n])
-        self.ell[0] = i_0
+        self.ell, self.ell_evolved = empty([self._triangle(2 * m_p.big_n)]), empty([m_p.big_n])
+        self.ell[0] = m_p.i_0
 
     @staticmethod
     def _triangle(a):
@@ -185,21 +195,23 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
     parser = ArgumentParser(description='Simulate the evolution of single population top-down (ancestor first).')
-    parser.add_argument('-i_0', help='Repeat length of starting ancestor.', type=int)
-    parser.add_argument('-big_n', help='Effective population size.', type=int)
-    parser.add_argument('-mu', help='Mutation rate, bounded by (0, infinity).', type=float)
-    parser.add_argument('-s', help='Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', type=float)
-    parser.add_argument('-kappa', help='Lower bound of possible repeat lengths.', type=int)
-    parser.add_argument('-omega', help='Upper bound of possible repeat lengths.', type=int)
-    parser.add_argument('-u', help='Constant bias parameter, bounded by [0, 1].', type=float)
-    parser.add_argument('-v', help='Linear bias parameter, bounded by (-infinity, infinity).', type=float)
-    parser.add_argument('-m', help='Success probability for truncated geometric distribution.', type=float)
-    parser.add_argument('-p', help='Probability that the repeat length change is +/- 1.', type=float)
+    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
+    
+    paa('-i_0', 'Repeat length of starting ancestor.', int)
+    paa('-big_n', 'Effective population size.', int)
+    paa('-mu', 'Mutation rate, bounded by (0, infinity).', float)
+    paa('-s', 'Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
+    paa('-kappa', 'Lower bound of possible repeat lengths.', int)
+    paa('-omega', 'Upper bound of possible repeat lengths.', int)
+    paa('-u', 'Constant bias parameter, bounded by [0, 1].', float)
+    paa('-v', 'Linear bias parameter, bounded by (-infinity, infinity).', float)
+    paa('-m', 'Success probability for truncated geometric distribution.', float)
+    paa('-p', 'Probability that the repeat length change is +/- 1.', float)
     args = parser.parse_args()  # Parse our arguments.
 
     # Display the results of evolving our ancestors.
-    pop = Single(i_0=args.i_0, big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa, omega=args.omega,
-                 u=args.u, v=args.v, m=args.m, p=args.p)
+    pop = Single(ModelParameters(i_0=args.i_0, big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
+                                 omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p))
     pop.evolve()
 
     # Display a histogram.

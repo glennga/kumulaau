@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from single import Single
+from single import Single, ModelParameters
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -73,21 +73,21 @@ if __name__ == '__main__':
     from itertools import product
     from sqlite3 import connect
 
-    parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')
-    parser.add_argument('-db', help='Location of the database file.', type=str, default='data/simulated.db')
+    parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')    
+    parser.add_argument('-db', help='Location of the database file.', type=str, default='data/simulate.db')
     parser.add_argument('-r', help='Number of populations to generate given the same parameter.', type=int, default=1)
+    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3, nargs='+')
 
-    parser.add_argument('-i_0', help='Repeat lengths of starting ancestor.', type=int, nargs='+')
-    parser.add_argument('-big_n', help='Effective population sizes.', type=int, nargs='+')
-    parser.add_argument('-mu', help='Mutation rates, bounded by (0, infinity).', type=float, nargs='+')
-    parser.add_argument('-s', help='Proportional rates, bounded by (-1 / (omega - kappa + 1), infinity).',
-                        type=float, nargs='+')
-    parser.add_argument('-kappa', help='Lower bounds of possible repeat lengths.', type=int, nargs='+')
-    parser.add_argument('-omega', help='Upper bounds of possible repeat lengths.', type=int, nargs='+')
-    parser.add_argument('-u', help='Constant bias parameters, bounded by [0, 1].', type=float, nargs='+')
-    parser.add_argument('-v', help='Linear bias parameters, bounded by (-infinity, infinity).', type=float, nargs='+')
-    parser.add_argument('-m', help='Success probabilities for truncated geometric distribution.', type=float, nargs='+')
-    parser.add_argument('-p', help='Probabilities that the repeat length change is +/- 1.', type=float, nargs='+')
+    paa('-i_0', 'Repeat lengths of starting ancestor.', int)
+    paa('-big_n', 'Effective population sizes.', int)
+    paa('-mu', 'Mutation rates, bounded by (0, infinity).', float)
+    paa('-s', 'Proportional rates, bounded by (-1 / (omega - kappa + 1), infinity).', float)
+    paa('-kappa', 'Lower bounds of possible repeat lengths.', int)
+    paa('-omega', 'Upper bounds of possible repeat lengths.', int)
+    paa('-u', 'Constant bias parameters, bounded by [0, 1].', float)
+    paa('-v', 'Linear bias parameters, bounded by (-infinity, infinity).', float)
+    paa('-m', 'Success probabilities for truncated geometric distribution.', float)
+    paa('-p', 'Probabilities that the repeat length change is +/- 1.', float)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to our database, and create our table if it does not already exist.
@@ -101,7 +101,8 @@ if __name__ == '__main__':
         for _ in range(args.r):
 
             # Evolve each population 'r' times with the same parameter.
-            z = Single(i_0=a[0], big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5], u=a[6], v=a[7], m=a[8], p=a[9])
+            z = Single(ModelParameters(i_0=a[0], big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
+                                       u=a[6], v=a[7], m=a[8], p=a[9]))
             z.evolve()
 
             # Record this to our database.
