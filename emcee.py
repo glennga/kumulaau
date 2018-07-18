@@ -80,7 +80,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
     states[0] = [parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve()))]
 
     for j in range(1, it):
-        parameters_prev = states[tau - 1][1]  # Our current state.
+        parameters_prev = states[tau - 1][0]  # Our current state.
         parameters_proposed = ModelParameters(i_0=round(normal(parameters_prev.i_0, parameters_sigma.i_0)),
                                               big_n=round(normal(parameters_prev.big_n, parameters_sigma.big_n)),
                                               mu=normal(parameters_prev.mu, parameters_sigma.mu),
@@ -97,12 +97,12 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
 
         # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed).
         if states[tau - 1][1] < states[tau][1] or uniform(0, 1) < acceptance_prob:
-            tau += 1
             states[tau] = [parameters_proposed, 1, acceptance_prob]
+            tau += 1
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
-            states[tau][1] += 1
+            states[tau - 1][1] += 1
 
     return [x for x in states if x[0] is not None]
 
