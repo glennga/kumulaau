@@ -40,7 +40,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
     """
     from datetime import datetime
 
-    for state in chain:
+    for state in [x for x in chain if x[0] is not None]:
         cur_j.execute("""
             INSERT INTO WAIT_POP
             VALUES ({});
@@ -154,3 +154,4 @@ if __name__ == '__main__':
                                                                    kappa=args.kappa_sigma, omega=args.omega_sigma,
                                                                    u=args.u_sigma, v=args.v_sigma, m=args.m_sigma,
                                                                    p=args.p_sigma)))
+    conn_e.commit()
