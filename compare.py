@@ -59,14 +59,14 @@ def population_from_count(ruc: Iterable) -> ndarray:
     return ru
 
 
-def compare(r: int, n2: int, rfs: List, srue: Iterable) -> ndarray:
+def compare(r: int, two_n: int, rfs: List, srue: Iterable) -> ndarray:
     """ Given individuals from the effective simulated population and the frequencies of individuals from a real sample,
     sample the same amount from the simulated population 'r' times and determine the differences in distribution for
     each different simulated sample. Involves a butt-ton of transformation and I'm sure that this can be optimized
     below- but given that this is already pretty fast there is no need to do so.
 
     :param r: Number of times to sample the simulated population.
-    :param n2: Sample size of the alleles. Must match the real sample given here.
+    :param two_n: Sample size of the alleles. Must match the real sample given here.
     :param rfs: Real frequency sample. First column is the length, second is the frequency.
     :param srue: Simulated population of repeat units (one dimensional list).
     :return: None.
@@ -81,7 +81,7 @@ def compare(r: int, n2: int, rfs: List, srue: Iterable) -> ndarray:
     delta_rs = empty(r)
     for delta_j in range(r):
         # Randomly sample n individuals from population.
-        scs = array([choice(srue) for _ in range(n2)])
+        scs = array([choice(srue) for _ in range(two_n)])
 
         # Determine if the maximum length exists in the simulated data set or the real data set.
         omega = max(scs) + 1 if max(scs) > max(rfs.keys()) else max(rfs.keys()) + 1
@@ -89,7 +89,7 @@ def compare(r: int, n2: int, rfs: List, srue: Iterable) -> ndarray:
         # Fit the simulated population into a sparse vector of frequencies.
         scs_counter, sfs_v = Counter(scs), zeros(omega)
         for repeat_unit in scs_counter:
-            sfs_v[repeat_unit] = scs_counter[repeat_unit] / n2
+            sfs_v[repeat_unit] = scs_counter[repeat_unit] / two_n
 
         # Fit the real frequency array into a sparse vector.
         rfs_v = zeros(omega)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         WHERE EFF_ID LIKE ?
     """, (args.sei, )).fetchall()
 
-    n2_m = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
+    two_nm = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
@@ -145,5 +145,5 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     # Execute our sampling and record the results to the simulated database.
-    log_deltas(cur_ss, compare(args.r, n2_m, freq_r, population_from_count(count_s)), args.sei, args.rsu, args.l)
+    log_deltas(cur_ss, compare(args.r, two_nm, freq_r, population_from_count(count_s)), args.sei, args.rsu, args.l)
     conn_ss.commit(), conn_ss.close()

@@ -30,17 +30,17 @@ def create_table(cur_j: Cursor) -> None:
 
 
 def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
-    """ TODO: Finish documentation.
+    """ Record our states to some database.
 
-    :param cur_j:
-    :param rsu:
-    :param l:
-    :param chain:
-    :return:
+    :param cur_j: Cursor to the database file to log to.
+    :param rsu: ID of the real sample data set to compare to.
+    :param l: Locus of the real sample to compare to.
+    :param chain: States collected after running the MCMC. Holds the parameters and the waiting times.
+    :return: None.
     """
     from datetime import datetime
 
-    for state in [x for x in chain if x[0] is not None]:
+    for state in chain:
         cur_j.execute("""
             INSERT INTO WAIT_POP
             VALUES ({});
@@ -49,16 +49,22 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
                        state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1]))
 
 
-def metro_hast(it: int, rfs: List, r: int, n: int, m_p: ModelParameters, m_p_sigma: ModelParameters) -> List:
-    """ TODO: Finish documentation.
+def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p_sigma: ModelParameters) -> List:
+    """ My interpretation of the Metropolis-Hastings algorithm. We start with some initial guess 'm_p' and compute the
+    acceptance probability of the simulated sampled distribution. We generate some uniform random number and determine
+    if we accept or deny based on the acceptance probability we just found. If we accept, we keep our current parameters
+    (state) and increment our waiting time. If we deny, then we move to a new parameter set by randomly generating a new
+    one based on our current state (drawing from a normal distribution, past value is the mean) and resetting our
+    waiting time. Used the paper below:
+    http://www.mit.edu/~ilkery/papers/MetropolisHastingsSampling.pdf
 
-    :param it:
-    :param rfs:
-    :param r:
-    :param n:
-    :param m_p:
-    :param m_p_sigma:
-    :return:
+    :param it: Number of iterations to run MCMC for.
+    :param rfs: Real frequency sample. First column is the length, second is the frequency.
+    :param r: Number of populations to use to obtain delta.
+    :param two_n: Sample size of the alleles. Must match the real sample given here.
+    :param m_p: Our initial guess for parameters.
+    :param m_p_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :return: A chain of all states we visited (parameters), and their associated waiting times.
     """
     from numpy.random import uniform, normal
     from numpy import average
@@ -70,7 +76,7 @@ def metro_hast(it: int, rfs: List, r: int, n: int, m_p: ModelParameters, m_p_sig
 
     for j in range(it):
         # Generate and evolve a single population given the current parameters. Compute the delta.
-        acceptance_prob, states[tau] = 1 - average(compare(r, n, rfs, Single(m_p).evolve())), [m_p, t]
+        acceptance_prob, states[tau] = 1 - average(compare(r, two_n, rfs, Single(m_p).evolve())), [m_p, t]
 
         if uniform(0, 1) < acceptance_prob:  # Accept our proposal. Stay here and increment the waiting times.
             t, tau = t + 1, tau
@@ -85,7 +91,7 @@ def metro_hast(it: int, rfs: List, r: int, n: int, m_p: ModelParameters, m_p_sig
                                   u=normal(m_p.u, m_p_sigma.u), v=normal(m_p.v, m_p_sigma.v),
                                   m=normal(m_p.m, m_p_sigma.m), p=normal(m_p.p, m_p_sigma.p))
 
-    return states
+    return [x for x in states if x[0] is not None]
 
 
 if __name__ == '__main__':
@@ -137,7 +143,7 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (args.rsu, args.l, )).fetchall()
 
-    n2_m = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
+    two_nm = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
@@ -145,7 +151,7 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     # Perform the MCMC, and record our chain.
-    log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, n2_m,
+    log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm,
                                                    ModelParameters(i_0=args.i_0, big_n=args.big_n, mu=args.mu,
                                                                    s=args.s, kappa=args.kappa, omega=args.omega,
                                                                    u=args.u, v=args.v, m=args.m, p=args.p),
