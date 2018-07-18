@@ -26,7 +26,7 @@ def create_table(cur_j: Cursor) -> None:
             M FLOAT,
             P FLOAT,
             WAITING INT,
-            MEAN_ACCEPT_PROB FLOAT
+            PROB FLOAT
         );""")
 
 
@@ -50,21 +50,21 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
                        state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1], state[2] / state[1]))
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p_sigma: ModelParameters) -> List:
-    """ My interpretation of the Metropolis-Hastings algorithm. We start with some initial guess 'm_p' and compute the
-    acceptance probability of the simulated sampled distribution. We generate some uniform random number and determine
-    if we accept or deny based on the acceptance probability we just found. If we accept, we keep our current parameters
-    (state) and increment our waiting time. If we deny, then we move to a new parameter set by randomly generating a new
-    one based on our current state (drawing from a normal distribution, past value is the mean) and resetting our
-    waiting time. Used the paper below:
-    http://www.mit.edu/~ilkery/papers/MetropolisHastingsSampling.pdf
+def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelParameters,
+               parameters_sigma: ModelParameters) -> List:
+    """ My interpretation of the Metropolis-Hastings algorithm. We start with some initial guess and compute the
+    acceptance probability of these current parameters. We generate another proposal by walking randomly in our
+    parameter space to another parameter set, and determine the acceptance probability here. If it is greater than
+    our previous parameter set (state) or ~U(0, 1) < our proposed parameter acceptance probability, we stay in our
+    new state (accept). If we deny our proposal, we increment our waiting time and try again. Source:
+    https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
 
     :param it: Number of iterations to run MCMC for.
     :param rfs: Real frequency sample. First column is the length, second is the frequency.
     :param r: Number of populations to use to obtain delta.
     :param two_n: Sample size of the alleles. Must match the real sample given here.
-    :param m_p: Our initial guess for parameters.
-    :param m_p_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :param parameters_init: Our initial guess for parameters.
+    :param parameters_sigma: The deviations associated with all parameters to use when generating new parameters.
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
@@ -73,26 +73,36 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p
     from single import Single
     from compare import compare
 
-    # Create our chain of states and waiting times.
-    states, tau, t = [[None, 0, 0] for _ in range(it)], 0, 1
+    # Create our chain of states and waiting times. 
+    states, tau, t = [[None, 0, 0] for _ in range(it)], 1, 1
 
-    for j in range(it):
-        # Generate and evolve a single population given the current parameters. Compute the delta.
-        acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(m_p).evolve()))
-        states[tau] = [m_p, t, states[tau][2] + acceptance_prob]
+    # Seed our chain with our initial guess.
+    states[0] = [parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve()))]
 
-        if uniform(0, 1) < acceptance_prob:  # Accept our proposal. Stay here and increment the waiting times.
-            t, tau = t + 1, tau
+    for j in range(1, it):
+        parameters_prev = states[tau - 1][1]  # Our current state.
+        parameters_proposed = ModelParameters(i_0=round(normal(parameters_prev.i_0, parameters_sigma.i_0)),
+                                              big_n=round(normal(parameters_prev.big_n, parameters_sigma.big_n)),
+                                              mu=normal(parameters_prev.mu, parameters_sigma.mu),
+                                              s=normal(parameters_prev.s, parameters_sigma.s),
+                                              kappa=round(normal(parameters_prev.kappa, parameters_sigma.kappa)),
+                                              omega=round(normal(parameters_prev.omega, parameters_sigma.omega)),
+                                              u=normal(parameters_prev.u, parameters_sigma.u),
+                                              v=normal(parameters_prev.v, parameters_sigma.v),
+                                              m=normal(parameters_prev.m, parameters_sigma.m),
+                                              p=normal(parameters_prev.p, parameters_sigma.p))
+        
+        # Generate and evolve a single population given the proposed parameters. Compute the delta.
+        acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
 
-        else:  # Reject our proposal. Generate a new parameter set.
-            t, tau = 1, tau + 1
-            m_p = ModelParameters(i_0=round(normal(m_p.i_0, m_p_sigma.i_0)),
-                                  big_n=round(normal(m_p.big_n, m_p_sigma.big_n)),
-                                  mu=normal(m_p.mu, m_p_sigma.mu), s=normal(m_p.s, m_p_sigma.s),
-                                  kappa=round(normal(m_p.kappa, m_p_sigma.kappa)),
-                                  omega=round(normal(m_p.omega, m_p_sigma.omega)),
-                                  u=normal(m_p.u, m_p_sigma.u), v=normal(m_p.v, m_p_sigma.v),
-                                  m=normal(m_p.m, m_p_sigma.m), p=normal(m_p.p, m_p_sigma.p))
+        # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed).
+        if states[tau - 1][1] < states[tau][1] or uniform(0, 1) < acceptance_prob:
+            tau += 1
+            states[tau] = [parameters_proposed, 1, acceptance_prob]
+
+        # Reject our proposal. We keep our current state and increment our waiting times.
+        else:
+            states[tau][1] += 1
 
     return [x for x in states if x[0] is not None]
 
