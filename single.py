@@ -5,6 +5,19 @@ from numba import jit, prange
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def random_alleles(omega: int, kappa: int, n: int) -> ndarray:
+    """ Generate n random alleles. This is meant to simulate individuals who do not originate from our ancestor
+    set.
+
+    :param omega: Upper bound of possible repeat lengths (maximum of state space).
+    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
+    :param n: Number of alleles to generate.
+    :return: A one dimensional array of random repeat lengths.
+    """
+    return uniform(omega, kappa, n)
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def triangle_n(a: int) -> int:
     """ Triangle number generator. Given 'a', return a choose 2. Optimized by Numba.
 
@@ -91,7 +104,7 @@ def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: f
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
-               m: float, p: float) -> None:
+               m: float, p: float, offset: int) -> None:
     """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Optimized by
     Numba.
 
@@ -106,11 +119,12 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
     :param v: Linear bias parameter, used to determine the probability of an expansion.
     :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
     :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
+    :param offset: Number of additional ancestors that all individuals may have evolved from.
     :return: None.
     """
     # Determine the range of our ancestors and our output range (indices of descendants).
-    start_anc, end_anc = triangle_n(c), triangle_n(c + 1)
-    start_desc, end_desc = triangle_n(c + 1), triangle_n(c + 2)
+    start_anc, end_anc = ((triangle_n(c) + offset) if c != 0 else 0), triangle_n(c + 1) + offset
+    start_desc, end_desc = (triangle_n(c + 1) + offset), (triangle_n(c + 2) + offset)
 
     # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
     ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
@@ -122,11 +136,11 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
 
 
 class ModelParameters(object):
-    def __init__(self, i_0: int, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
+    def __init__(self, i_0: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
                  m: float, p: float):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
-        :param i_0: Repeat length of the common ancestor.
+        :param i_0: Repeat lengths of the common ancestors.
         :param big_n: Effective population size, used for determining the number of generations between events.
         :param mu: Mutation rate, bounded by (0, infinity).
         :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
@@ -142,28 +156,32 @@ class ModelParameters(object):
 
 
 class Single:
-    def __init__(self, m_p: ModelParameters):
+    def __init__(self, parameters: ModelParameters):
         """ Constructor. Perform the bound checking for each parameter here.
 
-        :param m_p: Parameter models to use to evolve our population.
+        :param parameters: Parameter models to use to evolve our population.
         """
         from numpy import empty
 
         # Ensure that all variables are bounded properly.
-        m_p.i_0 = max(m_p.i_0, 0)
-        m_p.big_n = max(m_p.big_n, 0)
-        m_p.s = max(m_p.s, (-1 / (m_p.omega - m_p.kappa + 1)))
-        m_p.mu = max(m_p.mu, 0.0)
-        m_p.u = max(min(m_p.u, 1.0), 0.0)
-        m_p.m = max(min(m_p.m, 1.0), 0.0)
-        m_p.p = max(min(m_p.p, 1.0), 0.0)
+        parameters.i_0 = array([max(x, 0) for x in parameters.i_0])
+        parameters.big_n = max(parameters.big_n, 0)
+        parameters.s = max(parameters.s, (-1 / (parameters.omega - parameters.kappa + 1)))
+        parameters.mu = max(parameters.mu, 0.0)
+        parameters.u = max(min(parameters.u, 1.0), 0.0)
+        parameters.m = max(min(parameters.m, 1.0), 0.0)
+        parameters.p = max(min(parameters.p, 1.0), 0.0)
 
         self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
-            = m_p.i_0, m_p.big_n, m_p.omega, m_p.kappa, m_p.s, m_p.mu, m_p.u, m_p.v, m_p.m, m_p.p
+            = parameters.i_0, parameters.big_n, parameters.omega, parameters.kappa, parameters.s, \
+            parameters.mu, parameters.u, parameters.v, parameters.m, parameters.p
+
+        # Our chain offset is determined by the number of ancestors we have.
+        self.offset = len(parameters.i_0) - 1
 
         # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
-        self.ell = empty([self._triangle(2 * m_p.big_n)], dtype='int')
-        self.ell[0], self.ell_evolved = m_p.i_0, empty([m_p.big_n], dtype='int')
+        self.ell = empty([self._triangle(2 * parameters.big_n) + self.offset], dtype='int')
+        self.ell[0:self.offset + 1], self.ell_evolved = parameters.i_0, empty([parameters.big_n], dtype='int')
 
     @staticmethod
     def _triangle(a):
@@ -181,7 +199,8 @@ class Single:
         :param c: Number of coalescence events to generate. Represents the current distance of the chain from the start.
         :return: None.
         """
-        coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p)
+        coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u,
+                   self.v, self.m, self.p, self.offset)
 
     def evolve(self) -> ndarray:
         """ Using the common ancestor 'i_0', evolve the population until 'big_n' individuals are present.
@@ -195,6 +214,15 @@ class Single:
         self.ell_evolved = self.ell[-2 * self.big_n:]
         return self.ell_evolved
 
+    def random_alleles(self, n: int) -> ndarray:
+        """ Generate n random alleles. This is meant to simulate individuals who do not originate from our ancestor
+        set. Using the optimized Numba version.
+
+        :param n: Number of alleles to generate.
+        :return: A one dimensional array of random repeat lengths.
+        """
+        return random_alleles(self.kappa, self.omega, n)
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -202,8 +230,8 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(description='Simulate the evolution of single population top-down (ancestor first).')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
-    
-    paa('-i_0', 'Repeat length of starting ancestor.', int)
+
+    parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
     paa('-big_n', 'Effective population size.', int)
     paa('-mu', 'Mutation rate, bounded by (0, infinity).', float)
     paa('-s', 'Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
@@ -216,7 +244,7 @@ if __name__ == '__main__':
     args = parser.parse_args()  # Parse our arguments.
 
     # Display the results of evolving our ancestors.
-    pop = Single(ModelParameters(i_0=args.i_0, big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
+    pop = Single(ModelParameters(i_0=array(args.i_0), big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
                                  omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p))
     pop.evolve()
 

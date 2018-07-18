@@ -21,7 +21,7 @@ def create_table(cur_j: Cursor) -> None:
         CREATE TABLE IF NOT EXISTS EFF_POP (
             EFF_ID TEXT,
             TIME_R TIMESTAMP,
-            I_0 INT,
+            I_0 TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -64,22 +64,23 @@ def log_eff(cur_j: Cursor, z_j: Single) -> None:
     cur_j.execute("""
         INSERT INTO EFF_POP
         VALUES ({});
-    """.format(','.join('?' for _ in range(14))), (eff_id, datetime.now(), z_j.i_0, z_j.big_n, z_j.mu, z_j.s, z_j.kappa,
-                                                   z_j.omega, z_j.u, z_j.v, z_j.m, z_j.p, average(z_j.ell_evolved),
-                                                   std(z_j.ell_evolved)))
+    """.format(','.join('?' for _ in range(14))), (eff_id, datetime.now(), '-'.join(str(a) for a in z_j.i_0), z_j.big_n,
+                                                   z_j.mu, z_j.s, z_j.kappa, z_j.omega, z_j.u, z_j.v, z_j.m, z_j.p,
+                                                   average(z_j.ell_evolved), std(z_j.ell_evolved)))
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from itertools import product
     from sqlite3 import connect
+    from numpy import array
 
     parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')    
     parser.add_argument('-db', help='Location of the database file.', type=str, default='data/simulate.db')
     parser.add_argument('-r', help='Number of populations to generate given the same parameter.', type=int, default=1)
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3, nargs='+')
 
-    paa('-i_0', 'Repeat lengths of starting ancestor.', int)
+    paa('-i_0', 'Repeat lengths of starting ancestor. *Note that only one ancestor can be specified per run.*', int)
     paa('-big_n', 'Effective population sizes.', int)
     paa('-mu', 'Mutation rates, bounded by (0, infinity).', float)
     paa('-s', 'Proportional rates, bounded by (-1 / (omega - kappa + 1), infinity).', float)
@@ -102,7 +103,7 @@ if __name__ == '__main__':
         for _ in range(args.r):
 
             # Evolve each population 'r' times with the same parameter.
-            z = Single(ModelParameters(i_0=a[0], big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
+            z = Single(ModelParameters(i_0=array([a[0]]), big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
                                        u=a[6], v=a[7], m=a[8], p=a[9]))
             z.evolve()
 
@@ -110,4 +111,3 @@ if __name__ == '__main__':
             log_eff(cur, z)
 
     conn.commit()  # Record our runs and exit.
-    print('Grid search done!')
