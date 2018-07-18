@@ -15,7 +15,7 @@ def create_table(cur_j: Cursor) -> None:
             TIME_R TIMESTAMP,
             REAL_SAMPLE_UID TEXT,
             REAL_LOCUS TEXT,
-            I_0 INT,
+            I_0 TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -46,8 +46,9 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
             INSERT INTO WAIT_POP
             VALUES ({});
         """.format(','.join('?' for _ in range(15))),
-                      (datetime.now(), rsu, l, state[0].i_0, state[0].big_n, state[0].mu, state[0].s, state[0].kappa,
-                       state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1], state[2] / state[1]))
+                      (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
+                       state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
+                       state[1], state[2]))
 
 
 def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelParameters,
@@ -69,19 +70,19 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
              acceptance probabilities.
     """
     from numpy.random import uniform, normal
-    from numpy import average
+    from numpy import average, array
     from single import Single
     from compare import compare
 
-    # Create our chain of states and waiting times. 
-    states, tau, t = [[None, 0, 0] for _ in range(it)], 1, 1
-
     # Seed our chain with our initial guess.
-    states[0] = [parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve()))]
+    states = [[parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve()))]]
+
+    # Determine how we walk across the i_0 parameter axis.
+    walk_i_0 = lambda a: array([round(normal(aa, parameters_sigma.i_0)) for aa in a])
 
     for j in range(1, it):
-        parameters_prev = states[tau - 1][0]  # Our current state.
-        parameters_proposed = ModelParameters(i_0=round(normal(parameters_prev.i_0, parameters_sigma.i_0)),
+        parameters_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
+        parameters_proposed = ModelParameters(i_0=walk_i_0(parameters_prev.i_0),
                                               big_n=round(normal(parameters_prev.big_n, parameters_sigma.big_n)),
                                               mu=normal(parameters_prev.mu, parameters_sigma.mu),
                                               s=normal(parameters_prev.s, parameters_sigma.s),
@@ -96,13 +97,12 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
         acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
 
         # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed).
-        if states[tau - 1][1] < states[tau][1] or uniform(0, 1) < acceptance_prob:
-            states[tau] = [parameters_proposed, 1, acceptance_prob]
-            tau += 1
+        if states[-1][2] < acceptance_prob or uniform(0, 1) < acceptance_prob:
+            states = states + [[parameters_proposed, 1, acceptance_prob]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
-            states[tau - 1][1] += 1
+            states[-1][1] += 1
 
     return [x for x in states if x[0] is not None]
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     paa('-rsu', 'ID of the real sample data set to compare to.', str)
     paa('-l', 'Locus of the real sample to compare to.', str)
 
-    paa('-i_0', 'Starting repeat length of starting ancestor.', int)
+    parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
     paa('-big_n', 'Starting effective population size.', int)
     paa('-mu', 'Starting mutation rate, bounded by (0, infinity).', float)
     paa('-s', 'Starting proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
