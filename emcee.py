@@ -25,7 +25,8 @@ def create_table(cur_j: Cursor) -> None:
             V FLOAT,
             M FLOAT,
             P FLOAT,
-            WAITING INT
+            WAITING INT,
+            MEAN_ACCEPT_PROB FLOAT
         );""")
 
 
@@ -35,7 +36,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
     :param cur_j: Cursor to the database file to log to.
     :param rsu: ID of the real sample data set to compare to.
     :param l: Locus of the real sample to compare to.
-    :param chain: States collected after running the MCMC. Holds the parameters and the waiting times.
+    :param chain: States collected after running MCMC. Holds parameters, waiting times, and acceptance probabilities.
     :return: None.
     """
     from datetime import datetime
@@ -44,9 +45,9 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
         cur_j.execute("""
             INSERT INTO WAIT_POP
             VALUES ({});
-        """.format(','.join('?' for _ in range(14))),
+        """.format(','.join('?' for _ in range(15))),
                       (datetime.now(), rsu, l, state[0].i_0, state[0].big_n, state[0].mu, state[0].s, state[0].kappa,
-                       state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1]))
+                       state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p, state[1], state[2] / state[1]))
 
 
 def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p_sigma: ModelParameters) -> List:
@@ -64,7 +65,8 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p
     :param two_n: Sample size of the alleles. Must match the real sample given here.
     :param m_p: Our initial guess for parameters.
     :param m_p_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :return: A chain of all states we visited (parameters), and their associated waiting times.
+    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
+             acceptance probabilities.
     """
     from numpy.random import uniform, normal
     from numpy import average
@@ -72,11 +74,12 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, m_p: ModelParameters, m_p
     from compare import compare
 
     # Create our chain of states and waiting times.
-    states, tau, t = [[None, 0] for _ in range(it)], 0, 1
+    states, tau, t = [[None, 0, 0] for _ in range(it)], 0, 1
 
     for j in range(it):
         # Generate and evolve a single population given the current parameters. Compute the delta.
-        acceptance_prob, states[tau] = 1 - average(compare(r, two_n, rfs, Single(m_p).evolve())), [m_p, t]
+        acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(m_p).evolve()))
+        states[tau] = [m_p, t, states[tau][2] + acceptance_prob]
 
         if uniform(0, 1) < acceptance_prob:  # Accept our proposal. Stay here and increment the waiting times.
             t, tau = t + 1, tau
