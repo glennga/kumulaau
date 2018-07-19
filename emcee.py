@@ -46,7 +46,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
         cur_j.execute("""
             INSERT INTO WAIT_POP
             VALUES ({});
-        """.format(','.join('?' for _ in range(15))),
+        """.format(','.join('?' for _ in range(16))),
                       (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
                        state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
                        state[1], state[2], state[3]))
@@ -57,8 +57,9 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
     """ My interpretation of the Metropolis-Hastings algorithm. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
     parameter space to another parameter set, and determine the acceptance probability here. If it is greater than
-    our previous parameter set (state) or ~U(0, 1) < our proposed parameter acceptance probability, we stay in our
-    new state (accept). If we deny our proposal, we increment our waiting time and try again. Source:
+    our previous parameter set (state) or ~U(0, 1) < our proposed parameter acceptance probability / previous parameter
+    acceptance probability, we stay in our new state (accept). If we deny our proposal, we increment our waiting time
+    and try again. Source:
     https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
 
     :param it: Number of iterations to run MCMC for.
@@ -97,8 +98,8 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
         # Generate and evolve a single population given the proposed parameters. Compute the delta.
         acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
 
-        # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed).
-        if states[-1][2] < acceptance_prob or uniform(0, 1) < acceptance_prob:
+        # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed) / P(prev).
+        if states[-1][2] < acceptance_prob or uniform(0, 1) < (acceptance_prob / states[-1][2]):
             states = states + [[parameters_proposed, 1, acceptance_prob, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
