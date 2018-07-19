@@ -26,7 +26,8 @@ def create_table(cur_j: Cursor) -> None:
             M FLOAT,
             P FLOAT,
             WAITING INT,
-            PROB FLOAT
+            ACCEPTANCE_PROB FLOAT,
+            ACCEPTANCE_TIME
         );""")
 
 
@@ -36,7 +37,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
     :param cur_j: Cursor to the database file to log to.
     :param rsu: ID of the real sample data set to compare to.
     :param l: Locus of the real sample to compare to.
-    :param chain: States collected after running MCMC. Holds parameters, waiting times, and acceptance probabilities.
+    :param chain: States and associated times & probabilities collected after running MCMC.
     :return: None.
     """
     from datetime import datetime
@@ -48,7 +49,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
         """.format(','.join('?' for _ in range(15))),
                       (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
                        state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
-                       state[1], state[2]))
+                       state[1], state[2], state[3]))
 
 
 def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelParameters,
@@ -75,7 +76,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
     from compare import compare
 
     # Seed our chain with our initial guess.
-    states = [[parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve()))]]
+    states = [[parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve())), 0]]
 
     # Determine how we walk across the i_0 parameter axis.
     walk_i_0 = lambda a: array([round(normal(aa, parameters_sigma.i_0)) for aa in a])
@@ -98,13 +99,13 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
 
         # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed).
         if states[-1][2] < acceptance_prob or uniform(0, 1) < acceptance_prob:
-            states = states + [[parameters_proposed, 1, acceptance_prob]]
+            states = states + [[parameters_proposed, 1, acceptance_prob, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
             states[-1][1] += 1
 
-    return [x for x in states if x[0] is not None]
+    return states
 
 
 if __name__ == '__main__':
