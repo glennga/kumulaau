@@ -164,7 +164,7 @@ class Single:
         from numpy import empty
 
         # Ensure that all variables are bounded properly.
-        parameters.i_0 = array([max(x, 0) for x in parameters.i_0])
+        parameters.i_0 = array([max(min(x, parameters.omega), parameters.kappa) for x in parameters.i_0])
         parameters.big_n = max(parameters.big_n, 0)
         parameters.s = max(parameters.s, (-1 / (parameters.omega - parameters.kappa + 1)))
         parameters.mu = max(parameters.mu, 0.0)
