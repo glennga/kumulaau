@@ -43,13 +43,12 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
     from datetime import datetime
 
     for state in chain:
-        cur_j.execute("""
+        cur_j.execute(f"""
             INSERT INTO WAIT_POP
-            VALUES ({});
-        """.format(','.join('?' for _ in range(16))),
-                      (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
-                       state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
-                       state[1], state[2], state[3]))
+            VALUES ({','.join('?' for _ in range(16))});
+        """, (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
+              state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
+              state[1], state[2], state[3]))
 
 
 def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelParameters,

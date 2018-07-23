@@ -61,12 +61,11 @@ def log_eff(cur_j: Cursor, z_j: Single) -> None:
         """, (eff_id, int(i), ell_counter[i], ell_counter[i] / len(z_j.ell_evolved)))
 
     # Record the parameters associated with the effective population, and some basic stats (average, std, n_mu).
-    cur_j.execute("""
+    cur_j.execute(f"""
         INSERT INTO EFF_POP
-        VALUES ({});
-    """.format(','.join('?' for _ in range(14))), (eff_id, datetime.now(), '-'.join(str(a) for a in z_j.i_0), z_j.big_n,
-                                                   z_j.mu, z_j.s, z_j.kappa, z_j.omega, z_j.u, z_j.v, z_j.m, z_j.p,
-                                                   average(z_j.ell_evolved), std(z_j.ell_evolved)))
+        VALUES ({','.join('?' for _ in range(14))});
+    """, (eff_id, datetime.now(), '-'.join(str(aa) for aa in z_j.i_0), z_j.big_n, z_j.mu, z_j.s, z_j.kappa, z_j.omega,
+          z_j.u, z_j.v, z_j.m, z_j.p, average(z_j.ell_evolved), std(z_j.ell_evolved)))
 
 
 if __name__ == '__main__':
