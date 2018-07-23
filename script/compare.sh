@@ -27,3 +27,4 @@ echo "Database merging is finished."
 #	rm ${f}
 #done
 #echo "Removed generated database files."
+
