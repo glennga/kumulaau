@@ -1,12 +1,13 @@
 from sqlite3 import Cursor
+from typing import Dict
 
 
-def emcee(cur_j: Cursor, b: int, hs: float) -> None:
+def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
     """ Display the results of the MCMC script: a histogram of each parameter.
 
     :param cur_j: Cursor to the MCMC database to pull the data from.
     :param b: Burn in period. Number of trials to remove before displaying results.
-    :param hs: Histogram step size for MU, S, U, V, M, and P dimensions.
+    :param hs: Histogram step sizes for MU, S, U, V, M, and P dimensions.
     :return: None.
     """
     from matplotlib import pyplot as plt
@@ -30,15 +31,15 @@ def emcee(cur_j: Cursor, b: int, hs: float) -> None:
 
         # Our bin widths depend on the current dimension.
         if min_dimension != max_dimension:
-            bins = arange(min_dimension, max_dimension, (hs if dimension not in ['I_0', 'BIG_N', 'KAPPA', 'OMEGA']
-                                                         else 1))
+            bins = arange(min_dimension, max_dimension, (hs[dimension] if dimension not in
+                                                         ['I_0', 'BIG_N', 'KAPPA', 'OMEGA'] else 1))
         else:
             bins = 'auto'
 
         # Plot the histogram.
         plt.gca().set_title(dimension)
         plt.hist([float(x[0]) for x in cur_j.execute(f"""
-          SELECT CAST({dimension} AS FLOAT)
+          SELECT CAST({dimension} AS FLOAT) -- Casting required for I_0. --
           FROM WAIT_POP
           ORDER BY ROWID DESC
           LIMIT {cardinality - b}
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     paa('-b', '(emcee) Burn in period. Number of trials to remove before displaying results.', int)
-    paa('-hs', '(emcee) Histogram step size for MU, S, U, V, M, and P dimensions.', float)
+    parser.add_argument('-hs', help='(emcee) Histogram step sizes in order: MU, S, U, V, M, P', nargs=6, type=float)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to the appropriate database.
@@ -67,4 +68,4 @@ if __name__ == '__main__':
 
     # Perform the appropriate function.
     if args.f == 'emcee':
-        emcee(cur, args.b, args.hs)
+        emcee(cur, args.b, dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
