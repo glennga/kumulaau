@@ -79,21 +79,22 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
     # Seed our chain with our initial guess.
     states = [[parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve())), 0]]
 
-    # Determine how we walk across the i_0 parameter axis.
-    walk_i_0 = lambda a: array([round(normal(aa, parameters_sigma.i_0)) for aa in a])
+    # Determine how we walk across our parameter space.
+    walk = lambda a, b: normal(a, b)
+    walk_i_0 = lambda a: array([round(walk(aa, parameters_sigma.i_0)) for aa in a])
 
     for j in range(1, it):
         parameters_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
         parameters_proposed = ModelParameters(i_0=walk_i_0(parameters_prev.i_0),
-                                              big_n=round(normal(parameters_prev.big_n, parameters_sigma.big_n)),
-                                              mu=normal(parameters_prev.mu, parameters_sigma.mu),
-                                              s=normal(parameters_prev.s, parameters_sigma.s),
-                                              kappa=round(normal(parameters_prev.kappa, parameters_sigma.kappa)),
-                                              omega=round(normal(parameters_prev.omega, parameters_sigma.omega)),
-                                              u=normal(parameters_prev.u, parameters_sigma.u),
-                                              v=normal(parameters_prev.v, parameters_sigma.v),
-                                              m=normal(parameters_prev.m, parameters_sigma.m),
-                                              p=normal(parameters_prev.p, parameters_sigma.p))
+                                              big_n=round(walk(parameters_prev.big_n, parameters_sigma.big_n)),
+                                              mu=walk(parameters_prev.mu, parameters_sigma.mu),
+                                              s=walk(parameters_prev.s, parameters_sigma.s),
+                                              kappa=round(walk(parameters_prev.kappa, parameters_sigma.kappa)),
+                                              omega=round(walk(parameters_prev.omega, parameters_sigma.omega)),
+                                              u=walk(parameters_prev.u, parameters_sigma.u),
+                                              v=walk(parameters_prev.v, parameters_sigma.v),
+                                              m=walk(parameters_prev.m, parameters_sigma.m),
+                                              p=walk(parameters_prev.p, parameters_sigma.p))
         
         # Generate and evolve a single population given the proposed parameters. Compute the delta.
         acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
