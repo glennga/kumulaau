@@ -7,7 +7,7 @@ from numba import jit, prange
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def random_alleles(omega: int, kappa: int, n: int) -> ndarray:
     """ Generate n random alleles. This is meant to simulate individuals who do not originate from our ancestor
-    set.
+    set. Optimized by Numba.
 
     :param omega: Upper bound of possible repeat lengths (maximum of state space).
     :param kappa: Lower bound of possible repeat lengths (minimum of state space).
