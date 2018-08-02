@@ -26,7 +26,7 @@ def create_table(cur_j: Cursor) -> None:
             M FLOAT,
             P FLOAT,
             WAITING INT,
-            ACCEPTANCE_PROB FLOAT,
+            DELTA FLOAT,
             ACCEPTANCE_TIME
         );""")
 
@@ -51,26 +51,28 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
               state[1], state[2], state[3]))
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelParameters,
+def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: int, parameters_init: ModelParameters,
                parameters_sigma: ModelParameters) -> List:
-    """ My interpretation of the Metropolis-Hastings algorithm. We start with some initial guess and compute the
+    """ My interpretation of the Metropolis-Hastings algorithm w/ ABC. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
-    parameter space to another parameter set, and determine the acceptance probability here. If it is greater than
-    our previous parameter set (state) or ~U(0, 1) < our proposed parameter acceptance probability / previous parameter
-    acceptance probability, we stay in our new state (accept). If we deny our proposal, we increment our waiting time
-    and try again. Source:
+    parameter space to another parameter set, and determine the data difference (delta) here. If this is greater than
+    some defined epsilon, we accept this new parameter set. If we deny our proposal, we increment our waiting time
+    and try again. Sources:
+
     https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
+    https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
 
     :param it: Number of iterations to run MCMC for.
     :param rfs: Real frequency sample. First column is the length, second is the frequency.
     :param r: Number of populations to use to obtain delta.
     :param two_n: Sample size of the alleles. Must match the real sample given here.
+    :param epsilon: Minimum acceptance value for delta.
     :param parameters_init: Our initial guess for parameters.
     :param parameters_sigma: The deviations associated with all parameters to use when generating new parameters.
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
-    from numpy.random import uniform, normal
+    from numpy.random import normal
     from numpy import average, array
     from single import Single
     from compare import compare
@@ -96,11 +98,11 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, parameters_init: ModelPar
                                               p=walk(parameters_prev.p, parameters_sigma.p))
         
         # Generate and evolve a single population given the proposed parameters. Compute the delta.
-        acceptance_prob = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
+        summary_delta = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
 
-        # Accept our proposal if the current P(proposed) > P(prev) or if ~U(0, 1) < P(proposed) / P(prev).
-        if states[-1][2] < acceptance_prob or uniform(0, 1) < (acceptance_prob / states[-1][2]):
-            states = states + [[parameters_proposed, 1, acceptance_prob, j]]
+        # Accept our proposal if the current delta is above some defined epsilon.
+        if summary_delta > epsilon:
+            states = states + [[parameters_proposed, 1, summary_delta, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
@@ -119,6 +121,7 @@ if __name__ == '__main__':
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
     
     paa('-r', 'Number of populations to use to obtain delta.', int)
+    paa('-epsilon', 'Minimum acceptance value for delta.', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
     paa('-rsu', 'ID of the real sample data set to compare to.', str)
     paa('-l', 'Locus of the real sample to compare to.', str)
@@ -166,7 +169,7 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     # Perform the MCMC, and record our chain.
-    log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm,
+    log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm, args.epsilon,
                                                    ModelParameters(i_0=args.i_0, big_n=args.big_n, mu=args.mu,
                                                                    s=args.s, kappa=args.kappa, omega=args.omega,
                                                                    u=args.u, v=args.v, m=args.m, p=args.p),
