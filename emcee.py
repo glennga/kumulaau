@@ -14,8 +14,8 @@ def create_table(cur_j: Cursor) -> None:
     cur_j.execute("""
         CREATE TABLE IF NOT EXISTS WAIT_POP (
             TIME_R TIMESTAMP,
-            REAL_SAMPLE_UID TEXT,
-            REAL_LOCUS TEXT,
+            REAL_SAMPLE_UIDS TEXT,
+            REAL_LOCI TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -42,11 +42,14 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
     """
     from datetime import datetime
 
+    # Generate our real sample log strings.
+    rsu_log, l_log = list(map(lambda a: '-'.join(b for b in a), [rsu, l]))
+
     for state in chain:
         cur_j.execute(f"""
             INSERT INTO WAIT_POP
-            VALUES ({','.join('?' for _ in range(16))});
-        """, (datetime.now(), rsu, l, state[0].big_n, state[0].mu,
+            VALUES ({','.join('?' for _ in range(15))});
+        """, (datetime.now(), rsu_log, l_log, state[0].big_n, state[0].mu,
               state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
               state[1], state[2], state[3]))
 
@@ -61,7 +64,7 @@ def choose_i_0(rfs: List) -> ndarray:
     from random import choice
     from numpy import array
 
-    return array(choice(choice(rfs))[0])
+    return array([int(choice(choice(rfs))[0])])
 
 
 def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
@@ -178,7 +181,7 @@ if __name__ == '__main__':
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l,)).fetchone()[0]), args.rsu, args.l))
+    """, (a, b,)).fetchone()[0]), args.rsu, args.l))
 
     # Perform the MCMC, and record our chain.
     log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm, args.epsilon,
