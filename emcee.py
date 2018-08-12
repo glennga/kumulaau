@@ -27,7 +27,7 @@ def create_table(cur_j: Cursor) -> None:
             P FLOAT,
             WAITING INT,
             DELTA FLOAT,
-            ACCEPTANCE_TIME
+            ACCEPTANCE_TIME INT
         );""")
 
 
@@ -51,7 +51,7 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
               state[1], state[2], state[3]))
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: int, parameters_init: ModelParameters,
+def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, parameters_init: ModelParameters,
                parameters_sigma: ModelParameters) -> List:
     """ My interpretation of the Metropolis-Hastings algorithm w/ ABC. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
@@ -96,7 +96,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: int, parameters_
                                               v=walk(parameters_prev.v, parameters_sigma.v),
                                               m=walk(parameters_prev.m, parameters_sigma.m),
                                               p=walk(parameters_prev.p, parameters_sigma.p))
-        
+
         # Generate and evolve a single population given the proposed parameters. Compute the delta.
         summary_delta = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
 
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
     parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/emcee.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
-    
+
     paa('-r', 'Number of populations to use to obtain delta.', int)
     paa('-epsilon', 'Minimum acceptance value for delta.', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
