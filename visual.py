@@ -20,7 +20,7 @@ def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
       FROM WAIT_POP
     """).fetchone()[0])
 
-    for j, dimension in enumerate(['I_0', 'BIG_N', 'MU', 'S', 'KAPPA', 'OMEGA', 'U', 'V', 'M', 'P']):
+    for j, dimension in enumerate(['BIG_N', 'MU', 'S', 'KAPPA', 'OMEGA', 'U', 'V', 'M', 'P']):
         plt.subplot(2, 5, j + 1)
 
         # Grab the mininum and maximum values for the current dimension.
@@ -32,7 +32,7 @@ def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
         # Our bin widths depend on the current dimension.
         if min_dimension != max_dimension:
             bins = arange(min_dimension, max_dimension, (hs[dimension] if dimension not in
-                                                         ['I_0', 'BIG_N', 'KAPPA', 'OMEGA'] else 1))
+                                                         ['BIG_N', 'KAPPA', 'OMEGA'] else 1))
         else:
             bins = 'auto'
 

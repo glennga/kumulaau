@@ -69,7 +69,7 @@ def compare(r: int, two_n: int, rfs: List, srue: Iterable) -> ndarray:
     :param two_n: Sample size of the alleles. Must match the real sample given here.
     :param rfs: Real frequency sample. First column is the length, second is the frequency.
     :param srue: Simulated population of repeat units (one dimensional list).
-    :return: None.
+    :return: A numpy array of all computed deltas for each sample.
     """
     from collections import Counter
     from numpy.random import choice

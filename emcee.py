@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from single import ModelParameters
+from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List
 
@@ -15,7 +16,6 @@ def create_table(cur_j: Cursor) -> None:
             TIME_R TIMESTAMP,
             REAL_SAMPLE_UID TEXT,
             REAL_LOCUS TEXT,
-            I_0 TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -31,12 +31,12 @@ def create_table(cur_j: Cursor) -> None:
         );""")
 
 
-def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
+def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None:
     """ Record our states to some database.
 
     :param cur_j: Cursor to the database file to log to.
-    :param rsu: ID of the real sample data set to compare to.
-    :param l: Locus of the real sample to compare to.
+    :param rsu: IDs of the real sample data sets to compare to.
+    :param l: Loci of the real samples to compare to.
     :param chain: States and associated times & probabilities collected after running MCMC.
     :return: None.
     """
@@ -46,14 +46,27 @@ def log_states(cur_j: Cursor, rsu: str, l: str, chain: List) -> None:
         cur_j.execute(f"""
             INSERT INTO WAIT_POP
             VALUES ({','.join('?' for _ in range(16))});
-        """, (datetime.now(), rsu, l, '-'.join(str(a) for a in state[0].i_0), state[0].big_n, state[0].mu,
+        """, (datetime.now(), rsu, l, state[0].big_n, state[0].mu,
               state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
               state[1], state[2], state[3]))
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, parameters_init: ModelParameters,
-               parameters_sigma: ModelParameters) -> List:
-    """ My interpretation of the Metropolis-Hastings algorithm w/ ABC. We start with some initial guess and compute the
+def choose_i_0(rfs: List) -> ndarray:
+    """ We treat the starting population length ancestor as a nuisance parameter. We randomly choose a repeat length
+    from our real samples.
+
+    :param rfs: Real frequency samples. A list of: [first column is the length, second is the frequency].
+    :return: A single repeat length, wrapped in a Numpy array.
+    """
+    from random import choice
+    from numpy import array
+
+    return array(choice(choice(rfs))[0])
+
+
+def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, theta_init: ModelParameters,
+               theta_sigma: ModelParameters) -> List:
+    """ My interpretation of an MCMC approach with ABC. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
     parameter space to another parameter set, and determine the data difference (delta) here. If this is greater than
     some defined epsilon, we accept this new parameter set. If we deny our proposal, we increment our waiting time
@@ -63,46 +76,44 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, parameter
     https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
 
     :param it: Number of iterations to run MCMC for.
-    :param rfs: Real frequency sample. First column is the length, second is the frequency.
-    :param r: Number of populations to use to obtain delta.
+    :param rfs: Real frequency samples. A list of: [first column is the length, second is the frequency].
+    :param r: Number of simulated samples to use to obtain delta.
     :param two_n: Sample size of the alleles. Must match the real sample given here.
     :param epsilon: Minimum acceptance value for delta.
-    :param parameters_init: Our initial guess for parameters.
-    :param parameters_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :param theta_init: Our initial guess for parameters.
+    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
     from numpy.random import normal
-    from numpy import average, array
+    from numpy import average
     from single import Single
     from compare import compare
 
     # Seed our chain with our initial guess.
-    states = [[parameters_init, 1, 1 - average(compare(r, two_n, rfs, Single(parameters_init).evolve())), 0]]
+    states = [[theta_init, 1, 1 - average(compare(r, two_n, rfs, Single(theta_init).evolve())), 0]]
 
     # Determine how we walk across our parameter space.
-    walk = lambda a, b: normal(a, b)
-    walk_i_0 = lambda a: array([round(walk(aa, parameters_sigma.i_0)) for aa in a])
+    walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
 
     for j in range(1, it):
-        parameters_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
-        parameters_proposed = ModelParameters(i_0=walk_i_0(parameters_prev.i_0),
-                                              big_n=round(walk(parameters_prev.big_n, parameters_sigma.big_n)),
-                                              mu=walk(parameters_prev.mu, parameters_sigma.mu),
-                                              s=walk(parameters_prev.s, parameters_sigma.s),
-                                              kappa=round(walk(parameters_prev.kappa, parameters_sigma.kappa)),
-                                              omega=round(walk(parameters_prev.omega, parameters_sigma.omega)),
-                                              u=walk(parameters_prev.u, parameters_sigma.u),
-                                              v=walk(parameters_prev.v, parameters_sigma.v),
-                                              m=walk(parameters_prev.m, parameters_sigma.m),
-                                              p=walk(parameters_prev.p, parameters_sigma.p))
+        theta_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
+        theta_proposed = ModelParameters(i_0=choose_i_0(rfs), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
+                                         mu=walk(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
+                                         kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
+                                         omega=walk(theta_prev.omega, theta_sigma.omega, True),
+                                         u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
+                                         m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
-        # Generate and evolve a single population given the proposed parameters. Compute the delta.
-        summary_delta = 1 - average(compare(r, two_n, rfs, Single(parameters_proposed).evolve()))
+        # Generate some population given the current parameter set.
+        population = Single(theta_proposed).evolve()
 
-        # Accept our proposal if the current delta is above some defined epsilon.
-        if summary_delta > epsilon:
-            states = states + [[parameters_proposed, 1, summary_delta, j]]
+        # For each sample, we compute the repeat length distribution similarity. Take the maximum of this.
+        summary_delta = max(list(map(lambda a: 1 - average(compare(r, two_n, a, population)), rfs)))
+
+        # Accept our proposal if the current delta is above some defined epsilon (ABC).
+        if summary_delta > epsilon:  # TODO: Record the generated population as well??
+            states = states + [[theta_proposed, 1, summary_delta, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
@@ -114,19 +125,19 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, parameter
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
+    from numpy import array
 
-    parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')
+    parser = ArgumentParser(description='MCMC with ABC for microsatellite mutation parameter estimation.')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
     parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/emcee.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
-    paa('-r', 'Number of populations to use to obtain delta.', int)
+    parser.add_argument('-rsu', help='IDs of real samples to compare to.', type=str, nargs='+')
+    parser.add_argument('-l', help='Loci of real samples to compare to (must match with rsu).', type=str, nargs='+')
+    paa('-r', 'Number of simulated samples to use to obtain delta.', int)
     paa('-epsilon', 'Minimum acceptance value for delta.', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
-    paa('-rsu', 'ID of the real sample data set to compare to.', str)
-    paa('-l', 'Locus of the real sample to compare to.', str)
 
-    parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
     paa('-big_n', 'Starting effective population size.', int)
     paa('-mu', 'Starting mutation rate, bounded by (0, infinity).', float)
     paa('-s', 'Starting proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
@@ -146,7 +157,7 @@ if __name__ == '__main__':
     paa('-u_sigma', 'Step size of u when changing parameters.', float)
     paa('-v_sigma', 'Step size of v when changing parameters.', float)
     paa('-m_sigma', 'Step size of m when changing parameters.', float)
-    paa('-p_sigma', 'Step size of p when changing parameters.', float)
+    paa('-p_sigma', 'Step size of p when changing theta.', float)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to all of our databases.
@@ -154,26 +165,27 @@ if __name__ == '__main__':
     cur_r, cur_e = conn_r.cursor(), conn_e.cursor()
     create_table(cur_e)
 
-    freq_r = cur_r.execute(""" -- Pull the frequency distribution from the real database. --
+    freq_r = list(map(lambda a, b: cur_r.execute(""" -- Pull the frequency distribution from the real database. --
         SELECT ELL, ELL_FREQ
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l, )).fetchall()
+      """, (a, b,)).fetchall(), args.rsu, args.l))
 
     two_nm = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l, )).fetchone()[0])
+    """, (args.rsu, args.l,)).fetchone()[0])
 
     # Perform the MCMC, and record our chain.
     log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm, args.epsilon,
-                                                   ModelParameters(i_0=args.i_0, big_n=args.big_n, mu=args.mu,
-                                                                   s=args.s, kappa=args.kappa, omega=args.omega,
-                                                                   u=args.u, v=args.v, m=args.m, p=args.p),
-                                                   ModelParameters(i_0=args.i_0_sigma, big_n=args.big_n_sigma,
+                                                   ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n,
+                                                                   mu=args.mu, s=args.s, kappa=args.kappa,
+                                                                   omega=args.omega, u=args.u, v=args.v, m=args.m,
+                                                                   p=args.p),
+                                                   ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma,
                                                                    mu=args.mu_sigma, s=args.s_sigma,
                                                                    kappa=args.kappa_sigma, omega=args.omega_sigma,
                                                                    u=args.u_sigma, v=args.v_sigma, m=args.m_sigma,
