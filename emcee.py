@@ -64,7 +64,7 @@ def choose_i_0(rfs: List) -> ndarray:
     return array(choice(choice(rfs))[0])
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, theta_init: ModelParameters,
+def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
                theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC approach with ABC. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
@@ -78,7 +78,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, theta_ini
     :param it: Number of iterations to run MCMC for.
     :param rfs: Real frequency samples. A list of: [first column is the length, second is the frequency].
     :param r: Number of simulated samples to use to obtain delta.
-    :param two_n: Sample size of the alleles. Must match the real sample given here.
+    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
     :param epsilon: Minimum acceptance value for delta.
     :param theta_init: Our initial guess for parameters.
     :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
@@ -91,7 +91,8 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, theta_ini
     from compare import compare
 
     # Seed our chain with our initial guess.
-    states = [[theta_init, 1, 1 - average(compare(r, two_n, rfs, Single(theta_init).evolve())), 0]]
+    z_0 = Single(theta_init).evolve()
+    states = [[theta_init, 1, average(list(map(lambda a, b: 1 - average(compare(r, b, a, z_0)), rfs, two_n))), 0]]
 
     # Determine how we walk across our parameter space.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
@@ -106,10 +107,10 @@ def metro_hast(it: int, rfs: List, r: int, two_n: int, epsilon: float, theta_ini
                                          m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
         # Generate some population given the current parameter set.
-        population = Single(theta_proposed).evolve()
+        z = Single(theta_proposed).evolve()
 
-        # For each sample, we compute the repeat length distribution similarity. Take the maximum of this.
-        summary_delta = max(list(map(lambda a: 1 - average(compare(r, two_n, a, population)), rfs)))
+        # For each sample, we compute the repeat length distribution similarity. Take the mean of this.
+        summary_delta = average(list(map(lambda a, b: 1 - average(compare(r, b, a, z)), rfs, two_n)))
 
         # Accept our proposal if the current delta is above some defined epsilon (ABC).
         if summary_delta > epsilon:  # TODO: Record the generated population as well??
@@ -165,19 +166,19 @@ if __name__ == '__main__':
     cur_r, cur_e = conn_r.cursor(), conn_e.cursor()
     create_table(cur_e)
 
-    freq_r = list(map(lambda a, b: cur_r.execute(""" -- Pull the frequency distribution from the real database. --
+    freq_r = list(map(lambda a, b: cur_r.execute(""" -- Pull the frequency distributions from the real database. --
         SELECT ELL, ELL_FREQ
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
       """, (a, b,)).fetchall(), args.rsu, args.l))
 
-    two_nm = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
+    two_nm = list(map(lambda a, b: int(cur_r.execute(""" -- Retrieve the sample sizes, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l,)).fetchone()[0])
+    """, (args.rsu, args.l,)).fetchone()[0]), args.rsu, args.l))
 
     # Perform the MCMC, and record our chain.
     log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm, args.epsilon,
