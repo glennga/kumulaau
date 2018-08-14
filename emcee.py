@@ -67,7 +67,7 @@ def choose_i_0(rfs: List) -> ndarray:
     return array([int(choice(choice(rfs))[0])])
 
 
-def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
+def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
                theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC approach with ABC. We start with some initial guess and compute the
     acceptance probability of these current parameters. We generate another proposal by walking randomly in our
@@ -79,7 +79,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, the
     https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
 
     :param it: Number of iterations to run MCMC for.
-    :param rfs: Real frequency samples. A list of: [first column is the length, second is the frequency].
+    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
     :param r: Number of simulated samples to use to obtain delta.
     :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
     :param epsilon: Minimum acceptance value for delta.
@@ -91,18 +91,14 @@ def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, the
     from numpy.random import normal
     from numpy import average
     from single import Single
-    from compare import compare
+    from compare import compare, prepare_compare_storage
 
-    # Seed our chain with our initial guess.
-    z_0 = Single(theta_init).evolve()
-    states = [[theta_init, 1, average(list(map(lambda a, b: 1 - average(compare(r, b, a, z_0)), rfs, two_n))), 0]]
-
-    # Determine how we walk across our parameter space.
+    states = [[theta_init, 1, 0, 0]]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
 
     for j in range(1, it):
         theta_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
-        theta_proposed = ModelParameters(i_0=choose_i_0(rfs), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
+        theta_proposed = ModelParameters(i_0=choose_i_0(rfs_d), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
                                          mu=walk(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
                                          kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
                                          omega=walk(theta_prev.omega, theta_sigma.omega, True),
@@ -112,8 +108,12 @@ def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, the
         # Generate some population given the current parameter set.
         z = Single(theta_proposed).evolve()
 
-        # For each sample, we compute the repeat length distribution similarity. Take the mean of this.
-        summary_delta = average(list(map(lambda a, b: 1 - average(compare(r, b, a, z)), rfs, two_n)))
+        summary_deltas = []  # Compute the delta term: the average probability using all available samples.
+        for a in zip(rfs_d, two_n):
+            scs, sfs, rfs, delta_rs = prepare_compare_storage(a[0], z, a[1], r)
+            compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
+            summary_deltas = summary_deltas + [1 - average(delta_rs)]
+        summary_delta = average(summary_deltas)
 
         # Accept our proposal if the current delta is above some defined epsilon (ABC).
         if summary_delta > epsilon:  # TODO: Record the generated population as well??
@@ -123,7 +123,7 @@ def metro_hast(it: int, rfs: List, r: int, two_n: List[int], epsilon: float, the
         else:
             states[-1][1] += 1
 
-    return states
+    return states[1:]
 
 
 if __name__ == '__main__':

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from typing import List, Iterable
+from typing import Iterable, Tuple, List
+from numpy.random import choice
 from numpy import ndarray
+from numba import jit, prange
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -34,7 +36,6 @@ def log_deltas(cur_j: Cursor, deltas: ndarray, sei: str, rsu: str, l: str) -> No
     """
     from string import ascii_uppercase, digits
     from datetime import datetime
-    from random import choice
 
     for delta in deltas:
         # Generate our unique sampling ID, a 20 character string.
@@ -59,48 +60,63 @@ def population_from_count(ruc: Iterable) -> ndarray:
     return ru
 
 
-def compare(r: int, two_n: int, rfs: List, srue: Iterable) -> ndarray:
+def prepare_compare_storage(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
+    """ TODO: Finish these docs.
+
+    :param rfs_d: Dirty real frequency sample. Needs to be transformed into a sparse frequency vector.
+    :param srue: Simulated population of repeat units (one dimensional list).
+    :param two_n: Sample size of the alleles.
+    :param r: Number of times to sample the simulated population.
+    :return: Storage and data vectors in order of: 'scs', 'sfs', 'rfs', 'delta_rs'.
+    """
+    from numpy import zeros
+
+    rfs_dict = {int(a[0]): float(a[1]) for a in rfs_d}  # Cast our real frequencies into numbers.
+
+    # Determine the omega from the simulated effective population and our real sample.
+    omega = max(srue) + 1 if max(srue) > max(rfs_dict.keys()) else max(rfs_dict.keys()) + 1
+
+    # Create the vectors to return.
+    scs_out, sfs_out, rfs_out, delta_rs_out = [zeros(two_n), zeros(omega), zeros(two_n), zeros(r)]
+
+    # Fit our real distribution into a sparse frequency vector.
+    for repeat_unit in rfs_dict.keys():
+        rfs_out[repeat_unit] = rfs_dict[repeat_unit]
+
+    return scs_out, sfs_out, rfs_out, delta_rs_out
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def compare(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
     """ Given individuals from the effective simulated population and the frequencies of individuals from a real sample,
     sample the same amount from the simulated population 'r' times and determine the differences in distribution for
-    each different simulated sample. Involves a butt-ton of transformation and I'm sure that this can be optimized
-    below- but given that this is already pretty fast there is no need to do so.
+    each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out before use.
+    Optimized by Numba.
 
-    :param r: Number of times to sample the simulated population.
-    :param two_n: Sample size of the alleles. Must match the real sample given here.
-    :param rfs: Real frequency sample. First column is the length, second is the frequency.
+    :param scs: Storage vector, used to hold the sampled simulated population.
+    :param sfs: Storage sparse vector, used to hold the frequency sample.
+    :param rfs: Real frequency sample, represented as a sparse frequency vector indexed by repeat length.
     :param srue: Simulated population of repeat units (one dimensional list).
-    :return: A numpy array of all computed deltas for each sample.
+    :param delta_rs: Output vector, used to store the computed deltas of each sample.
+    :return: None.
     """
-    from collections import Counter
-    from numpy.random import choice
-    from numpy import array, zeros, empty
-
-    # Transform our sampled real population into a dictionary of ints and floats.
-    rfs = {int(a[0]): float(a[1]) for a in rfs}
-
-    delta_rs = empty(r)
-    for delta_j in range(r):
-        # Randomly sample n individuals from population.
-        scs = array([choice(srue) for _ in range(two_n)])
-
-        # Determine if the maximum length exists in the simulated data set or the real data set.
-        omega = max(scs) + 1 if max(scs) > max(rfs.keys()) else max(rfs.keys()) + 1
+    for delta_k in prange(delta_rs.size):
+        for k in prange(scs.size):  # Randomly sample n individuals from population.
+            scs[k] = choice(srue)
 
         # Fit the simulated population into a sparse vector of frequencies.
-        scs_counter, sfs_v = Counter(scs), zeros(omega)
-        for repeat_unit in scs_counter:
-            sfs_v[repeat_unit] = scs_counter[repeat_unit] / two_n
+        for repeat_unit in prange(sfs.size):
+            i_count = 0
+            for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
+                i_count += 1 if i == repeat_unit else 0
 
-        # Fit the real frequency array into a sparse vector.
-        rfs_v = zeros(omega)
-        for repeat_unit in rfs.keys():
-            rfs_v[repeat_unit] = rfs[repeat_unit]
+            sfs[repeat_unit] = i_count / scs.size
 
         # For all repeat lengths, determine the sum difference in frequencies. Normalize this to [0, 1].
-        delta_rs[delta_j] = sum([abs(sfs_v[j] - rfs_v[j]) for j in range(omega)]) / 2.0
-
-    # Return the differences.
-    return delta_rs
+        delta_rs[delta_k] = 0
+        for j in prange(sfs.size):
+            delta_rs[delta_k] += abs(sfs[j] - rfs[j])
+        delta_rs[delta_k] /= 2.0
 
 
 if __name__ == '__main__':
@@ -144,6 +160,9 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (args.rsu, args.l, )).fetchone()[0])
 
-    # Execute our sampling and record the results to the simulated database.
-    log_deltas(cur_ss, compare(args.r, two_nm, freq_r, population_from_count(count_s)), args.sei, args.rsu, args.l)
+    v_0 = population_from_count(count_s)  # Execute the sampling.
+    v_1, v_2, v_3, v_4 = prepare_compare_storage(freq_r, v_0, two_nm, args.r)
+    compare(v_1, v_2, v_3, v_4)
+
+    log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
     conn_ss.commit(), conn_ss.close()
