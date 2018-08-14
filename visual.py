@@ -21,7 +21,7 @@ def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
     """).fetchone()[0])
 
     for j, dimension in enumerate(['BIG_N', 'MU', 'S', 'KAPPA', 'OMEGA', 'U', 'V', 'M', 'P']):
-        plt.subplot(2, 5, j + 1)
+        plt.subplot(3, 3, j + 1)
 
         # Grab the mininum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cur_j.execute(f"""
@@ -45,7 +45,7 @@ def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
           LIMIT {cardinality - b}
         """).fetchall()], bins=bins)
 
-    plt.subplots_adjust(top=0.924, bottom=0.051, left=0.043, right=0.987, hspace=0.252, wspace=0.316)
+    plt.subplots_adjust(top=0.924, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
     plt.show()
 
 

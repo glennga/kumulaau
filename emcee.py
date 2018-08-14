@@ -91,7 +91,7 @@ def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, t
     from numpy.random import normal
     from numpy import average
     from single import Single
-    from compare import compare, prepare_compare_storage
+    from compare import compare, prepare_compare
 
     states = [[theta_init, 1, 0, 0]]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
@@ -109,8 +109,8 @@ def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, t
         z = Single(theta_proposed).evolve()
 
         summary_deltas = []  # Compute the delta term: the average probability using all available samples.
-        for a in zip(rfs_d, two_n):
-            scs, sfs, rfs, delta_rs = prepare_compare_storage(a[0], z, a[1], r)
+        for d in zip(rfs_d, two_n):
+            scs, sfs, rfs, delta_rs = prepare_compare(d[0], z, d[1], r)
             compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
             summary_deltas = summary_deltas + [1 - average(delta_rs)]
         summary_delta = average(summary_deltas)

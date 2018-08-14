@@ -60,8 +60,9 @@ def population_from_count(ruc: Iterable) -> ndarray:
     return ru
 
 
-def prepare_compare_storage(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
-    """ TODO: Finish these docs.
+def prepare_compare(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
+    """ Generate the storage vectors for the sample simulations (both individual and frequency), the storage vector
+    for the generated deltas, and sparse frequency vector for the real sample.
 
     :param rfs_d: Dirty real frequency sample. Needs to be transformed into a sparse frequency vector.
     :param srue: Simulated population of repeat units (one dimensional list).
@@ -161,7 +162,7 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     v_0 = population_from_count(count_s)  # Execute the sampling.
-    v_1, v_2, v_3, v_4 = prepare_compare_storage(freq_r, v_0, two_nm, args.r)
+    v_1, v_2, v_3, v_4 = prepare_compare(freq_r, v_0, two_nm, args.r)
     compare(v_1, v_2, v_3, v_4)
 
     log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
