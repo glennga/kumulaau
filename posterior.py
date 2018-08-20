@@ -236,4 +236,4 @@ if __name__ == '__main__':
         log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.r, two_nm, args.epsilon, theta_0_m, theta_s_m))
     elif args.type == 'MH':
         log_states(cur_e, args.rsu, args.l, mh(args.it, freq_r, args.r, two_nm, theta_0_m, theta_s_m))
-    conn_e.commit()
+    conn_e.commit(), conn_r.close(), conn_e.close()

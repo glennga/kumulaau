@@ -37,7 +37,7 @@ def create_table(cur_j: Cursor) -> None:
 
 
 def log_eff(cur_j: Cursor, z_j: Single) -> None:
-    """ Record our effective population to the database.
+    """ Record our effective population (only last N individuals in population chain) to the database.
 
     :param cur_j: Cursor to the database file to log to.
     :param z_j: Population object holding our ancestor list.
@@ -54,11 +54,10 @@ def log_eff(cur_j: Cursor, z_j: Single) -> None:
 
     # Group the allele variations together by microsatellite repeat length, and compute the count and frequency of each.
     ell_counter = Counter(z_j.ell_evolved)
-    for i in set(ell_counter):
-        cur_j.execute("""
-            INSERT INTO EFF_ELL
-            VALUES (?, ?, ?, ?);
-        """, (eff_id, int(i), ell_counter[i], ell_counter[i] / len(z_j.ell_evolved)))
+    cur_j.executemany("""
+        INSERT INTO EFF_ELL
+        VALUES (?, ?, ?, ?);
+    """, ((eff_id, int(i), ell_counter[i], ell_counter[i] / len(z_j.ell_evolved)) for i in set(ell_counter)))
 
     # Record the parameters associated with the effective population, and some basic stats (average, std, n_mu).
     cur_j.execute(f"""
@@ -109,4 +108,4 @@ if __name__ == '__main__':
             # Record this to our database.
             log_eff(cur, z)
 
-    conn.commit()  # Record our runs and exit.
+    conn.commit(), conn.close()  # Record our runs and exit.

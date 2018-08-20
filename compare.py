@@ -37,15 +37,12 @@ def log_deltas(cur_j: Cursor, deltas: ndarray, sei: str, rsu: str, l: str) -> No
     from string import ascii_uppercase, digits
     from datetime import datetime
 
-    for delta in deltas:
-        # Generate our unique sampling ID, a 20 character string.
-        ssi = ''.join(choice(ascii_uppercase + digits) for _ in range(20))
-
-        # Record our results.
-        cur_j.execute("""
-            INSERT INTO DELTA_POP
-            VALUES (?, ?, ?, ?, ?, ?);
-        """, (datetime.now(), ssi, sei, rsu, l, delta))
+    # Record our results.
+    cur_j.executemany("""
+        INSERT INTO DELTA_POP
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, ((datetime.now(), ''.join(choice(ascii_uppercase + digits) for _ in range(20)), sei, rsu, l, a)
+          for a in deltas))
 
 
 def population_from_count(ruc: Iterable) -> ndarray:
@@ -166,4 +163,4 @@ if __name__ == '__main__':
     compare(v_1, v_2, v_3, v_4)
 
     log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
-    conn_ss.commit(), conn_ss.close()
+    conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
