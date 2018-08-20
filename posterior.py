@@ -2,7 +2,7 @@
 from single import ModelParameters
 from numpy import ndarray
 from sqlite3 import Cursor
-from typing import List
+from typing import List, Callable
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -45,13 +45,11 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
     # Generate our real sample log strings.
     rsu_log, l_log = list(map(lambda a: '-'.join(b for b in a), [rsu, l]))
 
-    for state in chain:
-        cur_j.execute(f"""
+    cur_j.executemany(f"""
             INSERT INTO WAIT_POP
             VALUES ({','.join('?' for _ in range(15))});
-        """, (datetime.now(), rsu_log, l_log, state[0].big_n, state[0].mu,
-              state[0].s, state[0].kappa, state[0].omega, state[0].u, state[0].v, state[0].m, state[0].p,
-              state[1], state[2], state[3]))
+        """, ((datetime.now(), rsu_log, l_log, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega,
+               a[0].u, a[0].v, a[0].m, a[0].p, a[1], a[2], a[3]) for a in chain))
 
 
 def choose_i_0(rfs: List) -> ndarray:
@@ -67,24 +65,20 @@ def choose_i_0(rfs: List) -> ndarray:
     return array([int(choice(choice(rfs))[0])])
 
 
-def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
-               theta_sigma: ModelParameters) -> List:
-    """ My interpretation of an MCMC approach with ABC. We start with some initial guess and compute the
-    acceptance probability of these current parameters. We generate another proposal by walking randomly in our
-    parameter space to another parameter set, and determine the data difference (delta) here. If this is greater than
-    some defined epsilon, we accept this new parameter set. If we deny our proposal, we increment our waiting time
-    and try again. Sources:
-
-    https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
-    https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
+def mcmc(it: int, rfs_d: List, r: int, two_n: List[int], theta_init: ModelParameters, theta_sigma: ModelParameters,
+         acceptance_f: Callable) -> List:
+    """ An MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
+    chain is determined by some lambda. We start with some initial guess and simulate an entire population. We then
+    compute the average distance between a set of simulated and real samples (delta). This is meant to be wrapped within
+    another function to determine how the chain should be shaped.
 
     :param it: Number of iterations to run MCMC for.
     :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
     :param r: Number of simulated samples to use to obtain delta.
     :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
-    :param epsilon: Minimum acceptance value for delta.
     :param theta_init: Our initial guess for parameters.
     :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :param acceptance_f: Some lambda that accepts the delta and the previous delta, and returns true/false.
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
@@ -93,7 +87,7 @@ def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, t
     from single import Single
     from compare import compare, prepare_compare
 
-    states = [[theta_init, 1, 0, 0]]  # Seed our chain with our initial guess.
+    states = [[theta_init, 1, 0.0000000001, 0]]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
 
     for j in range(1, it):
@@ -115,8 +109,9 @@ def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, t
             summary_deltas = summary_deltas + [1 - average(delta_rs)]
         summary_delta = average(summary_deltas)
 
-        # Accept our proposal if the current delta is above some defined epsilon (ABC).
-        if summary_delta > epsilon:  # TODO: Record the generated population as well??
+        # TODO: Record the generated population as well??  - Do we need coalescence tree??
+        # Accept our proposal according to the given function.
+        if acceptance_f(summary_delta, states[-1][2]):
             states = states + [[theta_proposed, 1, summary_delta, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
@@ -126,18 +121,66 @@ def metro_hast(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, t
     return states[1:]
 
 
+def abc(it: int, rfs_d: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
+        theta_sigma: ModelParameters) -> List:
+    """ My interpretation of an MCMC-ABC rejection sampling approach to approximate the posterior distribution of the
+    mutation model. We start with some initial guess and simulate an entire population. We then compute the
+    average distance between a set of simulated and real samples (delta). If this term is above some defined epsilon,
+    we append this to our chain. Otherwise, we reject it and increase the waiting time of our current parameter state
+    by one. Source:
+
+    https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
+
+    :param it: Number of iterations to run MCMC for.
+    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
+    :param r: Number of simulated samples to use to obtain delta.
+    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
+    :param epsilon: Minimum acceptance value for delta.
+    :param theta_init: Our initial guess for parameters.
+    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
+             acceptance probabilities.
+    """
+    return mcmc(it, rfs_d, r, two_n, theta_init, theta_sigma, lambda a, b: a > epsilon)
+
+
+def mh(it: int, rfs_d: List, r: int, two_n: List[int], theta_init: ModelParameters,
+       theta_sigma: ModelParameters) -> List:
+    """ My interpretation of an MCMC approach using metropolis hastings sampling to approximate the posterior
+    distribution of the mutation model. We start with some initial guess and simulate an entire population. We then
+    compute the acceptance probability (alpha) based on the proposed and the past states, and accept if some uniform
+    random variable is less than alpha. Otherwise, we reject it and increase the waiting of our current parameter state
+    (not proposed) by one. Source:
+
+    https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
+
+    :param it: Number of iterations to run MCMC for.
+    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
+    :param r: Number of simulated samples to use to obtain delta.
+    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
+    :param theta_init: Our initial guess for parameters.
+    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
+    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
+             acceptance probabilities.
+    """
+    from numpy.random import uniform
+
+    return mcmc(it, rfs_d, r, two_n, theta_init, theta_sigma, lambda a, b: a / b > uniform(0, 1))
+
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
     from numpy import array
 
-    parser = ArgumentParser(description='MCMC with ABC for microsatellite mutation parameter estimation.')
+    parser = ArgumentParser(description='MCMC for microsatellite mutation parameter estimation.')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
-    parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/emcee.db')
+    parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/posterior.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-rsu', help='IDs of real samples to compare to.', type=str, nargs='+')
     parser.add_argument('-l', help='Loci of real samples to compare to (must match with rsu).', type=str, nargs='+')
+    parser.add_argument('-type', help='Type of MCMC to run.', type=str, choices=['ABC', 'MH'])
     paa('-r', 'Number of simulated samples to use to obtain delta.', int)
     paa('-epsilon', 'Minimum acceptance value for delta.', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
@@ -152,7 +195,6 @@ if __name__ == '__main__':
     paa('-m', 'Starting success probability for truncated geometric distribution.', float)
     paa('-p', 'Starting probability that the repeat length change is +/- 1.', float)
 
-    paa('-i_0_sigma', 'Step size of i_0 when changing parameters.', float)
     paa('-big_n_sigma', 'Step size of big_n when changing parameters.', float)
     paa('-mu_sigma', 'Step size of mu when changing parameters.', float)
     paa('-s_sigma', 'Step size of s when changing parameters.', float)
@@ -184,14 +226,14 @@ if __name__ == '__main__':
     """, (a, b,)).fetchone()[0]), args.rsu, args.l))
 
     # Perform the MCMC, and record our chain.
-    log_states(cur_e, args.rsu, args.l, metro_hast(args.it, freq_r, args.r, two_nm, args.epsilon,
-                                                   ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n,
-                                                                   mu=args.mu, s=args.s, kappa=args.kappa,
-                                                                   omega=args.omega, u=args.u, v=args.v, m=args.m,
-                                                                   p=args.p),
-                                                   ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma,
-                                                                   mu=args.mu_sigma, s=args.s_sigma,
-                                                                   kappa=args.kappa_sigma, omega=args.omega_sigma,
-                                                                   u=args.u_sigma, v=args.v_sigma, m=args.m_sigma,
-                                                                   p=args.p_sigma)))
+    theta_0_m = ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
+                                omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
+    theta_s_m = ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma, mu=args.mu_sigma, s=args.s_sigma,
+                                kappa=args.kappa_sigma, omega=args.omega_sigma, u=args.u_sigma, v=args.v_sigma,
+                                m=args.m_sigma, p=args.p_sigma)
+
+    if args.type == 'ABC':
+        log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.r, two_nm, args.epsilon, theta_0_m, theta_s_m))
+    elif args.type == 'MH':
+        log_states(cur_e, args.rsu, args.l, mh(args.it, freq_r, args.r, two_nm, theta_0_m, theta_s_m))
     conn_e.commit()
