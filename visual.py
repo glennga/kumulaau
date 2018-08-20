@@ -2,28 +2,37 @@ from sqlite3 import Cursor
 from typing import Dict
 
 
-def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
+def set_style() -> None:
+    """ Change the default matplotlib settings.
+
+    :return: None.
+    """
+    from matplotlib import pyplot as plt
+    from matplotlib import rc
+
+    plt.style.use('bmh')  # Change that ugly default matplotlib look.
+    rc('text', usetex=True), plt.rc('font', family='serif')  # Use TeX.
+
+
+def emcee(cur_j: Cursor, hs: Dict[str, float]) -> None:
     """ Display the results of the MCMC script: a histogram of each parameter.
 
     :param cur_j: Cursor to the MCMC database to pull the data from.
-    :param b: Burn in period. Number of trials to remove before displaying results.
     :param hs: Histogram step sizes for MU, S, U, V, M, and P dimensions.
     :return: None.
     """
     from matplotlib import pyplot as plt
-    from numpy import arange
-    plt.suptitle('Posterior Distribution Samples (MCMC)')
+    from scipy.stats import beta
+    from numpy import arange, linspace
+    from itertools import chain
 
-    # Determine how many rows exist, required to remove burn in period.
-    cardinality = int(cur_j.execute("""
-      SELECT MAX(ROWID)
-      FROM WAIT_POP
-    """).fetchone()[0])
+    set_style(), plt.suptitle(r'Posterior Distribution Samples (MCMC)')
 
+    dimension_labels = [r'$N$', r'$\mu$', r'$s$', r'$K$', r'$\Omega$', r'$u$', r'$v$', r'$m$', r'$p$']
     for j, dimension in enumerate(['BIG_N', 'MU', 'S', 'KAPPA', 'OMEGA', 'U', 'V', 'M', 'P']):
         plt.subplot(3, 3, j + 1)
 
-        # Grab the mininum and maximum values for the current dimension.
+        # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cur_j.execute(f"""
           SELECT MIN(CAST({dimension} AS FLOAT)), MAX(CAST({dimension} AS FLOAT))
           FROM WAIT_POP
@@ -36,14 +45,19 @@ def emcee(cur_j: Cursor, b: int, hs: Dict[str, float]) -> None:
         else:
             bins = 'auto'
 
-        # Plot the histogram.
-        plt.gca().set_title(dimension)
-        plt.hist([float(x[0]) for x in cur_j.execute(f"""
-          SELECT CAST({dimension} AS FLOAT) -- Casting required for I_0. --
+        # Obtain the data to plot. Waiting times indicate the number of repeats to apply to this state.
+        axis_wait = cur_j.execute(f"""
+          SELECT CAST({dimension} AS FLOAT), WAITING
           FROM WAIT_POP
-          ORDER BY ROWID DESC
-          LIMIT {cardinality - b}
-        """).fetchall()], bins=bins)
+        """).fetchall()
+        axis = list(chain.from_iterable([[float(a[0]) for _ in range(int(a[1]))] for a in axis_wait]))
+
+        # Plot the histogram, and find the best fit line (assuming beta distribution).
+        plt.gca().set_title(dimension_labels[j]), plt.hist(axis, bins=bins, density=True, histtype='stepfilled')
+        if axis.count(axis[0]) != len(axis):  # Do not plot for constant dimensions.
+            spc, c_ylim = linspace(min(plt.xticks()[0]), max(plt.xticks()[0]), len(axis)), plt.ylim()
+            ab, bb, cb, db = beta.fit(axis)
+            plt.plot(spc, beta.pdf(spc, ab, bb, cb, db)), plt.ylim(c_ylim)  # Retain past y-limits, focus is histogram.
 
     plt.subplots_adjust(top=0.924, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
     plt.show()
@@ -58,8 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', help='Data to display.', type=str, choices=['emcee'])
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
-    paa('-b', '(emcee) Burn in period. Number of trials to remove before displaying results.', int)
-    parser.add_argument('-hs', help='(emcee) Histogram step sizes in order: MU, S, U, V, M, P', nargs=6, type=float)
+    parser.add_argument('-hs', help='(posterior) Histogram step sizes in order: MU, S, U, V, M, P', nargs=6, type=float)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to the appropriate database.
@@ -67,5 +80,5 @@ if __name__ == '__main__':
     cur = conn.cursor()
 
     # Perform the appropriate function.
-    if args.f == 'emcee':
-        emcee(cur, args.b, dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
+    if args.f == 'posterior':
+        emcee(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
