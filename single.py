@@ -230,6 +230,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(description='Simulate the evolution of single population top-down (ancestor first).')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
+    paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
 
     parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
     paa('-big_n', 'Effective population size.', int)
@@ -249,4 +250,5 @@ if __name__ == '__main__':
     pop.evolve()
 
     # Display a histogram.
-    plt.hist(pop.ell_evolved, bins=range(args.kappa, args.omega)), plt.show()
+    plt.hist(pop.ell_evolved, bins=range(args.kappa, args.omega))
+    plt.savefig(args.image) if args.image is not None else plt.show()

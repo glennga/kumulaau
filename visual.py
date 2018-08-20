@@ -60,18 +60,19 @@ def emcee(cur_j: Cursor, hs: Dict[str, float]) -> None:
             plt.plot(spc, beta.pdf(spc, ab, bb, cb, db)), plt.ylim(c_ylim)  # Retain past y-limits, focus is histogram.
 
     plt.subplots_adjust(top=0.924, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
-    plt.show()
 
 
 if __name__ == '__main__':
+    from matplotlib import pyplot as plt
     from argparse import ArgumentParser
     from sqlite3 import connect
 
     parser = ArgumentParser(description='Display the results of various scripts (emcee, ...).')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
-    parser.add_argument('-f', help='Data to display.', type=str, choices=['emcee'])
+    parser.add_argument('-f', help='Data to display.', type=str, choices=['posterior'])
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
+    paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
     parser.add_argument('-hs', help='(posterior) Histogram step sizes in order: MU, S, U, V, M, P', nargs=6, type=float)
     args = parser.parse_args()  # Parse our arguments.
 
@@ -82,3 +83,6 @@ if __name__ == '__main__':
     # Perform the appropriate function.
     if args.f == 'posterior':
         emcee(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
+        
+    # Save or display, your choice!
+    plt.savefig(args.image) if args.image is not None else plt.show()
