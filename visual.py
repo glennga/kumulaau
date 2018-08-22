@@ -14,7 +14,7 @@ def set_style() -> None:
     rc('text', usetex=True), plt.rc('font', family='serif')  # Use TeX.
 
 
-def emcee(cur_j: Cursor, hs: Dict[str, float]) -> None:
+def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
     """ Display the results of the MCMC script: a histogram of each parameter.
 
     :param cur_j: Cursor to the MCMC database to pull the data from.
@@ -63,11 +63,11 @@ def emcee(cur_j: Cursor, hs: Dict[str, float]) -> None:
 
 
 if __name__ == '__main__':
-    from matplotlib import pyplot as plt
     from argparse import ArgumentParser
     from sqlite3 import connect
+    from matplotlib import use
 
-    parser = ArgumentParser(description='Display the results of various scripts (emcee, ...).')
+    parser = ArgumentParser(description='Display the results of various scripts (posterior, ...).')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
     parser.add_argument('-f', help='Data to display.', type=str, choices=['posterior'])
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
@@ -80,9 +80,13 @@ if __name__ == '__main__':
     conn = connect(args.db)
     cur = conn.cursor()
 
+    # Determine if we need to use X-server (plotting to display).
+    use('Agg') if args.image is not None else None
+    from matplotlib import pyplot as plt
+
     # Perform the appropriate function.
     if args.f == 'posterior':
-        emcee(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
-        
+        posterior(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
+
     # Save or display, your choice!
     plt.savefig(args.image) if args.image is not None else plt.show()
