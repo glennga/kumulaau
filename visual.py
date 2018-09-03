@@ -7,11 +7,12 @@ def set_style() -> None:
 
     :return: None.
     """
-    from matplotlib import pyplot as plt
     from matplotlib import rc
 
     plt.style.use('bmh')  # Change that ugly default matplotlib look.
     rc('text', usetex=True), plt.rc('font', family='serif')  # Use TeX.
+
+    plt.figure(figsize=(13, 7), dpi=100)
 
 
 def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
@@ -21,7 +22,6 @@ def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
     :param hs: Histogram step sizes for MU, S, U, V, M, and P dimensions.
     :return: None.
     """
-    from matplotlib import pyplot as plt
     from scipy.stats import beta
     from numpy import arange, linspace
     from itertools import chain
@@ -89,4 +89,4 @@ if __name__ == '__main__':
         posterior(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
 
     # Save or display, your choice!
-    plt.savefig(args.image) if args.image is not None else plt.show()
+    plt.savefig(args.image, dpi=100) if args.image is not None else plt.show()
