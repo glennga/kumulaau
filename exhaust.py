@@ -36,12 +36,12 @@ def create_table(cur_j: Cursor) -> None:
     );""")
 
 
-def log_eff(cur_j: Cursor, z_j: Single) -> None:
+def log_eff(cur_j: Cursor, z_j: Single) -> str:
     """ Record our effective population (only last N individuals in population chain) to the database.
 
     :param cur_j: Cursor to the database file to log to.
     :param z_j: Population object holding our ancestor list.
-    :return: None.
+    :return: The simulation ID attached to the saved effective population.
     """
     from string import ascii_uppercase, digits
     from numpy import average, std
@@ -65,6 +65,27 @@ def log_eff(cur_j: Cursor, z_j: Single) -> None:
         VALUES ({','.join('?' for _ in range(14))});
     """, (eff_id, datetime.now(), '-'.join(str(aa) for aa in z_j.i_0), z_j.big_n, z_j.mu, z_j.s, z_j.kappa, z_j.omega,
           z_j.u, z_j.v, z_j.m, z_j.p, average(z_j.ell_evolved), std(z_j.ell_evolved)))
+
+    return eff_id
+
+
+def log_coalescence(f_j: str, z_j: Single) -> str:
+    """ Record the coalescence tree stored in the population object 'z_j'. This is stored as a binary file (.NPY), and
+    is meant to be read back into Python for later processing.
+
+    :param f_j: Location of the folder to save our file to.
+    :param z_j: Population object holding our coalescence tree.
+    :return: The simulation ID attached to the saved coalescence tree.
+    """
+    from string import ascii_uppercase, digits
+    from random import choice
+    from numpy import save
+
+    # Generate our unique simulation ID, a 20 character string. Save our tree.
+    eff_id = ''.join(choice(ascii_uppercase + digits) for _ in range(20))
+    save(f_j + '/' + eff_id + '.npy', z_j.ell)
+
+    return eff_id
 
 
 if __name__ == '__main__':
