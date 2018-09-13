@@ -5,16 +5,17 @@ for run in 1 2 3; do
 
     # Our criteria for the loci and sample IDs to use for this run of MCMC.
     sample_uids=(); loci=()
-    for r in $(sqlite3 data/real.db "SELECT DISTINCT SAMPLE_UID, LOCUS FROM REAL_ELL WHERE LOCUS LIKE 'D20S481'"); do
+    for r in $(sqlite3 data/real.db "SELECT DISTINCT SAMPLE_UID, LOCUS FROM REAL_ELL"); do
         IFS='|' read -r -a array <<< "$r"
         sample_uids+="${array[0]} "; loci+="${array[1]} "
     done
 
-    # Run the MCMC.
+    # Run the MCMC. We are now only focusing on PL1 model from Sainudiin paper.
     python3 emcee.py \
         -edb "data/posterior-${run}.db" \
-        -type "mh" \
-        -r 200 \
+        -type "abc" \
+        -rs 200 \
+        -rp 10 \
         -epsilon 0.70 \
         -it 1000000 \
         -rsu ${sample_uids} \
@@ -26,16 +27,8 @@ for run in 1 2 3; do
         -omega 100 -omega_sigma 0.0 \
         -u 0.90 -u_sigma 0.001 \
         -v 0.03 -v_sigma 0.001 \
-        -m 0.9 -m_sigma 0.001 \
-        -p 0.001 -p_sigma 0.0005
-
-    ## Delete the burn-in period. Deleting first 5000 entries.
-    #sqlite3 data/${array[0]}-${array[1]}-emcee.db "DELETE FROM WAIT_POP WHERE ROWID IN (
-    #        SELECT ROWID FROM WAIT_POP
-    #        WHERE REAL_SAMPLE_UID LIKE '${array[0]}' AND REAL_LOCUS LIKE '${array[1]}'
-    #        ORDER BY ROWID ASC
-    #        LIMIT 5000
-    #    );"
+        -m 1 -m_sigma 0.0 \
+        -p 0.0 -p_sigma 0.0
 
 done
 echo "MCMC is finished!"

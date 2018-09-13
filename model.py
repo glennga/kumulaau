@@ -16,7 +16,6 @@ def create_table(cur_j: Cursor) -> None:
             TIME_R TIMESTAMP,
             REAL_SAMPLE_UIDS TEXT,
             REAL_LOCI TEXT,
-            EFF_ID TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -49,7 +48,7 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
     cur_j.executemany(f"""
             INSERT INTO WAIT_POP
             VALUES ({','.join('?' for _ in range(16))});
-        """, ((datetime.now(), rsu_log, l_log, a[4], a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega,
+        """, ((datetime.now(), rsu_log, l_log, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega,
                a[0].u, a[0].v, a[0].m, a[0].p, a[1], a[2], a[3]) for a in chain))
 
 
@@ -66,17 +65,17 @@ def choose_i_0(rfs: List) -> ndarray:
     return array([int(choice(choice(rfs))[0])])
 
 
-def mcmc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: ModelParameters,
+def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: ModelParameters,
          theta_sigma: ModelParameters, acceptance_f: Callable) -> List:
-    """ An MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
+    """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by some lambda. We start with some initial guess and simulate an entire population. We then
     compute the average distance between a set of simulated and real samples (delta). This is meant to be wrapped within
     another function to determine how the chain should be shaped.
 
     :param it: Number of iterations to run MCMC for.
-    :param fc: Location of the folder to store all of our coalescence chains to.
     :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param r: Number of simulated samples to use to obtain delta.
+    :param rs: Number of samples per simulation to use to obtain delta.
+    :param rp: Number of simulations to use to obtain delta.
     :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
     :param theta_init: Our initial guess for parameters.
     :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
@@ -88,7 +87,6 @@ def mcmc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: Mo
     from numpy import average
     from single import Single
     from compare import compare, prepare_compare
-    from exhaust import log_coalescence
 
     states = [[theta_init, 1, 0.0000000001, 0, '']]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
@@ -102,19 +100,21 @@ def mcmc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: Mo
                                          u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
                                          m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
-        z_s = Single(theta_proposed)  # Generate some population given the current parameter set, and record this.
-        z = Single(theta_proposed).evolve()
+        summary_simulated_delta = []
+        for zp in range(rp):
+            z = Single(theta_proposed).evolve()  # Generate some population given the current parameter set.
 
-        summary_deltas = []  # Compute the delta term: the average probability using all available samples.
-        for d in zip(rfs_d, two_n):
-            scs, sfs, rfs, delta_rs = prepare_compare(d[0], z, d[1], r)
-            compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
-            summary_deltas = summary_deltas + [1 - average(delta_rs)]
-        summary_delta = average(summary_deltas)
+            summary_deltas = []  # Compute the delta term: the average probability using all available samples.
+            for d in zip(rfs_d, two_n):
+                scs, sfs, rfs, delta_rs = prepare_compare(d[0], z, d[1], rs)
+                compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
+                summary_deltas = summary_deltas + [1 - average(delta_rs)]
+            summary_simulated_delta[zp] = average(summary_deltas)
+        summary_simulated_delta = average(summary_simulated_delta)
 
         # Accept our proposal according to the given function.
-        if acceptance_f(summary_delta, states[-1][2]):
-            states = states + [[theta_proposed, 1, summary_delta, j, log_coalescence(fc, z_s)]]
+        if acceptance_f(summary_simulated_delta, states[-1][2]):
+            states = states + [[theta_proposed, 1, summary_simulated_delta, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
@@ -123,7 +123,7 @@ def mcmc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: Mo
     return states[1:]
 
 
-def abc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
+def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
         theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC-ABC rejection sampling approach to approximate the posterior distribution of the
     mutation model. We start with some initial guess and simulate an entire population. We then compute the
@@ -134,9 +134,9 @@ def abc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], epsilon: float,
     https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
 
     :param it: Number of iterations to run MCMC for.
-    :param fc: Location of the folder to store all of our coalescence chains to.
     :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param r: Number of simulated samples to use to obtain delta.
+    :param rs: Number of samples per simulation to use to obtain delta.
+    :param rp: Number of simulations to use to obtain delta.
     :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
     :param epsilon: Minimum acceptance value for delta.
     :param theta_init: Our initial guess for parameters.
@@ -144,10 +144,10 @@ def abc(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], epsilon: float,
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
-    return mcmc(it, fc, rfs_d, r, two_n, theta_init, theta_sigma, lambda a, b: a > epsilon)
+    return mcmc(it, rfs_d, rs, rp, two_n, theta_init, theta_sigma, lambda a, b: a > epsilon)
 
 
-def mh(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: ModelParameters,
+def mh(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: ModelParameters,
        theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC approach using metropolis hastings sampling to approximate the posterior
     distribution of the mutation model. We start with some initial guess and simulate an entire population. We then
@@ -158,9 +158,9 @@ def mh(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: Mode
     https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
 
     :param it: Number of iterations to run MCMC for.
-    :param fc: Location of the folder to store all of our coalescence chains to.
     :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param r: Number of simulated samples to use to obtain delta.
+    :param rs: Number of samples per simulation to use to obtain delta.
+    :param rp: Number of simulations to use to obtain delta.
     :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
     :param theta_init: Our initial guess for parameters.
     :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
@@ -169,7 +169,7 @@ def mh(it: int, fc: str, rfs_d: List, r: int, two_n: List[int], theta_init: Mode
     """
     from numpy.random import uniform
 
-    return mcmc(it, fc, rfs_d, r, two_n, theta_init, theta_sigma, lambda a, b: min(1, a / b) > uniform(0, 1))
+    return mcmc(it, rfs_d, rs, rp, two_n, theta_init, theta_sigma, lambda a, b: min(1, a / b) > uniform(0, 1))
 
 
 if __name__ == '__main__':
@@ -180,13 +180,13 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='MCMC for microsatellite mutation parameter estimation.')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
     parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/posterior.db')
-    parser.add_argument('-fc', help='Location of the folder to record populations to.', type=str, default='data')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-rsu', help='IDs of real samples to compare to.', type=str, nargs='+')
     parser.add_argument('-l', help='Loci of real samples to compare to (must match with rsu).', type=str, nargs='+')
     parser.add_argument('-type', help='Type of MCMC to run.', type=str, choices=['ABC', 'MH'])
-    paa('-r', 'Number of simulated samples to use to obtain delta.', int)
+    paa('-rp', 'Number of simulations to use to obtain delta.', int)
+    paa('-rs', 'Number of samples per simulation to use to obtain delta.', int)
     paa('-epsilon', 'Minimum acceptance value for delta.', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
 
@@ -238,8 +238,8 @@ if __name__ == '__main__':
                                 m=args.m_sigma, p=args.p_sigma)
 
     if args.type.casefold() == 'ABC'.casefold():
-        log_states(cur_e, args.rsu, args.l, abc(args.it, args.fc, freq_r, args.r, two_nm, args.epsilon, theta_0_m,
-                                                theta_s_m))
+        log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.rs, args.rp, two_nm, args.epsilon,
+                                                theta_0_m, theta_s_m))
     elif args.type.casefold() == 'MH'.casefold():
-        log_states(cur_e, args.rsu, args.l, mh(args.it, args.fc, freq_r, args.r, two_nm, theta_0_m, theta_s_m))
+        log_states(cur_e, args.rsu, args.l, mh(args.it, freq_r, args.rs, args.rp, two_nm, theta_0_m, theta_s_m))
     conn_e.commit(), conn_r.close(), conn_e.close()
