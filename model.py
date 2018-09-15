@@ -21,8 +21,6 @@ def create_table(cur_j: Cursor) -> None:
     cur_j.execute("""
         CREATE TABLE IF NOT EXISTS WAIT_MODEL (
             TIME_R TIMESTAMP,
-            REAL_SAMPLE_UIDS TEXT,
-            REAL_LOCI TEXT,
             BIG_N INT,
             MU FLOAT,
             S FLOAT,
@@ -52,7 +50,7 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
 
     # Record our real sample log strings and datetime.
     cur_j.execute("""
-        INSERT INTO WAIT_REAL 
+        INSERT INTO WAIT_REAL
         VALUES (?, ?, ?);
     """, (d_t, '-'.join(b for b in rsu), '-'.join(b for b in l)))
 
