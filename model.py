@@ -6,13 +6,20 @@ from typing import List, Callable
 
 
 def create_table(cur_j: Cursor) -> None:
-    """ Create the table to log the results of our comparisons to.
+    """ Create the tables to log the results of our MCMC to.
 
     :param cur_j: Cursor to the database file to log to.
     :return: None.
     """
     cur_j.execute("""
-        CREATE TABLE IF NOT EXISTS WAIT_POP (
+        CREATE TABLE IF NOT EXISTS WAIT_REAL (
+            TIME_R TIMESTAMP,
+            REAL_SAMPLE_UIDS TEXT,
+            REAL_LOCI TEXT
+        );""")
+
+    cur_j.execute("""
+        CREATE TABLE IF NOT EXISTS WAIT_MODEL (
             TIME_R TIMESTAMP,
             REAL_SAMPLE_UIDS TEXT,
             REAL_LOCI TEXT,
@@ -41,15 +48,19 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
     :return: None.
     """
     from datetime import datetime
+    d_t = datetime.now()
 
-    # Generate our real sample log strings.
-    rsu_log, l_log = list(map(lambda a: '-'.join(b for b in a), [rsu, l]))
+    # Record our real sample log strings and datetime.
+    cur_j.execute("""
+        INSERT INTO WAIT_REAL 
+        VALUES (?, ?, ?);
+    """, (d_t, '-'.join(b for b in rsu), '-'.join(b for b in l)))
 
     cur_j.executemany(f"""
-            INSERT INTO WAIT_POP
-            VALUES ({','.join('?' for _ in range(15))});
-        """, ((datetime.now(), rsu_log, l_log, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega,
-               a[0].u, a[0].v, a[0].m, a[0].p, a[1], a[2], a[3]) for a in chain))
+            INSERT INTO WAIT_MODEL
+            VALUES ({','.join('?' for _ in range(13))});
+        """, ((d_t, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega, a[0].u, a[0].v, a[0].m, a[0].p, a[1],
+               a[2], a[3]) for a in chain))
 
 
 def choose_i_0(rfs: List) -> ndarray:
