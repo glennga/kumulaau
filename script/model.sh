@@ -11,13 +11,13 @@ for run in 1 2 3; do
     done
 
     # Run the MCMC. We are now only focusing on PL1 model from Sainudiin paper.
-    python3 emcee.py \
-        -edb "data/posterior-${run}.db" \
-        -type "abc" \
+    python3 model.py \
+        -edb "data/posterior-${run}-abc.db" \
+        -type "ABC" \
         -rs 200 \
         -rp 10 \
-        -epsilon 0.70 \
-        -it 1000000 \
+        -epsilon 0.50 \
+        -it 100000 \
         -rsu ${sample_uids} \
         -l ${loci} \
         -big_n 1000 -big_n_sigma 0.0 \

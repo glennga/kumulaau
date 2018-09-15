@@ -47,7 +47,7 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
 
     cur_j.executemany(f"""
             INSERT INTO WAIT_POP
-            VALUES ({','.join('?' for _ in range(16))});
+            VALUES ({','.join('?' for _ in range(15))});
         """, ((datetime.now(), rsu_log, l_log, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega,
                a[0].u, a[0].v, a[0].m, a[0].p, a[1], a[2], a[3]) for a in chain))
 
@@ -109,7 +109,7 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
                 scs, sfs, rfs, delta_rs = prepare_compare(d[0], z, d[1], rs)
                 compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
                 summary_deltas = summary_deltas + [1 - average(delta_rs)]
-            summary_simulated_delta[zp] = average(summary_deltas)
+            summary_simulated_delta = summary_simulated_delta + [average(summary_deltas)]
         summary_simulated_delta = average(summary_simulated_delta)
 
         # Accept our proposal according to the given function.
