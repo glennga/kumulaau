@@ -12,7 +12,7 @@ for run in 1 2 3; do
 
     # Run the MCMC. We are now only focusing on PL1 model from Sainudiin paper.
     python3 model.py \
-        -edb "data/posterior-${run}-abc.db" \
+        -edb "data/model-${run}-abc.db" \
         -type "ABC" \
         -rs 200 \
         -rp 10 \
