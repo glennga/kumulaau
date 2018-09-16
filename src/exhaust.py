@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from single import Single, ModelParameters
+from src.single import Single, ModelParameters
 
 
 def create_table(cur_j: Cursor) -> None:

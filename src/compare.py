@@ -2,6 +2,7 @@
 from sqlite3 import Cursor
 from typing import Iterable, Tuple, List
 from numpy.random import choice
+from numpy.linalg import norm
 from numpy import ndarray
 from numba import jit, prange
 
@@ -57,7 +58,7 @@ def population_from_count(ruc: Iterable) -> ndarray:
     return ru
 
 
-def prepare_compare(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
+def prepare_delta(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
     """ Generate the storage vectors for the sample simulations (both individual and frequency), the storage vector
     for the generated deltas, and sparse frequency vector for the real sample.
 
@@ -85,7 +86,34 @@ def prepare_compare(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def compare(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
+def cosine_delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
+    """ TODO: Finish
+
+    :param scs:
+    :param sfs:
+    :param rfs:
+    :param srue:
+    :param delta_rs:
+    :return:
+    """
+    for delta_k in prange(delta_rs.size):
+        for k in prange(scs.size):  # Randomly sample n individuals from population.
+            scs[k] = choice(srue)
+
+        # Fit the simulated population into a sparse vector of frequencies.
+        for repeat_unit in prange(sfs.size):
+            i_count = 0
+            for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
+                i_count += 1 if i == repeat_unit else 0
+
+            sfs[repeat_unit] = i_count / scs.size
+
+        # Compute the cosine similarity (A dot B / |A||B|), and store this in our output vector.
+        delta_rs[delta_k] = sfs.dot(rfs) / (norm(sfs) * norm(rfs))
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def frequency_delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
     """ Given individuals from the effective simulated population and the frequencies of individuals from a real sample,
     sample the same amount from the simulated population 'r' times and determine the differences in distribution for
     each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out before use.
@@ -159,8 +187,8 @@ if __name__ == '__main__':
     """, (args.rsu, args.l, )).fetchone()[0])
 
     v_0 = population_from_count(count_s)  # Execute the sampling.
-    v_1, v_2, v_3, v_4 = prepare_compare(freq_r, v_0, two_nm, args.r)
-    compare(v_1, v_2, v_3, v_4)
+    v_1, v_2, v_3, v_4 = prepare_delta(freq_r, v_0, two_nm, args.r)
+    frequency_delta(v_1, v_2, v_3, v_4)
 
     log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
     conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
