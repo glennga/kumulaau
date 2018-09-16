@@ -85,7 +85,7 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
     # Perform the appropriate function.
-    if args.f == 'posterior':
+    if args.f == 'model':
         posterior(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
 
     # Save or display, your choice!

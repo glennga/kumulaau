@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-from single import ModelParameters
+from src.single import ModelParameters
 from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List, Callable
 
 
-def create_table(cur_j: Cursor) -> None:
+def create_tables(cur_j: Cursor) -> None:
     """ Create the tables to log the results of our MCMC to.
 
     :param cur_j: Cursor to the database file to log to.
@@ -14,8 +14,8 @@ def create_table(cur_j: Cursor) -> None:
     cur_j.execute("""
         CREATE TABLE IF NOT EXISTS WAIT_REAL (
             TIME_R TIMESTAMP,
-            REAL_SAMPLE_UIDS TEXT,
-            REAL_LOCI TEXT
+            REAL_SAMPLE_UID TEXT,
+            REAL_LOCUS TEXT
         );""")
 
     cur_j.execute("""
@@ -49,16 +49,15 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
     d_t = datetime.now()
 
     # Record our real sample log strings and datetime.
-    cur_j.execute("""
+    cur_j.executemany("""
         INSERT INTO WAIT_REAL
-        VALUES (?, ?, ?);
-    """, (d_t, '-'.join(b for b in rsu), '-'.join(b for b in l)))
+        VALUES (?, ?, ?)
+    """, ((d_t, a[0], a[1]) for a in zip(rsu, l)))
 
     cur_j.executemany(f"""
-            INSERT INTO WAIT_MODEL
-            VALUES ({','.join('?' for _ in range(13))});
-        """, ((d_t, a[0].big_n, a[0].mu, a[0].s, a[0].kappa, a[0].omega, a[0].u, a[0].v, a[0].m, a[0].p, a[1],
-               a[2], a[3]) for a in chain))
+        INSERT INTO WAIT_MODEL
+        VALUES ({','.join('?' for _ in range(13))});
+    """, ((d_t,) + tuple(a[0]) + (a[1], a[2], a[3]) for a in chain))
 
 
 def choose_i_0(rfs: List) -> ndarray:
@@ -94,8 +93,8 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     """
     from numpy.random import normal
     from numpy import average
-    from single import Single
-    from compare import compare, prepare_compare
+    from src.single import Single
+    from src.compare import frequency_delta, prepare_delta
 
     states = [[theta_init, 1, 0.0000000001, 0, '']]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
@@ -115,8 +114,8 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
 
             summary_deltas = []  # Compute the delta term: the average probability using all available samples.
             for d in zip(rfs_d, two_n):
-                scs, sfs, rfs, delta_rs = prepare_compare(d[0], z, d[1], rs)
-                compare(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
+                scs, sfs, rfs, delta_rs = prepare_delta(d[0], z, d[1], rs)
+                frequency_delta(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
                 summary_deltas = summary_deltas + [1 - average(delta_rs)]
             summary_simulated_delta = summary_simulated_delta + [average(summary_deltas)]
         summary_simulated_delta = average(summary_simulated_delta)
@@ -135,10 +134,13 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
 def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
         theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC-ABC rejection sampling approach to approximate the posterior distribution of the
-    mutation model. We start with some initial guess and simulate an entire population. We then compute the
-    average distance between a set of simulated and real samples (delta). If this term is above some defined epsilon,
-    we append this to our chain. Otherwise, we reject it and increase the waiting time of our current parameter state
-    by one. Source:
+    mutation model. The steps taken are as follows:
+
+    1) We start with some initial guess and simulate an entire population.
+    2) We then compute the average distance between a set of simulated and real samples (delta).
+        a) If this term is above some defined epsilon, we append this to our chain.
+        b) Otherwise, we reject it and increase the waiting time of our current parameter state by one.
+    3) Repeat for 'it' iterations.
 
     https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
 
@@ -159,10 +161,13 @@ def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float
 def mh(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: ModelParameters,
        theta_sigma: ModelParameters) -> List:
     """ My interpretation of an MCMC approach using metropolis hastings sampling to approximate the posterior
-    distribution of the mutation model. We start with some initial guess and simulate an entire population. We then
-    compute the acceptance probability (alpha) based on the proposed and the past states, and accept if some uniform
-    random variable is less than alpha. Otherwise, we reject it and increase the waiting of our current parameter state
-    (not proposed) by one. Source:
+    distribution of the mutation model. The steps taken are as follows:
+
+    1) We start with some initial guess and simulate an entire population.
+    2) We then compute the acceptance probability (alpha) based on the proposed and the past states.
+        a) Accept if some uniform random variable is less than alpha.
+        b) Otherwise, we reject it and increase the waiting of our current parameter state (not proposed) by one.
+    3) Repeat for 'it' iterations.
 
     https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
 
@@ -186,9 +191,9 @@ if __name__ == '__main__':
     from sqlite3 import connect
     from numpy import array
 
-    parser = ArgumentParser(description='MCMC for microsatellite mutation parameter estimation.')
+    parser = ArgumentParser(description='MCMC for the *microsatellite mutation model* parameter estimation.')
     parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
-    parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/posterior.db')
+    parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/model.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-rsu', help='IDs of real samples to compare to.', type=str, nargs='+')
@@ -196,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('-type', help='Type of MCMC to run.', type=str, choices=['ABC', 'MH'])
     paa('-rp', 'Number of simulations to use to obtain delta.', int)
     paa('-rs', 'Number of samples per simulation to use to obtain delta.', int)
-    paa('-epsilon', 'Minimum acceptance value for delta.', float)
+    paa('-epsilon', 'Minimum acceptance value for delta (ABC only).', float)
     paa('-it', 'Number of iterations to run MCMC for.', int)
 
     paa('-big_n', 'Starting effective population size.', int)
@@ -223,14 +228,14 @@ if __name__ == '__main__':
     # Connect to all of our databases.
     conn_r, conn_e = connect(args.rdb), connect(args.edb)
     cur_r, cur_e = conn_r.cursor(), conn_e.cursor()
-    create_table(cur_e)
+    create_tables(cur_e)
 
     freq_r = list(map(lambda a, b: cur_r.execute(""" -- Pull the frequency distributions from the real database. --
         SELECT ELL, ELL_FREQ
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-      """, (a, b,)).fetchall(), args.rsu, args.l))
+    """, (a, b,)).fetchall(), args.rsu, args.l))
 
     two_nm = list(map(lambda a, b: int(cur_r.execute(""" -- Retrieve the sample sizes, the number of alleles. --
         SELECT SAMPLE_SIZE
@@ -246,9 +251,10 @@ if __name__ == '__main__':
                                 kappa=args.kappa_sigma, omega=args.omega_sigma, u=args.u_sigma, v=args.v_sigma,
                                 m=args.m_sigma, p=args.p_sigma)
 
-    if args.type.casefold() == 'ABC'.casefold():
+    if args.type.casefold() == 'abc':
         log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.rs, args.rp, two_nm, args.epsilon,
                                                 theta_0_m, theta_s_m))
-    elif args.type.casefold() == 'MH'.casefold():
+    elif args.type.casefold() == 'mh':
         log_states(cur_e, args.rsu, args.l, mh(args.it, freq_r, args.rs, args.rp, two_nm, theta_0_m, theta_s_m))
+
     conn_e.commit(), conn_r.close(), conn_e.close()

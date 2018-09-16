@@ -2,6 +2,7 @@
 from numpy.random import uniform, choice
 from numpy import ndarray, array, log, power, floor
 from numba import jit, prange
+from typing import Dict
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -153,6 +154,24 @@ class ModelParameters(object):
         """
         self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
             = i_0, big_n, omega, kappa, s, mu, u, v, m, p
+
+        self.PARAMETER_COUNT = 10
+
+    def __iter__(self):
+        """ Return each our of parameters in the following order: i_0, big_n, mu, s, kappa, omega, u, v, m, p,
+
+        :return: Iterator for all of our parameters.
+        """
+        for parameter in [self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u,
+                          self.v, self.m, self.p]:
+            yield parameter
+
+    def __len__(self):
+        """ The number of parameters that exist here.
+
+        :return: The number of parameters we have.
+        """
+        return self.PARAMETER_COUNT
 
 
 class Single:
