@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from src.single import ModelParameters
+from single import ModelParameters
 from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List, Callable
@@ -93,8 +93,8 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     """
     from numpy.random import normal
     from numpy import average
-    from src.single import Single
-    from src.compare import frequency_delta, prepare_delta
+    from single import Single
+    from compare import frequency_delta, prepare_delta
 
     states = [[theta_init, 1, 0.0000000001, 0, '']]  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))

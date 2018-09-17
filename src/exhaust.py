@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from src.single import Single, ModelParameters
+from single import Single, ModelParameters
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     from sqlite3 import connect
     from numpy import array
 
-    parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')    
+    parser = ArgumentParser(description='Evolve allele populations with different parameter sets using a grid search.')
     parser.add_argument('-db', help='Location of the database file.', type=str, default='data/simulate.db')
     parser.add_argument('-r', help='Number of populations to generate given the same parameter.', type=int, default=1)
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3, nargs='+')
