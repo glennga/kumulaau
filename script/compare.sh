@@ -4,6 +4,7 @@
 compare(){
     python3 src/compare.py \
         -ssdb "data/$1-compare.db" \
+        -f "FREQ" \
         -r 30 \
         -sei "$1" \
         -rsu "SA000288S" \

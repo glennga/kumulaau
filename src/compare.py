@@ -155,6 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/sample.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
+    parser.add_argument('-f', help='Similarity index to use to compare.', type=str, choices=['COSINE', 'FREQ'])
     paa('-r', 'Number of times to sample the simulated population.', int)
     paa('-sei', 'ID of the simulated population to sample from.', str)
     paa('-rsu', 'ID of the real sample data set to compare to.', str)
@@ -188,7 +189,7 @@ if __name__ == '__main__':
 
     v_0 = population_from_count(count_s)  # Execute the sampling.
     v_1, v_2, v_3, v_4 = prepare_delta(freq_r, v_0, two_nm, args.r)
-    frequency_delta(v_1, v_2, v_3, v_4)
+    frequency_delta(v_1, v_2, v_3, v_4) if args.f.casefold() == 'freq' else cosine_delta(v_1, v_2, v_3, v_4)
 
     log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
     conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
