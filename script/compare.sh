@@ -2,7 +2,7 @@
 
 # Perform the sampling for each population found in our simulated database in parallel.
 compare(){
-    python3 compare.py \
+    python3 src/compare.py \
         -ssdb "data/$1-compare.db" \
         -r 30 \
         -sei "$1" \

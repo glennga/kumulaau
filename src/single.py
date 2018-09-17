@@ -2,7 +2,6 @@
 from numpy.random import uniform, choice
 from numpy import ndarray, array, log, power, floor
 from numba import jit, prange
-from typing import Dict
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)

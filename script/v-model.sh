@@ -2,7 +2,7 @@
 
 # Visualize all instances of our mutation model parameter estimation.
 for f in data/model-*.db; do
-    python3 visual.py \
+    python3 src/visual.py \
         -db "$f" \
         -f "model" \
         -image "${f%".db"}.png" \
