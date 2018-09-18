@@ -94,9 +94,9 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     from numpy.random import normal
     from numpy import average
     from single import Single
-    from compare import frequency_delta, prepare_delta
+    from compare import Cosine
 
-    states = [[theta_init, 1, 0.0000000001, 0, '']]  # Seed our chain with our initial guess.
+    states, d = [[theta_init, 1, 0.0000000001, 0, '']], None  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
 
     for j in range(1, it):
@@ -108,21 +108,19 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
                                          u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
                                          m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
-        summary_simulated_delta = []
         for zp in range(rp):
             z = Single(theta_proposed).evolve()  # Generate some population given the current parameter set.
+            d = Cosine(z, 0, rs)
 
-            summary_deltas = []  # Compute the delta term: the average probability using all available samples.
-            for d in zip(rfs_d, two_n):
-                scs, sfs, rfs, delta_rs = prepare_delta(d[0], z, d[1], rs)
-                frequency_delta(scs, sfs, rfs, z, delta_rs)  # Messy, but so is Numba. ):<
-                summary_deltas = summary_deltas + [1 - average(delta_rs)]
-            summary_simulated_delta = summary_simulated_delta + [average(summary_deltas)]
-        summary_simulated_delta = average(summary_simulated_delta)
+            # Compute the delta term (distance between the two parameter sets).
+            for e in zip(rfs_d, two_n):
+                d.two_n = e[1]
+                d.compute_delta(e[0])
+        distance = average(d.delta_rs)
 
         # Accept our proposal according to the given function.
-        if acceptance_f(summary_simulated_delta, states[-1][2]):
-            states = states + [[theta_proposed, 1, summary_simulated_delta, j]]
+        if acceptance_f(distance, states[-1][2]):
+            states = states + [[theta_proposed, 1, distance, j]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:

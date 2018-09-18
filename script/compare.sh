@@ -4,13 +4,13 @@
 compare(){
     python3 src/compare.py \
         -ssdb "data/$1-compare.db" \
-        -f "FREQ" \
+        -f "COSINE" \
         -r 30 \
         -sei "$1" \
         -rsu "SA000288S" \
         -l "D20S481"
 }
-export -f compare; parallel "compare {}" ::: $(sqlite3 data/simulated.db "SELECT EFF_ID FROM EFF_POP;")
+export -f compare; parallel "compare {}" ::: $(sqlite3 data/simulate.db "SELECT EFF_ID FROM EFF_POP;")
 echo "Sampling is finished."
 
 # Create the head database. We rip the schema off of an existing database.
@@ -24,8 +24,8 @@ done
 echo "Database merging is finished."
 
 # Delete the sample database files (dangerous operation, left commented out for now).
-#for f in data/*-compare.db; do
-#	rm ${f}
-#done
-#echo "Removed generated database files."
+for f in data/*-compare.db; do
+	rm ${f}
+done
+echo "Removed generated database files."
 

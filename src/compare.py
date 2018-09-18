@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from typing import Iterable, Tuple, List
+from typing import Iterable, List
 from numpy.random import choice
 from numpy.linalg import norm
 from numpy import ndarray
 from numba import jit, prange
+from abc import ABC, abstractmethod
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -52,102 +53,174 @@ def population_from_count(ruc: Iterable) -> ndarray:
     :param ruc: List of lists, whose first element represents the repeat unit and second represents the count.
     :return: Population of repeat units.
     """
+    from numpy import array
+
     ru = []
     for repeat_unit, c in ruc:
-        ru = ru + [repeat_unit] * c
-    return ru
+        ru = ru + [int(repeat_unit)] * c
+    return array(ru)
 
 
-def prepare_delta(rfs_d: List, srue: ndarray, two_n: int, r: int) -> Tuple:
-    """ Generate the storage vectors for the sample simulations (both individual and frequency), the storage vector
-    for the generated deltas, and sparse frequency vector for the real sample.
+class Compare(ABC):
+    def __init__(self, srue: ndarray, two_n: int, r: int):
+        """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
 
-    :param rfs_d: Dirty real frequency sample. Needs to be transformed into a sparse frequency vector.
-    :param srue: Simulated population of repeat units (one dimensional list).
-    :param two_n: Sample size of the alleles.
-    :param r: Number of times to sample the simulated population.
-    :return: Storage and data vectors in order of: 'scs', 'sfs', 'rfs', 'delta_rs'.
-    """
-    from numpy import zeros
+        :param srue: Simulated population of repeat units (one dimensional list).
+        :param two_n: Sample size of the alleles.
+        :param r: Number of times to sample the simulated population.
+        """
+        from numpy import array
+        self.srue, self.two_n, self.r = srue, two_n, r
 
-    rfs_dict = {int(a[0]): float(a[1]) for a in rfs_d}  # Cast our real frequencies into numbers.
+        # We will set the following fields upon preparation.
+        self.scs, self.sfs, self.rfs, self.delta_rs = [array([]) for _ in range(4)]
 
-    # Determine the omega from the simulated effective population and our real sample.
-    omega = max(srue) + 1 if max(srue) > max(rfs_dict.keys()) else max(rfs_dict.keys()) + 1
+    def _prepare(self, rfs_d: List) -> None:
+        """ Given a "dirty" (non-length normalized) frequency vector of real samples, generate the appropriate
+        vectors to store to.
 
-    # Create the vectors to return.
-    scs_out, sfs_out, rfs_out, delta_rs_out = [zeros(two_n), zeros(omega), zeros(two_n), zeros(r)]
+        :param rfs_d: Dirty real frequency sample. Needs to be transformed into a sparse frequency vector.
+        :return: None.
+        """
+        from numpy import zeros
 
-    # Fit our real distribution into a sparse frequency vector.
-    for repeat_unit in rfs_dict.keys():
-        rfs_out[repeat_unit] = rfs_dict[repeat_unit]
+        rfs_dict = {int(a[0]): float(a[1]) for a in rfs_d}  # Cast our real frequencies into numbers.
 
-    return scs_out, sfs_out, rfs_out, delta_rs_out
+        # Determine the omega and kappa from the simulated effective population and our real sample.
+        self.omega = max(self.srue) + 1 if max(self.srue) > max(rfs_dict.keys()) else max(rfs_dict.keys()) + 1
+        self.kappa = min(self.srue) if min(self.srue) < min(rfs_dict.keys()) else min(rfs_dict.keys())
+
+        # Create the vectors to return.
+        self.scs, self.sfs, self.rfs, self.delta_rs = \
+            [zeros(self.two_n), zeros(self.omega), zeros(self.omega), zeros(self.r)]
+
+        # Fit our real distribution into a sparse frequency vector.
+        for repeat_unit in rfs_dict.keys():
+            self.rfs[repeat_unit] = rfs_dict[repeat_unit]
+
+    @staticmethod
+    @abstractmethod
+    def _delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray, omega: int,
+               kappa: int) -> None:
+        """ Given individuals from the effective simulated population and the frequencies of individuals from a real
+        sample, sample the same amount from the simulated population 'r' times and determine the differences in
+        distribution for each different simulated sample. All vectors passed MUST be of appropriate size and must be
+        zeroed out before use.
+
+        :param scs: Storage vector, used to hold the sampled simulated population.
+        :param sfs: Storage sparse vector, used to hold the frequency sample.
+        :param rfs: Real frequency sample, represented as a sparse frequency vector indexed by repeat length.
+        :param srue: Simulated population of repeat units (one dimensional list).
+        :param delta_rs: Output vector, used to store the computed deltas of each sample.
+        :param omega: Upper bound of the repeat unit space.
+        :param kappa: Lower bound of the repeat unit space.
+        """
+        raise NotImplementedError
+
+    def compute_delta(self, rfs_d: List) -> ndarray:
+        """ Compute the deltas for 'r' samples, and return the results. For repeated runs of this function, we append
+        our results to the same 'delta_rs' field.
+
+        :param rfs_d: Dirty real frequency sample. Needs to be transformed into a sparse frequency vector.
+        :return: The computed deltas for each sample.
+        """
+        from numpy import concatenate, array
+
+        delta_rs_prev = array(self.delta_rs)  # Save our previous state. Prepare our SCS, SFS, RFS, and SRUE fields.
+        self._prepare(rfs_d)
+
+        # Run our sampling and comparison. Concatenate our previous state.
+        self._delta(self.scs, self.sfs, self.rfs, self.srue, self.delta_rs, self.omega, self.kappa)
+        self.delta_rs = concatenate((self.delta_rs, delta_rs_prev), axis=None)
+
+        return self.delta_rs
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def cosine_delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
-    """ TODO: Finish
+class Frequency(Compare):
+    def __init__(self, srue: ndarray, two_n: int, r: int):
+        """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
 
-    :param scs:
-    :param sfs:
-    :param rfs:
-    :param srue:
-    :param delta_rs:
-    :return:
-    """
-    for delta_k in prange(delta_rs.size):
-        for k in prange(scs.size):  # Randomly sample n individuals from population.
-            scs[k] = choice(srue)
+        :param srue: Simulated population of repeat units (one dimensional list).
+        :param two_n: Sample size of the alleles.
+        :param r: Number of times to sample the simulated population.
+        """
+        super(Frequency, self).__init__(srue, two_n, r)
+        raise DeprecationWarning  # Do not want to use this class for comparison... Cosine is better.
 
-        # Fit the simulated population into a sparse vector of frequencies.
-        for repeat_unit in prange(sfs.size):
-            i_count = 0
-            for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
-                i_count += 1 if i == repeat_unit else 0
+    @staticmethod
+    @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+    def _delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray, omega: int,
+               kappa: int) -> None:
+        """ Given individuals from the effective simulated population and the frequencies of individuals from a real
+        sample, sample the same amount from the simulated population 'r' times and determine the differences in
+        distribution for each different simulated sample. All vectors passed MUST be of appropriate size and must be
+        zeroed out before use. Optimized by Numba.
 
-            sfs[repeat_unit] = i_count / scs.size
+        :param scs: Storage vector, used to hold the sampled simulated population.
+        :param sfs: Storage sparse vector, used to hold the frequency sample.
+        :param rfs: Real frequency sample, represented as a sparse frequency vector indexed by repeat length.
+        :param srue: Simulated population of repeat units (one dimensional list).
+        :param delta_rs: Output vector, used to store the computed deltas of each sample.
+        :param omega: Upper bound of the repeat unit space.
+        :param kappa: Lower bound of the repeat unit space.
+        :return: None.
+        """
+        for delta_k in prange(delta_rs.size):
+            for k in prange(scs.size):  # Randomly sample n individuals from population.
+                scs[k] = choice(srue)
 
-        # Compute the cosine similarity (A dot B / |A||B|), and store this in our output vector.
-        delta_rs[delta_k] = sfs.dot(rfs) / (norm(sfs) * norm(rfs))
+            # Fit the simulated population into a sparse vector of frequencies.
+            for repeat_unit in prange(kappa, omega):
+                i_count = 0
+                for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
+                    i_count += 1 if i == repeat_unit else 0
+                sfs[repeat_unit] = i_count / scs.size
+
+            # For all repeat lengths, determine the sum difference in frequencies. Normalize this to [0, 1].
+            delta_rs[delta_k] = 0
+            for j in prange(kappa, omega):
+                delta_rs[delta_k] += abs(sfs[j] - rfs[j])
+            delta_rs[delta_k] = 1 - (delta_rs[delta_k] / 2.0)
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def frequency_delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray) -> None:
-    """ Given individuals from the effective simulated population and the frequencies of individuals from a real sample,
-    sample the same amount from the simulated population 'r' times and determine the differences in distribution for
-    each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out before use.
-    Optimized by Numba.
+class Cosine(Compare):
+    @staticmethod
+    @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+    def _delta(scs: ndarray, sfs: ndarray, rfs: ndarray, srue: ndarray, delta_rs: ndarray, omega: int,
+               kappa: int) -> None:
+        """ Given individuals from the effective simulated population and the frequencies of individuals from a real
+        sample, sample the same amount from the simulated population 'r' times and determine the differences in
+        distribution for each different simulated sample. All vectors passed MUST be of appropriate size and must be
+        zeroed out before use. Optimized by Numba.
 
-    :param scs: Storage vector, used to hold the sampled simulated population.
-    :param sfs: Storage sparse vector, used to hold the frequency sample.
-    :param rfs: Real frequency sample, represented as a sparse frequency vector indexed by repeat length.
-    :param srue: Simulated population of repeat units (one dimensional list).
-    :param delta_rs: Output vector, used to store the computed deltas of each sample.
-    :return: None.
-    """
-    for delta_k in prange(delta_rs.size):
-        for k in prange(scs.size):  # Randomly sample n individuals from population.
-            scs[k] = choice(srue)
+        :param scs: Storage vector, used to hold the sampled simulated population.
+        :param sfs: Storage sparse vector, used to hold the frequency sample.
+        :param rfs: Real frequency sample, represented as a sparse frequency vector indexed by repeat length.
+        :param srue: Simulated population of repeat units (one dimensional list).
+        :param delta_rs: Output vector, used to store the computed deltas of each sample.
+        :param omega: Upper bound of the repeat unit space.
+        :param kappa: Lower bound of the repeat unit space.
+        :return: None.
+        """
+        for delta_k in prange(delta_rs.size):
+            for k in prange(scs.size):  # Randomly sample n individuals from population.
+                scs[k] = choice(srue)
 
-        # Fit the simulated population into a sparse vector of frequencies.
-        for repeat_unit in prange(sfs.size):
-            i_count = 0
-            for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
-                i_count += 1 if i == repeat_unit else 0
+            # Fit the simulated population into a sparse vector of frequencies.
+            for repeat_unit in prange(kappa, omega):
+                i_count = 0
+                for i in scs:  # Ugly code, but I'm trying to avoid memory allocation. ):
+                    i_count += 1 if i == repeat_unit else 0
+                sfs[repeat_unit] = i_count / scs.size
 
-            sfs[repeat_unit] = i_count / scs.size
-
-        # For all repeat lengths, determine the sum difference in frequencies. Normalize this to [0, 1].
-        delta_rs[delta_k] = 0
-        for j in prange(sfs.size):
-            delta_rs[delta_k] += abs(sfs[j] - rfs[j])
-        delta_rs[delta_k] /= 2.0
+            # For all repeat lengths, determine the sum difference in frequencies. Normalize this to [0, 1].
+            delta_rs[delta_k] = (sfs.dot(rfs) / (norm(sfs) * norm(rfs)))
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
+    from numpy import zeros
 
     parser = ArgumentParser(description='Sample our simulated population and compare this to a real data set.')
     parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulate.db')
@@ -186,10 +259,14 @@ if __name__ == '__main__':
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
     """, (args.rsu, args.l, )).fetchone()[0])
+    end_deltas, v_0 = None, population_from_count(count_s)
 
-    v_0 = population_from_count(count_s)  # Execute the sampling.
-    v_1, v_2, v_3, v_4 = prepare_delta(freq_r, v_0, two_nm, args.r)
-    frequency_delta(v_1, v_2, v_3, v_4) if args.f.casefold() == 'freq' else cosine_delta(v_1, v_2, v_3, v_4)
+    if args.f.casefold() == 'freq':  # Execute the sampling.
+        end_deltas = Frequency(v_0, two_nm, args.r).compute_delta(freq_r)
+    elif args.f.casefold() == 'cosine':
+        end_deltas = Cosine(v_0, two_nm, args.r).compute_delta(freq_r)
 
-    log_deltas(cur_ss, v_4, args.sei, args.rsu, args.l)  # Record to the simulated database.
+    # Display our results to console, and record to our simulated database.
+    print('Results: [\n\t' + ', '.join(str(a) for a in end_deltas) + '\n]')
+    log_deltas(cur_ss, end_deltas, args.sei, args.rsu, args.l)
     conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
