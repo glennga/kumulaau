@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(description='Display the results of various scripts (posterior, ...).')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
-    parser.add_argument('-f', help='Data to display.', type=str, choices=['posterior'])
+    parser.add_argument('-f', help='Data to display.', type=str, choices=['model'])
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
