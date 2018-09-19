@@ -15,8 +15,8 @@ def set_style() -> None:
     plt.figure(figsize=(13, 7), dpi=100)
 
 
-def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
-    """ Display the results of the MCMC script: a histogram of each parameter.
+def model(cur_j: Cursor, hs: Dict[str, float]) -> None:
+    """ Display the results of the MCMC script for our mutation model: a histogram of each parameter.
 
     :param cur_j: Cursor to the MCMC database to pull the data from.
     :param hs: Histogram step sizes for MU, S, U, V, M, and P dimensions.
@@ -35,7 +35,7 @@ def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
         # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cur_j.execute(f"""
           SELECT MIN(CAST({dimension} AS FLOAT)), MAX(CAST({dimension} AS FLOAT))
-          FROM WAIT_POP
+          FROM WAIT_MODEL
         """).fetchone()]
 
         # Our bin widths depend on the current dimension.
@@ -48,7 +48,7 @@ def posterior(cur_j: Cursor, hs: Dict[str, float]) -> None:
         # Obtain the data to plot. Waiting times indicate the number of repeats to apply to this state.
         axis_wait = cur_j.execute(f"""
           SELECT CAST({dimension} AS FLOAT), WAITING
-          FROM WAIT_POP
+          FROM WAIT_MODEL
         """).fetchall()
         axis = list(chain.from_iterable([[float(a[0]) for _ in range(int(a[1]))] for a in axis_wait]))
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
     # Perform the appropriate function.
     if args.f == 'model':
-        posterior(cur,  dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
+        model(cur, dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
 
     # Save or display, your choice!
     plt.savefig(args.image, dpi=100) if args.image is not None else plt.show()
