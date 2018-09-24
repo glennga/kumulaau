@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from numpy.random import uniform, choice
-from numpy import ndarray, array, log, power, floor
+from numpy.random import uniform, choice, shuffle
+from numpy import ndarray, array, log, power, floor, arange
 from numba import jit, prange
 
 
@@ -103,8 +103,27 @@ def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: f
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def sample_nr(ancestors: ndarray, descendants: ndarray) -> None:
+    """ Randomly sample |descendents| from ancestors vector without replacement. Only one ancestor is able have
+    two descendants.
+
+    :param ancestors: Vector of the ancestors to choose from.
+    :param descendants: Output array to store our ancestors to.
+    :return: None.
+    """
+    # Choose the indices of our ancestors to save to.
+    descendants[1:] = (arange(ancestors.size))
+    descendants[0] = choice(descendants[1:])
+    shuffle(descendants)
+
+    # Use the indexes to choose which descendant holds which ancestor.
+    for i in range(descendants.size):
+        descendants[i] = ancestors[descendants[i]]
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
-               m: float, p: float, offset: int) -> None:
+               m: float, p: float) -> None:
     """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Optimized by
     Numba.
 
@@ -119,15 +138,17 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
     :param v: Linear bias parameter, used to determine the probability of an expansion.
     :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
     :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
-    :param offset: Number of additional ancestors that all individuals may have evolved from.
     :return: None.
     """
     # Determine the range of our ancestors and our output range (indices of descendants).
-    start_anc, end_anc = ((triangle_n(c) + offset) if c != 0 else 0), triangle_n(c + 1) + offset
-    start_desc, end_desc = (triangle_n(c + 1) + offset), (triangle_n(c + 2) + offset)
+    start_anc, end_anc = triangle_n(c), triangle_n(c + 1)
+    start_desc, end_desc = triangle_n(c + 1), triangle_n(c + 2)
 
-    # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
-    ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc]) for _ in range(c + 2)])
+    # # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
+    # ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc] for _ in range(c + 2))])
+
+    # Determine the repeat lengths for the new generation before mutation is applied (draw without replacement).
+    sample_nr(ell[start_anc:end_anc], ell[start_desc:end_desc])
 
     # Iterate through each of the descendants and apply the mutation.
     for a in prange(end_desc - start_desc):
@@ -137,7 +158,7 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
 
 class ModelParameters(object):
     def __init__(self, i_0: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
-                 m: float, p: float):
+                 m: float, p: float, ):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
         :param i_0: Repeat lengths of the common ancestors.
@@ -172,7 +193,7 @@ class ModelParameters(object):
         return self.PARAMETER_COUNT
 
 
-class Single:
+class Single(object):
     def __init__(self, parameters: ModelParameters):
         """ Constructor. Perform the bound checking for each parameter here.
 
@@ -198,7 +219,10 @@ class Single:
 
         # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
         self.ell = empty([self._triangle(2 * parameters.big_n) + self.offset], dtype='int')
-        self.ell[0:self.offset + 1], self.ell_evolved = parameters.i_0, empty([parameters.big_n], dtype='int')
+        self.ell_evolved = empty(([parameters.big_n]), dtype=int)
+
+        # Seed our ancestors. Place them in the proper place of the coalescence tree (dependent on i_0 size).
+        self.ell[self._triangle(self.offset):self._triangle(self.offset + 1)] = parameters.i_0
 
     @staticmethod
     def _triangle(a):
@@ -217,28 +241,19 @@ class Single:
         :return: None.
         """
         coalesce_n(c, self.ell, self.big_n, self.mu, self.s, self.kappa, self.omega, self.u,
-                   self.v, self.m, self.p, self.offset)
+                   self.v, self.m, self.p)
 
     def evolve(self) -> ndarray:
-        """ Using the common ancestor 'i_0', evolve the population until 'big_n' individuals are present.
+        """ Using the common ancestors 'i_0', evolve the population until 'big_n' individuals are present.
 
         :return: The evolved generation from the common ancestor.
         """
         # Iterate through 2N - 1 generations, which represent periods of coalescence. Perform our mutation process.
-        [self._coalesce(c) for c in range(2 * self.big_n - 1)]
+        [self._coalesce(c) for c in range(self.offset, 2 * self.big_n - 1)]
 
         # Return the current generation of ancestors.
         self.ell_evolved = self.ell[-2 * self.big_n:]
         return self.ell_evolved
-
-    def random_alleles(self, n: int) -> ndarray:
-        """ Generate n random alleles. This is meant to simulate individuals who do not originate from our ancestor
-        set. Using the optimized Numba version.
-
-        :param n: Number of alleles to generate.
-        :return: A one dimensional array of random repeat lengths.
-        """
-        return random_alleles(self.kappa, self.omega, n)
 
 
 if __name__ == '__main__':
