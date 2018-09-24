@@ -3,7 +3,7 @@ from sqlite3 import Cursor
 from typing import Iterable, List
 from numpy.random import choice
 from numpy.linalg import norm
-from numpy import ndarray
+from numpy import ndarray, dot
 from numba import jit, prange
 from abc import ABC, abstractmethod
 
@@ -214,7 +214,7 @@ class Cosine(Compare):
                 sfs[repeat_unit] = i_count / scs.size
 
             # For all repeat lengths, determine the sum difference in frequencies. Normalize this to [0, 1].
-            delta_rs[delta_k] = (sfs.dot(rfs) / (norm(sfs) * norm(rfs)))
+            delta_rs[delta_k] = (dot(sfs, rfs) / (norm(sfs) * norm(rfs)))
 
 
 if __name__ == '__main__':
