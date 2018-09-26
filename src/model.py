@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from forward import ModelParameters
+from mutate import ModelParameters
 from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List, Callable
