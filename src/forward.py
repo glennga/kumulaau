@@ -117,7 +117,7 @@ def sample_nr(ancestors: ndarray, descendants: ndarray) -> None:
     shuffle(descendants)
 
     # Use the indexes to choose which descendant holds which ancestor.
-    for i in range(descendants.size):
+    for i in prange(descendants.size):
         descendants[i] = ancestors[descendants[i]]
 
 
@@ -182,7 +182,7 @@ class ModelParameters(object):
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in [self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p]:
+        for parameter in [self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p]:
             yield parameter
 
     def __len__(self):

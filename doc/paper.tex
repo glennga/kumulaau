@@ -1,0 +1,32 @@
+\documentclass[11pt]{article}
+\usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage{algorithm} \usepackage{algpseudocode}
+\usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage{hyperref} \usepackage{float}
+
+\setcounter{secnumdepth}{3}
+\newcommand{\algorithmautorefname}{Algorithm}
+
+
+\author{Glenn Galvizo}
+\title{Microsatellite Mutation Modeling for Human Admixture Inferences}
+\date{\today}
+
+\begin{document}
+    \maketitle
+    \input{include/abstract.tex}
+    \newpage
+
+    \tableofcontents
+    \newpage
+
+    \input{include/introduction.tex}
+    \input{include/background.tex}
+    \input{include/methods.tex}
+    \input{include/results.tex}
+    \input{include/discussion.tex}
+    \input{include/future-work.tex}
+
+    \nocite{*}
+    \bibliographystyle{abbrv}
+	\bibliography{include/references}
+
+\end{document}
