@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from single import Single, ModelParameters
+from forward import Forward, ModelParameters
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -36,7 +36,7 @@ def create_table(cur_j: Cursor) -> None:
     );""")
 
 
-def log_eff(cur_j: Cursor, z_j: Single) -> str:
+def log_eff(cur_j: Cursor, z_j: Forward) -> str:
     """ Record our effective population (only last N individuals in population chain) to the database.
 
     :param cur_j: Cursor to the database file to log to.
@@ -69,7 +69,7 @@ def log_eff(cur_j: Cursor, z_j: Single) -> str:
     return eff_id
 
 
-def log_coalescence(f_j: str, z_j: Single) -> str:
+def log_coalescence(f_j: str, z_j: Forward) -> str:
     """ Record the coalescence tree stored in the population object 'z_j'. This is stored as a binary file (.NPY), and
     is meant to be read back into Python for later processing.
 
@@ -122,8 +122,8 @@ if __name__ == '__main__':
         for _ in range(args.r):
 
             # Evolve each population 'r' times with the same parameter.
-            z = Single(ModelParameters(i_0=array([a[0]]), big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
-                                       u=a[6], v=a[7], m=a[8], p=a[9]))
+            z = Forward(ModelParameters(i_0=array([a[0]]), big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
+                                        u=a[6], v=a[7], m=a[8], p=a[9]))
             z.evolve()
 
             # Record this to our database.

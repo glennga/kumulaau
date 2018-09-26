@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from single import ModelParameters
+from forward import ModelParameters
 from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List, Callable
@@ -91,25 +91,26 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
-    from numpy.random import normal
+    from numpy.random import normal, lognormal
     from numpy import average
-    from single import Single
+    from forward import Forward
     from compare import Cosine
 
     states, d = [[theta_init, 1, 0.0000000001, 0, '']], None  # Seed our chain with our initial guess.
     walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
+    walk_mu = lambda a, b: lognormal(a, b)  # With mu, we draw from a log-normal distribution.
 
     for j in range(1, it):
         theta_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
         theta_proposed = ModelParameters(i_0=choose_i_0(rfs_d), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
-                                         mu=walk(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
+                                         mu=walk_mu(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
                                          kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
                                          omega=walk(theta_prev.omega, theta_sigma.omega, True),
                                          u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
                                          m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
         for zp in range(rp):
-            z = Single(theta_proposed).evolve()  # Generate some population given the current parameter set.
+            z = Forward(theta_proposed).evolve()  # Generate some population given the current parameter set.
             d = Cosine(z, 0, rs)
 
             # Compute the delta term (distance between the two parameter sets).

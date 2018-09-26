@@ -47,9 +47,6 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
     start_anc, end_anc = triangle_n(c), triangle_n(c + 1)
     start_desc, end_desc = triangle_n(c + 1), triangle_n(c + 2)
 
-    # # Determine the repeat lengths for the new generation before mutation is applied (draw with replacement).
-    # ell[start_desc:end_desc] = array([choice(ell[start_anc:end_anc] for _ in range(c + 2))])
-
     # Determine the repeat lengths for the new generation before mutation is applied (draw without replacement).
     sample_nr(ell[start_anc:end_anc], ell[start_desc:end_desc])
 
@@ -59,16 +56,7 @@ def coalesce_n(c: int, ell: ndarray, big_n: int, mu: float, s: float, kappa: int
             ell[start_desc + a] = mutate_n(ell[start_desc + a], mu, s, kappa, omega, u, v, m, p)
 
 
-class Forward(Mutate):
-    @staticmethod
-    def _triangle(a):
-        """ Triangle number generator. Given 'a', return a choose 2. Using the Numba optimized version.
-
-        :param a: Which triangle number to return.
-        :return: The a'th triangle number.
-        """
-        return triangle_n(a)
-
+class Backward(Mutate):
     def _coalesce(self, c: int) -> None:
         """ Simulate the mutation of 'c' coalescence events, and store the results in our history chain. Using the
         optimized Numba version.
@@ -84,6 +72,8 @@ class Forward(Mutate):
 
         :return: The evolved generation from the common ancestor.
         """
+        # First, create the evolutionary tree.
+
         # Iterate through 2N - 1 generations, which represent periods of coalescence. Perform our mutation process.
         [self._coalesce(c) for c in range(self.offset, 2 * self.big_n - 1)]
 

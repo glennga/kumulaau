@@ -8,4 +8,3 @@ for f in data/model-*.db; do
         -image "${f%".db"}.png" \
         -hs 0.001 0.001 0.001 0.001 0.001 0.0005
 done
-
