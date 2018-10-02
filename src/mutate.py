@@ -103,13 +103,14 @@ def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: f
     return i if (i == kappa) else max(kappa, min(omega, (y_1 * y_2 * y_3) + i))
 
 
-class ModelParameters(object):
-    def __init__(self, i_0: ndarray, big_n: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float,
-                 m: float, p: float, ):
+class BaseParameters(object):
+    def __init__(self, i_0: ndarray, big_n: int, f: float, mu: float, s: float, kappa: int, omega: int, u: float,
+                 v: float, m: float, p: float):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
         :param i_0: Repeat lengths of the common ancestors.
         :param big_n: Effective population size, used for determining the number of generations between events.
+        :param f: Scaling factor for mutation. Smaller = shorter time to coalescence.
         :param mu: Mutation rate, bounded by (0, infinity).
         :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
         :param kappa: Lower bound of possible repeat lengths (minimum of state space).
@@ -119,17 +120,17 @@ class ModelParameters(object):
         :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
         :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
         """
-        self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
-            = i_0, big_n, omega, kappa, s, mu, u, v, m, p
+        self.i_0, self.big_n, self.f, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
+            = i_0, big_n, f, omega, kappa, s, mu, u, v, m, p
 
-        self.PARAMETER_COUNT = 10
+        self.PARAMETER_COUNT = 11
 
     def __iter__(self):
-        """ Return each our of parameters in the following order: big_n, mu, s, kappa, omega, u, v, m, p,
+        """ Return each our of parameters in the following order: big_n, f, mu, s, kappa, omega, u, v, m, p,
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in [self.big_n, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p]:
+        for parameter in [self.big_n, self.f, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p]:
             yield parameter
 
     def __len__(self):
@@ -141,16 +142,7 @@ class ModelParameters(object):
 
 
 class Mutate(ABC):
-    @staticmethod
-    def _triangle(a):
-        """ Triangle number generator. Given 'a', return a choose 2. Using the Numba optimized version.
-
-        :param a: Which triangle number to return.
-        :return: The a'th triangle number.
-        """
-        return triangle_n(a)
-
-    def __init__(self, parameters: ModelParameters):
+    def __init__(self, parameters: BaseParameters):
         """ Constructor. Perform the bound checking for each parameter here.
 
         :param parameters: Parameter models to use to evolve our population.
@@ -166,24 +158,29 @@ class Mutate(ABC):
         parameters.m = max(min(parameters.m, 1.0), 0.0)
         parameters.p = max(min(parameters.p, 1.0), 0.0)
 
-        self.i_0, self.big_n, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
-            = parameters.i_0, parameters.big_n, parameters.omega, parameters.kappa, parameters.s, \
+        self.i_0, self.big_n, self.f, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
+            = parameters.i_0, parameters.big_n, parameters.f, parameters.omega, parameters.kappa, parameters.s, \
             parameters.mu, parameters.u, parameters.v, parameters.m, parameters.p
 
-        # Our chain offset is determined by the number of ancestors we have.
-        self.offset = len(parameters.i_0) - 1
-
         # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
-        self.ell = empty([self._triangle(2 * parameters.big_n) + self.offset], dtype='int')
+        self.ell = empty([self._triangle(2 * parameters.big_n)], dtype='int')
         self.ell_evolved = empty(([parameters.big_n]), dtype=int)
+        self.offset = 0
 
-        # Seed our ancestors. Place them in the proper place of the coalescence tree (dependent on i_0 size).
-        self.ell[self._triangle(self.offset):self._triangle(self.offset + 1)] = parameters.i_0
+    @staticmethod
+    def _triangle(a):
+        """ Triangle number generator. Given 'a', return a choose 2. Using the Numba optimized version.
+
+        :param a: Which triangle number to return.
+        :return: The a'th triangle number.
+        """
+        return triangle_n(a)
 
     @abstractmethod
-    def evolve(self) -> ndarray:
+    def evolve(self, i_0: ndarray=None) -> ndarray:
         """ Using the common ancestors 'i_0', evolve the population until 'big_n' individuals are present.
 
+        :param i_0 Array of common ancestors. We assume that this is shuffled before starting.
         :return: The evolved generation from the common ancestor.
         """
         raise NotImplementedError
@@ -192,17 +189,17 @@ class Mutate(ABC):
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from matplotlib import pyplot as plt
-    from forward import Forward
-    from backward import Backward
+    from immediate import Immediate
+    from delayed import Delayed
 
     parser = ArgumentParser(description='Simulate the evolution of single population.')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
     paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
-    parser.add_argument('-sim', help='Type of simulation- (forward or backward).', type=str,
-                        choices=['FORWARD', 'BACKWARD'])
+    parser.add_argument('-sim', help='Type of simulation.', type=str, choices=['IMM', 'DELAY'])
 
     parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
     paa('-big_n', 'Effective population size.', int)
+    paa('-f', 'Scaling factor for mutation. Smaller = shorter time to coalescence.', float)
     paa('-mu', 'Mutation rate, bounded by (0, infinity).', float)
     paa('-s', 'Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
     paa('-kappa', 'Lower bound of possible repeat lengths.', int)
@@ -211,18 +208,19 @@ if __name__ == '__main__':
     paa('-v', 'Linear bias parameter, bounded by (-infinity, infinity).', float)
     paa('-m', 'Success probability for truncated geometric distribution.', float)
     paa('-p', 'Probability that the repeat length change is +/- 1.', float)
-    args, pop = None, parser.parse_args()  # Parse our arguments.
+    args, pop = parser.parse_args(), None  # Parse our arguments.
 
     # Generate our parameters.
-    theta = ModelParameters(i_0=array(args.i_0), big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
-                            omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
+    theta = BaseParameters(i_0=array(args.i_0), big_n=args.big_n, f=args.f, mu=args.mu, s=args.s, kappa=args.kappa,
+                           omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
 
-    # Evolve, forward or backwards.
-    if args.sim.casefold() == 'forward':
-        pop = Forward(theta)
-    elif args.sim.casefold() == 'backward':
-        pop = Backward(theta)
-    pop.evolve()
+    # Evolve, with immediate simulation or delayed.
+    if args.sim.casefold() == 'imm':
+        pop = Immediate(theta)
+        pop.evolve()
+    elif args.sim.casefold() == 'delay':
+        pop = Delayed(theta)
+        pop.evolve(array(args.i_0))
 
     # Display a histogram.
     plt.hist(pop.ell_evolved, bins=range(args.kappa, args.omega))

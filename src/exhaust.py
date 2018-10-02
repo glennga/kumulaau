@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
-from forward import Forward, ModelParameters
+from immediate import Immediate
+from model import BaseParameters
 
 
 def create_table(cur_j: Cursor) -> None:
@@ -36,7 +37,7 @@ def create_table(cur_j: Cursor) -> None:
     );""")
 
 
-def log_eff(cur_j: Cursor, z_j: Forward) -> str:
+def log_eff(cur_j: Cursor, z_j: Immediate) -> str:
     """ Record our effective population (only last N individuals in population chain) to the database.
 
     :param cur_j: Cursor to the database file to log to.
@@ -69,7 +70,7 @@ def log_eff(cur_j: Cursor, z_j: Forward) -> str:
     return eff_id
 
 
-def log_coalescence(f_j: str, z_j: Forward) -> str:
+def log_coalescence(f_j: str, z_j: Immediate) -> str:
     """ Record the coalescence tree stored in the population object 'z_j'. This is stored as a binary file (.NPY), and
     is meant to be read back into Python for later processing.
 
@@ -116,14 +117,14 @@ if __name__ == '__main__':
     cur = conn.cursor()
     create_table(cur)
 
-    # Compute the cartesian product of all argument sets. This devolves to a 10-dimensional grid search.
+    # Compute the cartesian product of all argument sets (except f). This devolves to a 10-dimensional grid search.
     for a in list(product(args.i_0, args.big_n, args.mu, args.s, args.kappa, args.omega, args.u,
                           args.v, args.m, args.p)):
         for _ in range(args.r):
 
             # Evolve each population 'r' times with the same parameter.
-            z = Forward(ModelParameters(i_0=array([a[0]]), big_n=a[1], mu=a[2], s=a[3], kappa=a[4], omega=a[5],
-                                        u=a[6], v=a[7], m=a[8], p=a[9]))
+            z = Immediate(BaseParameters(i_0=array([a[0]]), big_n=a[1], f=1.0, mu=a[2], s=a[3], kappa=a[4], omega=a[5],
+                                         u=a[6], v=a[7], m=a[8], p=a[9]))
             z.evolve()
 
             # Record this to our database.

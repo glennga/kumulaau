@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from mutate import ModelParameters
+from mutate import BaseParameters
 from numpy import ndarray
 from sqlite3 import Cursor
 from typing import List, Callable
@@ -22,6 +22,7 @@ def create_tables(cur_j: Cursor) -> None:
         CREATE TABLE IF NOT EXISTS WAIT_MODEL (
             TIME_R TIMESTAMP,
             BIG_N INT,
+            F FLOAT,
             MU FLOAT,
             S FLOAT,
             KAPPA INT,
@@ -56,7 +57,7 @@ def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None
 
     cur_j.executemany(f"""
         INSERT INTO WAIT_MODEL
-        VALUES ({','.join('?' for _ in range(13))});
+        VALUES ({','.join('?' for _ in range(14))});
     """, ((d_t,) + tuple(a[0]) + (a[1], a[2], a[3]) for a in chain))
 
 
@@ -73,8 +74,8 @@ def choose_i_0(rfs: List) -> ndarray:
     return array([int(choice(choice(rfs))[0])])
 
 
-def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: ModelParameters,
-         theta_sigma: ModelParameters, acceptance_f: Callable) -> List:
+def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: BaseParameters,
+         theta_sigma: BaseParameters, acceptance_f: Callable) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by some lambda. We start with some initial guess and simulate an entire population. We then
     compute the average distance between a set of simulated and real samples (delta). This is meant to be wrapped within
@@ -93,7 +94,7 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     """
     from numpy.random import normal, lognormal
     from numpy import average
-    from forward import Forward
+    from immediate import Immediate
     from compare import Cosine
 
     states, d = [[theta_init, 1, 0.0000000001, 0, '']], None  # Seed our chain with our initial guess.
@@ -102,15 +103,15 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
 
     for j in range(1, it):
         theta_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
-        theta_proposed = ModelParameters(i_0=choose_i_0(rfs_d), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
-                                         mu=walk_mu(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
-                                         kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
-                                         omega=walk(theta_prev.omega, theta_sigma.omega, True),
-                                         u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
-                                         m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
+        theta_proposed = BaseParameters(i_0=choose_i_0(rfs_d), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
+                                        mu=walk_mu(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
+                                        kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
+                                        omega=walk(theta_prev.omega, theta_sigma.omega, True),
+                                        u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
+                                        m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
 
         for zp in range(rp):
-            z = Forward(theta_proposed).evolve()  # Generate some population given the current parameter set.
+            z = Immediate(theta_proposed).evolve()  # Generate some population given the current parameter set.
             d = Cosine(z, 0, rs)
 
             # Compute the delta term (distance between the two parameter sets).
@@ -130,8 +131,8 @@ def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: M
     return states[1:]
 
 
-def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float, theta_init: ModelParameters,
-        theta_sigma: ModelParameters) -> List:
+def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float, theta_init: BaseParameters,
+        theta_sigma: BaseParameters) -> List:
     """ My interpretation of an MCMC-ABC rejection sampling approach to approximate the posterior distribution of the
     mutation model. The steps taken are as follows:
 
@@ -157,8 +158,8 @@ def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float
     return mcmc(it, rfs_d, rs, rp, two_n, theta_init, theta_sigma, lambda a, b: a > epsilon)
 
 
-def mh(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: ModelParameters,
-       theta_sigma: ModelParameters) -> List:
+def mh(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: BaseParameters,
+       theta_sigma: BaseParameters) -> List:
     """ My interpretation of an MCMC approach using metropolis hastings sampling to approximate the posterior
     distribution of the mutation model. The steps taken are as follows:
 
@@ -204,6 +205,7 @@ if __name__ == '__main__':
     paa('-it', 'Number of iterations to run MCMC for.', int)
 
     paa('-big_n', 'Starting effective population size.', int)
+    paa('-f', 'Scaling factor for mutation.', float)
     paa('-mu', 'Starting mutation rate, bounded by (0, infinity).', float)
     paa('-s', 'Starting proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
     paa('-kappa', 'Starting lower bound of possible repeat lengths.', int)
@@ -214,7 +216,8 @@ if __name__ == '__main__':
     paa('-p', 'Starting probability that the repeat length change is +/- 1.', float)
 
     paa('-big_n_sigma', 'Step size of big_n when changing parameters.', float)
-    paa('-mu_sigma', 'Step size of mu when changing parameters.', float)
+    paa('-f_sigma', 'Step size of f when changing parameters.', float)
+    paa('-mu_sigma', 'Step size (log-normal) of mu when changing parameters.', float)
     paa('-s_sigma', 'Step size of s when changing parameters.', float)
     paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
     paa('-omega_sigma', 'Step size of omega when changing parameters.', float)
@@ -244,11 +247,11 @@ if __name__ == '__main__':
     """, (a, b,)).fetchone()[0]), args.rsu, args.l))
 
     # Perform the MCMC, and record our chain.
-    theta_0_m = ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n, mu=args.mu, s=args.s, kappa=args.kappa,
-                                omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
-    theta_s_m = ModelParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma, mu=args.mu_sigma, s=args.s_sigma,
-                                kappa=args.kappa_sigma, omega=args.omega_sigma, u=args.u_sigma, v=args.v_sigma,
-                                m=args.m_sigma, p=args.p_sigma)
+    theta_0_m = BaseParameters(i_0=choose_i_0(freq_r), big_n=args.big_n, f=args.f, mu=args.mu, s=args.s,
+                               kappa=args.kappa, omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
+    theta_s_m = BaseParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma, f=args.f_sigma, mu=args.mu_sigma,
+                               s=args.s_sigma, kappa=args.kappa_sigma, omega=args.omega_sigma, u=args.u_sigma,
+                               v=args.v_sigma, m=args.m_sigma, p=args.p_sigma)
 
     if args.type.casefold() == 'abc':
         log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.rs, args.rp, two_nm, args.epsilon,
