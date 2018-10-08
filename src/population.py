@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+from numpy import ndarray, array, log, power, floor
 from abc import ABC, abstractmethod
 from numpy.random import uniform
-from numpy import ndarray, array, log, power, floor
+from collections import Callable
+from argparse import Namespace
 from numba import jit
 
 
@@ -104,33 +106,24 @@ def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: f
 
 
 class BaseParameters(object):
-    def __init__(self, i_0: ndarray, big_n: int, f: float, mu: float, s: float, kappa: int, omega: int, u: float,
-                 v: float, m: float, p: float):
+    def __init__(self, n: int, f: float, c: float, u: float, d: float):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
-        :param i_0: Repeat lengths of the common ancestors.
-        :param big_n: Effective population size, used for determining the number of generations between events.
-        :param f: Scaling factor for mutation. Smaller = shorter time to coalescence.
-        :param mu: Mutation rate, bounded by (0, infinity).
-        :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
-        :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-        :param omega: Upper bound of possible repeat lengths (maximum of state space).
-        :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
-        :param v: Linear bias parameter, used to determine the probability of an expansion.
-        :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
-        :param p: Probability that the geometric distribution will be used vs. single repeat length mutations.
+        :param n: Effective population size, used for determining the number of generations between events.
+        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
+        :param c: Constant bias for the upward mutation rate.
+        :param u: Linear bias for the upward mutation rate.
+        :param d: Linear bias for the downward mutation rate.
         """
-        self.i_0, self.big_n, self.f, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
-            = i_0, big_n, f, omega, kappa, s, mu, u, v, m, p
-
-        self.PARAMETER_COUNT = 11
+        self.n, self.f, self.c, self.u, self.d = round(n), f, c, u, d
+        self.PARAMETER_COUNT = 5
 
     def __iter__(self):
-        """ Return each our of parameters in the following order: big_n, f, mu, s, kappa, omega, u, v, m, p,
+        """ Return each our of parameters in the following order: n, f, c, u, d
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in [self.big_n, self.f, self.mu, self.s, self.kappa, self.omega, self.u, self.v, self.m, self.p]:
+        for parameter in [self.n, self.f, self.c, self.u, self.d]:
             yield parameter
 
     def __len__(self):
@@ -139,6 +132,31 @@ class BaseParameters(object):
         :return: The number of parameters we have.
         """
         return self.PARAMETER_COUNT
+
+    @staticmethod
+    def from_args(args_j: Namespace, is_sigma: bool=False) -> BaseParameters:
+        """ Given a namespace, return a BaseParameters object with the appropriate parameters. If 'is_sigma' is
+        toggled, we look for the sigma arguments in our namespace instead. This is commonly used with an ArgumentParser
+        instance.
+
+        :param args_j: Arguments from some namespace.
+        :param is_sigma: If true, we search for 'n_sigma', 'f_sigma', ... Otherwise we search for 'n', 'f', ...
+        :return: New BaseParameters object with the parsed in arguments.
+        """
+        return BaseParameters(args_j.n. args_j.f, args_j.c, args_j.u, args_j.d) if not is_sigma else \
+            BaseParameters(args_j.n_sigma, args_j.f_sigma, args_j.c_sigma, args_j.u_sigma, args_j.d_sigma)
+
+    @staticmethod
+    def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
+        """ TODO: Finish documentation.
+
+        :param theta:
+        :param pi_sigma:
+        :param walk: For some parameter in theta, generate a new one with the corresponding pi_sigma.
+        :return:
+        """
+        return BaseParameters(n=walk(theta.n, pi_sigma.n), f=walk(theta.f, pi_sigma.f), c=walk(theta.c, pi_sigma.c),
+                              u=walk(theta.u, pi_sigma.u), d=walk(theta.d, pi_sigma.d))
 
 
 class Mutate(ABC):
@@ -187,7 +205,7 @@ class Mutate(ABC):
 
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, ArgumentParser
     from matplotlib import pyplot as plt
     from immediate import Immediate
     from delayed import Delayed

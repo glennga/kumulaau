@@ -7,7 +7,7 @@ def create_table() -> None:
     :return: None.
     """
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS REAL_ELL (
+        CREATE TABLE IF NOT EXISTS OBSERVED_ELL (
             TIME_R TIMESTAMP,
             POP_NAME TEXT,
             POP_UID TEXT,
@@ -19,21 +19,22 @@ def create_table() -> None:
         );""")
 
 
-# We assume the following schema:
-# popName	popUId	sampleUId	2N	locusSymbol	siteName	alleleSymbol	entryDate	frequency
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
     from csv import reader
 
+    # We assume the following schema before proceeding:
+    # popName	popUId	sampleUId	2N	locusSymbol	siteName	alleleSymbol	entryDate	frequency
+
     # We grab our arguments.
     parser = ArgumentParser(description='Record frequency data from ALFRED in TSV format to a database.')
     parser.add_argument('freq_f', help='Frequency file in TSV format')
-    parser.add_argument('-f', '--log', help='The location of the database to log to.', default='data/real.db')
+    parser.add_argument('-f', help='The location of the database to log to.', default='data/observed.db')
     args = parser.parse_args()
 
     # Connect to the database to log to.
-    conn = connect(args.log)
+    conn = connect(args.f)
     cur = conn.cursor()
     create_table()
 

@@ -218,21 +218,21 @@ class Cosine(Compare):
 
 
 if __name__ == '__main__':
+    from population import Population, BaseParameters
     from argparse import ArgumentParser
+    from numpy import zeros, array
     from sqlite3 import connect
-    from numpy import zeros
 
-    parser = ArgumentParser(description='Sample our simulated population and compare this to a real data set.')
+    parser = ArgumentParser(description='Sample a simulated population and compare this to a real data set.')
     parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulate.db')
-    parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
-    parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/sample.db')
+    parser.add_argument('-rdb', help='Location of the observed database file.', type=str, default='data/observed.db')
+    parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/delta.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-f', help='Similarity index to use to compare.', type=str, choices=['COSINE', 'FREQ'])
     paa('-r', 'Number of times to sample the simulated population.', int)
-    paa('-sei', 'ID of the simulated population to sample from.', str)
-    paa('-rsu', 'ID of the real sample data set to compare to.', str)
-    paa('-l', 'Locus of the real sample to compare to.', str)
+    paa('-osu', 'ID of the observed sample data set to compare to.', str)
+    paa('-l', 'Locus of the observed sample to compare to.', str)
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to all of our databases, and create our table if it does not already exist.
@@ -240,33 +240,31 @@ if __name__ == '__main__':
     cur_s, cur_r, cur_ss = conn_s.cursor(), conn_r.cursor(), conn_ss.cursor()
     create_table(cur_ss)
 
-    freq_r = cur_r.execute(""" -- Pull the frequency distribution from the real database. --
+    freq_r = cur_r.execute(""" -- Pull the frequency distribution from the observed database. --
         SELECT ELL, ELL_FREQ
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l, )).fetchall()
+    """, (args.osu, args.l, )).fetchall()
 
-    count_s = cur_s.execute(""" -- Pull the count distribution from the simulated database. --
-        SELECT ELL, ELL_COUNT
-        FROM EFF_ELL
-        WHERE EFF_ID LIKE ?
-    """, (args.sei, )).fetchall()
-
-    two_nm = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
+    n_hat_m = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (args.rsu, args.l, )).fetchone()[0])
-    end_deltas, v_0 = None, population_from_count(count_s)
+    """, (args.osu, args.l, )).fetchone()[0])
 
-    if args.f.casefold() == 'freq':  # Execute the sampling.
-        end_deltas = Frequency(v_0, two_nm, args.r).compute_delta(freq_r)
+    # Generate some population.
+    z = Population(BaseParameters(n=100, f=1.0, c=0.01, u=0.001, d=0.001, kappa=3, omega=100)).evolve(array([10, 11]))
+
+    # Execute the sampling.
+    end_deltas = None
+    if args.f.casefold() == 'freq':
+        end_deltas = Frequency(z, n_hat_m, args.r).compute_delta(freq_r)
     elif args.f.casefold() == 'cosine':
-        end_deltas = Cosine(v_0, two_nm, args.r).compute_delta(freq_r)
+        end_deltas = Cosine(z, n_hat_m, args.r).compute_delta(freq_r)
 
     # Display our results to console, and record to our simulated database.
     print('Results: [\n\t' + ', '.join(str(a) for a in end_deltas) + '\n]')
-    log_deltas(cur_ss, end_deltas, args.sei, args.rsu, args.l)
+    log_deltas(cur_ss, end_deltas, args.sei, args.osu, args.l)
     conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
