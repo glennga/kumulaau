@@ -101,6 +101,7 @@ class NumbaPopulationTest(unittest.TestCase):
         for i in ell[1:]:
             self.assertGreaterEqual(i, 0)
 
+    # @unittest.skip("'test_evolve_n' takes too long. Include with major rewrites.")
     def test_evolve_n(self):
         """ Verify the repeat length determination method for several happy paths.
 
@@ -211,7 +212,7 @@ class BaseParametersTest(unittest.TestCase):
             self.assertEqual(1, a)
 
         # By raising the is_sigma flag, we should only get our pi parameters.
-        for a in BaseParameters.from_args(namespace, False):
+        for a in BaseParameters.from_args(namespace, True):
             self.assertEqual(-1, a)
 
     def test_from_walk(self):
@@ -229,9 +230,121 @@ class BaseParametersTest(unittest.TestCase):
         e = BaseParameters.from_walk(c, d, walk)
         self.assertListEqual(list(c), list(e))
 
-# class PopulationTest(TestCase):
-#     def test_something(self):
-#         self.assertEqual(True, False)
+        # Given a small deviation, we should not walk far.
+        c, d = BaseParameters(1, 1, 1, 1, 1, 1, 1), BaseParameters(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001)
+        e = BaseParameters.from_walk(c, d, walk)
+        for f in zip(c, e):
+            self.assertAlmostEqual(f[0], f[1], delta=1.0)
+
+        # Given a larger deviation, we walk farther.
+        c, d = BaseParameters(1, 1, 1, 1, 1, 1, 1), BaseParameters(1000, 1000, 1000, 1000, 1000, 1000, 1000)
+        e = BaseParameters.from_walk(c, d, walk)
+        for f in zip(c, e):
+            self.assertNotAlmostEqual(f[0], f[1], delta=1.0)
+
+
+class PopulationTest(unittest.TestCase):
+    def test_constructor(self):
+        """ Verify the Population constructor for several edge cases and happy paths.
+
+        :return: None.
+        """
+        from numpy import nextafter
+
+        # None of our parameters instead the population object should be out of bounds.
+        a = Population(BaseParameters(-1, -1, 0, 0.5, -1, -1, -1))
+        self.assertEqual(a.theta.n, 0)
+        self.assertEqual(a.theta.f, 0)
+        self.assertEqual(a.theta.c, nextafter(0, 1))
+        self.assertEqual(a.theta.u, 1.0)
+        self.assertEqual(a.theta.d, 0)
+        self.assertEqual(a.theta.kappa, 0)
+        self.assertEqual(a.theta.omega, 0)
+
+        # If kappa > omega, kappa = omega.
+        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.5, 1.0, 30, 3))
+        self.assertEqual(a.theta.kappa, a.theta.omega)
+        self.assertEqual(a.theta.kappa, 30)
+
+        # If our parameters are correct, then we should see them in our Population object.
+        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.5, 1.0, 3, 30))
+        self.assertEqual(a.theta.n, 1.0)
+        self.assertEqual(a.theta.f, 1.0)
+        self.assertEqual(a.theta.c, 1.0)
+        self.assertEqual(a.theta.u, 1.5)
+        self.assertEqual(a.theta.d, 1.0)
+        self.assertEqual(a.theta.kappa, 3)
+        self.assertEqual(a.theta.omega, 30)
+
+        # Our ancestor chain length should hold enough elements to store our tree.
+        a = Population(BaseParameters(100, 1.0, 1.0, 1.5, 1.0, 3, 30))
+        self.assertEqual(a.coalescent_tree.size, triangle_n(2 * 100))
+
+        # Our tree should be traced upon instantiation.
+        c = list(range(triangle_n(198), triangle_n(199)))
+        self.assertEqual(a.coalescent_tree[1], 0)
+        self.assertEqual(a.coalescent_tree[2], 0)
+        for b in a.coalescent_tree[-2 * 100:]:
+            self.assertIn(b, c)
+
+        # Our is_evolved flag should not be raised.
+        self.assertFalse(a.is_evolved)
+
+    def test_trace_tree(self):
+        """ Verify that our tree tracing method for a Population instance is valid for several happy paths. These
+        tests are similar to the tests in NumbaPopulationTest.test_coalesce_n.
+
+        :return: None.
+        """
+        from numpy import array_equal
+
+        a, b = list(range(0, triangle_n(25 * 2))), None
+        for p in range(30):
+
+            # Our tree should be populated upon instantiation, except for our initial element.
+            c = Population(BaseParameters(25, 1.0, 1.0, 1.5, 1.0, 3, 30))
+            for d in c.coalescent_tree[1:]:
+                self.assertIn(d, a)
+
+            # We should not get the same tree for two different runs.
+            if p != 0:
+                self.assertFalse(array_equal(c.coalescent_tree[1:], b.coalescent_tree[1:]))
+            b = c
+
+    def test_evolve(self):
+        """ Verify the evolution method for the Population class for several happy paths.
+
+        :return: None.
+        """
+        from numpy import array, array_equal
+        a = Population(BaseParameters(100, 1.0, 0.001, 1.3, 0.001, 3, 30))
+        z = array(a.coalescent_tree)
+
+        # The returned array should be our current descendants.
+        b = array(a.evolve(array([10])))
+        self.assertEqual(b.size, 200)
+
+        # Our is_evolved flag should be raised.
+        self.assertTrue(a.is_evolved)
+
+        # Calling our evolve method should return the same population.
+        self.assertTrue(array_equal(b, a.evolve(array([10]))))
+
+        # We should get two different populations, given the same chain and ancestors.
+        a.coalescent_tree, a.is_evolved = z, False
+        c = a.evolve(array([10]))
+        self.assertFalse(array_equal(b, c))
+
+        # Repeat for 10 different runs.
+        for _ in range(100):
+            a = Population(BaseParameters(100, 1.0, 0.001, 1.3, 0.001, 3, 30))
+            z = array(a.coalescent_tree)
+            b = array(a.evolve(array([10])))
+
+            # We should get two different populations, given the same chain and ancestors.
+            a.coalescent_tree, a.is_evolved = z, False
+            c = a.evolve(array([10]))
+            self.assertFalse(array_equal(b, c))
 
 
 if __name__ == '__main__':

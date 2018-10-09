@@ -1,23 +1,88 @@
 #!/usr/bin/env python3
-from numpy import ndarray, array, log, power, floor
-from abc import ABC, abstractmethod
-from numpy.random import uniform
+from __future__ import annotations
+
+from numpy.random import uniform, choice, shuffle
+from numpy import ndarray, array, arange
 from collections import Callable
 from argparse import Namespace
-from numba import jit
+from numba import jit, prange
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def random_alleles(omega: int, kappa: int, n: int) -> ndarray:
-    """ Generate n random alleles. This is meant to simulate individuals who do not originate from our ancestor
-    set. Optimized by Numba.
+class BaseParameters(object):
+    def __init__(self, n: float, f: float, c: float, u: float, d: float, kappa: float, omega: float):
+        """ Constructor. This is just meant to be a data class for the mutation model.
 
-    :param omega: Upper bound of possible repeat lengths (maximum of state space).
-    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-    :param n: Number of alleles to generate.
-    :return: A one dimensional array of random repeat lengths.
-    """
-    return uniform(omega, kappa, n)
+        :param n: Effective population size, used for determining the number of generations between events.
+        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
+        :param c: Constant bias for the upward mutation rate.
+        :param u: Linear bias for the upward mutation rate.
+        :param d: Linear bias for the downward mutation rate.
+        :param kappa: Lower bound of repeat lengths.
+        :param omega: Upper bound of repeat lengths.
+        """
+        self.n, self.f, self.c, self.u, self.d, self.kappa, self.omega = \
+            round(n), f, c, u, d, round(kappa), round(omega)
+
+        self.PARAMETER_COUNT = 7
+
+    def __iter__(self):
+        """ Return each our of parameters in the following order: n, f, c, u, d, kappa, omega
+
+        :return: Iterator for all of our parameters.
+        """
+        for parameter in [self.n, self.f, self.c, self.u, self.d, self.kappa, self.omega]:
+            yield parameter
+
+    def __len__(self):
+        """ The number of parameters that exist here.
+
+        :return: The number of parameters we have.
+        """
+        return self.PARAMETER_COUNT
+
+    @staticmethod
+    def from_args(arguments: Namespace, is_sigma: bool = False) -> BaseParameters:
+        """ Given a namespace, return a BaseParameters object with the appropriate parameters. If 'is_sigma' is
+        toggled, we look for the sigma arguments in our namespace instead. This is commonly used with an ArgumentParser
+        instance.
+
+        :param arguments: Arguments from some namespace.
+        :param is_sigma: If true, we search for 'n_sigma', 'f_sigma', ... Otherwise we search for 'n', 'f', ...
+        :return: New BaseParameters object with the parsed in arguments.
+        """
+        if not is_sigma:
+            return BaseParameters(n=arguments.n,
+                                  f=arguments.f,
+                                  c=arguments.c,
+                                  u=arguments.u,
+                                  d=arguments.d,
+                                  kappa=arguments.kappa,
+                                  omega=arguments.omega)
+        else:
+            return BaseParameters(n=arguments.n_sigma,
+                                  f=arguments.f_sigma,
+                                  c=arguments.c_sigma,
+                                  u=arguments.u_sigma,
+                                  d=arguments.d_sigma,
+                                  kappa=arguments.kappa_sigma,
+                                  omega=arguments.omega_sigma)
+
+    @staticmethod
+    def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
+        """ TODO: Finish documentation for the from_walk method.
+
+        :param theta:
+        :param pi_sigma:
+        :param walk: For some parameter in theta, generate a new one with the corresponding pi_sigma.
+        :return:
+        """
+        return BaseParameters(n=walk(theta.n, pi_sigma.n),
+                              f=walk(theta.f, pi_sigma.f),
+                              c=walk(theta.c, pi_sigma.c),
+                              u=walk(theta.u, pi_sigma.u),
+                              d=walk(theta.d, pi_sigma.d),
+                              kappa=walk(theta.kappa, pi_sigma.kappa),
+                              omega=walk(theta.omega, pi_sigma.omega))
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -31,215 +96,156 @@ def triangle_n(a: int) -> int:
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def gamma_n(omega: int, kappa: int, m: float) -> int:
-    """ Draw from the truncated geometric distribution bounded by omega and kappa, to obtain the number of
-    expansions or contractions for mutations greater than 1. Optimized by Numba. Equation found here:
-    https://stackoverflow.com/questions/16317420/sample-integers-from-truncated-geometric-distribution
+def mutate_n(i: int, c: float, u: float, d: float, kappa: int, omega: int) -> int:
+    """ TODO: Finish documentation of the mutate_n method.
 
-    :param omega: Upper bound of possible repeat lengths (maximum of state space).
-    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-    :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
-    :return: The number of contractions or expansions.
+    :param i:
+    :param c:
+    :param u:
+    :param d:
+    :param kappa:
+    :param omega:
+    :return:
     """
-    return floor(log(1 - uniform(0, 1) * (1 - power(1 - m, omega - kappa))) / log(1 - m))
+    # If we reached some value kappa, we do not mutate.
+    if i == kappa:
+        return i
+
+    # Compute our upward mutation rate. We are bounded by omega.
+    i = min(omega, i + 1) if uniform(0, 1) < c + i * (d / u) else i
+
+    # Compute our downward mutation rate. We are bounded by kappa.
+    return max(kappa, i - 1) if uniform(0, 1) < i * d else i
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def beta_n(i: int, mu: float, kappa: int, s: float) -> float:
-    """ Determine the mutation rate of some allele i, which is dependent on the current repeat length. Optimized by
-    Numba.
+def coalesce_n(tau: int, coalescent_tree: ndarray) -> None:
+    """ Generate the current coalescence event by sampling from our ancestors to our descendants. We save the indices
+    of our ancestors to our descendants here (like a pointer), as opposed to their length.
 
-    :param i: Repeat length of the allele to mutate.
-    :param mu: Mutation rate, bounded by (0, infinity).
-    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-    :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
-    :return: Mutation rate given the current repeat length.
+    :param tau: TODO: Finish documentation for coalesce_n.
+    :param coalescent_tree: Ancestor history chain, whose generations are indexed by triangle numbers.
+    :return: None.
     """
-    return mu * (1 + (i - kappa) * s)
+    # We save the indices of our ancestors to our descendants.
+    coalescent_tree[triangle_n(tau + 1) + 1:triangle_n(tau + 2)] = arange(triangle_n(tau), triangle_n(tau + 1))
+    coalescent_tree[triangle_n(tau + 1)] = choice(coalescent_tree[triangle_n(tau + 1) + 1:triangle_n(tau + 2)])
+    shuffle(coalescent_tree[triangle_n(tau + 1):triangle_n(tau + 2)])
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def alpha_n(i: int, u: float, v: float, kappa: int) -> float:
-    """ Determine the probability that a mutation results in a expansion. The probability that a mutation results
-    in a contraction is (1 - alpha). Optimized by Numba.
+def evolve_n(coalescent_tree: ndarray, tau: int, n: int, f: float, c: float, u: float, d: float,
+             kappa: int, omega: int) -> None:
+    """ TODO: Finish documentation of the evolve_n method.
 
-    The focal bias 'f' is defined as: f = ((u - 0.5) / v) + kappa
+    Focal bias defined as \hat{L} = \frac{-c}{\frac{d}{u} - d}.
 
-    :param i: Repeat length of the allele to mutate.
-    :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
-    :param v: Linear bias parameter, used to determine the probability of an expansion.
-    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-    :return: Probability that the current allele will expand.
+    :param coalescent_tree:
+    :param tau:
+    :param n:
+    :param f:
+    :param c:
+    :param u:
+    :param d:
+    :param kappa:
+    :param omega:
+    :return:
     """
-    return max(0.0, min(1.0, u - v * (i - kappa)))
+    # We define our ancestors and descendants for the tau'th coalescent.
+    descendants = coalescent_tree[triangle_n(tau + 1):triangle_n(tau + 2)]
+
+    # Iterate through each of the descendants (currently pointers) and determine each ancestor.
+    for k in prange(descendants.size):
+        descendant_to_evolve = coalescent_tree[descendants[k]]
+
+        # Evolve each ancestor according to the average time to coalescence and the scaling factor f.
+        for _ in range(max(1, round(f * 2 * n / triangle_n(tau + 1)))):
+            descendant_to_evolve = mutate_n(descendant_to_evolve, c, u, d, kappa, omega)
+
+        # Save our descendant state.
+        descendants[k] = descendant_to_evolve
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def mutate_n(i: int, mu: float, s: float, kappa: int, omega: int, u: float, v: float, m: float, prob_p: float) -> int:
-    """ Given some allele of length i, contract or expand to this given the parameters of the model. Optimized by Numba.
-
-    :param i: Repeat length of ancestor to mutate with.
-    :param mu: Mutation rate, bounded by (0, infinity).
-    :param s: Proportional rate (to repeat length), bounded by (-1 / (omega - kappa + 1), infinity).
-    :param kappa: Lower bound of possible repeat lengths (minimum of state space).
-    :param omega: Upper bound of possible repeat lengths (maximum of state space).
-    :param u: Constant bias parameter, used to determine the probability of an expansion and bounded by [0, 1].
-    :param v: Linear bias parameter, used to determine the probability of an expansion.
-    :param m: Success probability for the truncated geometric distribution, bounded by [0, 1].
-    :param prob_p: Probability that the geometric distribution will be used vs. single repeat length mutations.
-    :return: 'j', or the mutated repeat length from 'i'.
-    """
-    # Compute mutation rate and the probability of expansion.
-    beta_i, alpha_i = beta_n(i, mu, kappa, s), alpha_n(i, u, v, kappa)
-
-    # Determine if a mutation occurs or not.
-    y_1 = (1 if uniform(0, 1) < beta_i else 0)
-
-    # Determine if a contraction or expansion occurs.
-    y_2 = (1 if uniform(0, 1) < alpha_i else -1)
-
-    # Determine the length of the contraction or expansion.
-    y_3 = (gamma_n(omega, kappa, m) if uniform(0, 1) < prob_p else 1)
-
-    # Determine the new length. Restrict lengths to [kappa, omega]. Note that if kappa is reached, an allele stays.
-    return i if (i == kappa) else max(kappa, min(omega, (y_1 * y_2 * y_3) + i))
-
-
-class BaseParameters(object):
-    def __init__(self, n: int, f: float, c: float, u: float, d: float):
-        """ Constructor. This is just meant to be a data class for the mutation model.
-
-        :param n: Effective population size, used for determining the number of generations between events.
-        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
-        :param c: Constant bias for the upward mutation rate.
-        :param u: Linear bias for the upward mutation rate.
-        :param d: Linear bias for the downward mutation rate.
-        """
-        self.n, self.f, self.c, self.u, self.d = round(n), f, c, u, d
-        self.PARAMETER_COUNT = 5
-
-    def __iter__(self):
-        """ Return each our of parameters in the following order: n, f, c, u, d
-
-        :return: Iterator for all of our parameters.
-        """
-        for parameter in [self.n, self.f, self.c, self.u, self.d]:
-            yield parameter
-
-    def __len__(self):
-        """ The number of parameters that exist here.
-
-        :return: The number of parameters we have.
-        """
-        return self.PARAMETER_COUNT
-
-    @staticmethod
-    def from_args(args_j: Namespace, is_sigma: bool=False) -> BaseParameters:
-        """ Given a namespace, return a BaseParameters object with the appropriate parameters. If 'is_sigma' is
-        toggled, we look for the sigma arguments in our namespace instead. This is commonly used with an ArgumentParser
-        instance.
-
-        :param args_j: Arguments from some namespace.
-        :param is_sigma: If true, we search for 'n_sigma', 'f_sigma', ... Otherwise we search for 'n', 'f', ...
-        :return: New BaseParameters object with the parsed in arguments.
-        """
-        return BaseParameters(args_j.n. args_j.f, args_j.c, args_j.u, args_j.d) if not is_sigma else \
-            BaseParameters(args_j.n_sigma, args_j.f_sigma, args_j.c_sigma, args_j.u_sigma, args_j.d_sigma)
-
-    @staticmethod
-    def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
-        """ TODO: Finish documentation.
-
-        :param theta:
-        :param pi_sigma:
-        :param walk: For some parameter in theta, generate a new one with the corresponding pi_sigma.
-        :return:
-        """
-        return BaseParameters(n=walk(theta.n, pi_sigma.n), f=walk(theta.f, pi_sigma.f), c=walk(theta.c, pi_sigma.c),
-                              u=walk(theta.u, pi_sigma.u), d=walk(theta.d, pi_sigma.d))
-
-
-class Mutate(ABC):
-    def __init__(self, parameters: BaseParameters):
+class Population(object):
+    def __init__(self, theta: BaseParameters):
         """ Constructor. Perform the bound checking for each parameter here.
 
-        :param parameters: Parameter models to use to evolve our population.
+        :param theta: Parameter models to use to evolve our population.
         """
-        from numpy import empty
+        from numpy import empty, nextafter
 
         # Ensure that all variables are bounded properly.
-        parameters.i_0 = array([max(min(x, parameters.omega), parameters.kappa) for x in parameters.i_0])
-        parameters.big_n = max(parameters.big_n, 0)
-        parameters.s = max(parameters.s, (-1 / (parameters.omega - parameters.kappa + 1)))
-        parameters.mu = max(parameters.mu, 0.0)
-        parameters.u = max(min(parameters.u, 1.0), 0.0)
-        parameters.m = max(min(parameters.m, 1.0), 0.0)
-        parameters.p = max(min(parameters.p, 1.0), 0.0)
+        theta.n = max(theta.n, 0)
+        theta.f = max(theta.f, 0)
+        theta.c = max(theta.c, nextafter(0, 1))  # Dr. Reed gave a strict bound > 0 here, but I forget why...
+        theta.u = max(theta.u, 1.0)
+        theta.d = max(theta.d, 0)
+        theta.kappa = max(theta.kappa, 0)
+        theta.omega = max(theta.omega, theta.kappa)
+        self.theta = theta
 
-        self.i_0, self.big_n, self.f, self.omega, self.kappa, self.s, self.mu, self.u, self.v, self.m, self.p \
-            = parameters.i_0, parameters.big_n, parameters.f, parameters.omega, parameters.kappa, parameters.s, \
-            parameters.mu, parameters.u, parameters.v, parameters.m, parameters.p
-
-        # Define our ancestor chain, and the array that will hold the end population after 'evolve' is called.
-        self.ell = empty([self._triangle(2 * parameters.big_n)], dtype='int')
-        self.ell_evolved = empty(([parameters.big_n]), dtype=int)
+        # Define our ancestor chain.
+        self.coalescent_tree = empty([triangle_n(2 * self.theta.n)], dtype='int')
         self.offset = 0
 
-    @staticmethod
-    def _triangle(a):
-        """ Triangle number generator. Given 'a', return a choose 2. Using the Numba optimized version.
+        # Trace our tree. We do not perform repeat length determination at this step.
+        self._trace_tree()
+        self.is_evolved = False
 
-        :param a: Which triangle number to return.
-        :return: The a'th triangle number.
+    def _trace_tree(self):
+        """ TODO: Finish documentation for _trace_tree method.
+
+        :return:
         """
-        return triangle_n(a)
+        # Generate 2N - 1 coalescence events.
+        [coalesce_n(tau, self.coalescent_tree) for tau in range(0, 2 * self.theta.n - 1)]
 
-    @abstractmethod
-    def evolve(self, i_0: ndarray=None) -> ndarray:
-        """ Using the common ancestors 'i_0', evolve the population until 'big_n' individuals are present.
+    def evolve(self, i_0: ndarray) -> ndarray:
+        """ Using the common ancestors 'i_0', evolve the population until '2N' alleles are present.
 
-        :param i_0 Array of common ancestors. We assume that this is shuffled before starting.
+        :param i_0 Array of starting common ancestors.
         :return: The evolved generation from the common ancestor.
         """
-        raise NotImplementedError
+        # If we have evolved, then return what we currently have. Otherwise, raise our flag.
+        if self.is_evolved:
+            return self.coalescent_tree[-2 * self.theta.n:]
+        else:
+            self.is_evolved = True
+
+        # Determine our offset, and seed our ancestors for the tree.
+        self.offset = i_0.size - 1
+        self.coalescent_tree[triangle_n(self.offset):triangle_n(self.offset + 1)] = i_0
+
+        # From our common ancestors, descend forward in time and populate our tree with repeat lengths.
+        [evolve_n(self.coalescent_tree, tau, self.theta.n, self.theta.f, self.theta.c, self.theta.u, self.theta.d,
+                  self.theta.kappa, self.theta.omega) for tau in range(self.offset, 2 * self.theta.n - 1)]
+
+        # Return the evolved generation of ancestors.
+        return self.coalescent_tree[-2 * self.theta.n:]
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser, ArgumentParser
     from matplotlib import pyplot as plt
-    from immediate import Immediate
-    from delayed import Delayed
 
     parser = ArgumentParser(description='Simulate the evolution of single population.')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
     paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
-    parser.add_argument('-sim', help='Type of simulation.', type=str, choices=['IMM', 'DELAY'])
 
     parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
-    paa('-big_n', 'Effective population size.', int)
-    paa('-f', 'Scaling factor for mutation. Smaller = shorter time to coalescence.', float)
-    paa('-mu', 'Mutation rate, bounded by (0, infinity).', float)
-    paa('-s', 'Proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
-    paa('-kappa', 'Lower bound of possible repeat lengths.', int)
-    paa('-omega', 'Upper bound of possible repeat lengths.', int)
-    paa('-u', 'Constant bias parameter, bounded by [0, 1].', float)
-    paa('-v', 'Linear bias parameter, bounded by (-infinity, infinity).', float)
-    paa('-m', 'Success probability for truncated geometric distribution.', float)
-    paa('-p', 'Probability that the repeat length change is +/- 1.', float)
-    args, pop = parser.parse_args(), None  # Parse our arguments.
+    paa('-n', 'Starting effective population size.', int)
+    paa('-f', 'Scaling factor for total mutation rate.', float)
+    paa('-c', 'Constant bias for the upward mutation rate.', float)
+    paa('-u', 'Linear bias for the upward mutation rate.', float)
+    paa('-d', 'Linear bias for the downward mutation rate.', float)
+    paa('-kappa', 'Lower bound of repeat lengths.', int)
+    paa('-omega', 'Upper bound of repeat lengths.', int)
+    main_arguments = parser.parse_args()  # Parse our arguments.
 
-    # Generate our parameters.
-    theta = BaseParameters(i_0=array(args.i_0), big_n=args.big_n, f=args.f, mu=args.mu, s=args.s, kappa=args.kappa,
-                           omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
-
-    # Evolve, with immediate simulation or delayed.
-    if args.sim.casefold() == 'imm':
-        pop = Immediate(theta)
-        pop.evolve()
-    elif args.sim.casefold() == 'delay':
-        pop = Delayed(theta)
-        pop.evolve(array(args.i_0))
+    # Evolve some population.
+    main_population = Population(BaseParameters.from_args(main_arguments))
+    main_descendants = main_population.evolve(array(main_arguments.i_0))
 
     # Display a histogram.
-    plt.hist(pop.ell_evolved, bins=range(args.kappa, args.omega))
-    plt.savefig(args.image) if args.image is not None else plt.show()
+    plt.hist(main_descendants, bins=range(min(main_descendants), max(main_descendants)))
+    plt.savefig(main_arguments.image) if main_arguments.image is not None else plt.show()
