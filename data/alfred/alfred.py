@@ -6,7 +6,7 @@ def create_table() -> None:
 
     :return: None.
     """
-    cur.execute("""P
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS OBSERVED_ELL (
             TIME_R TIMESTAMP,
             POP_NAME TEXT,
@@ -34,8 +34,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Connect to the database to log to.
-    conn = connect(args.f)
-    cur = conn.cursor()
+    connection = connect(args.f)
+    cursor = connection.cursor()
     create_table()
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
@@ -46,12 +46,12 @@ if __name__ == '__main__':
         # Perform the insertion. Print out any anomalies.
         for entry in freq_reader:
             try:
-                cur.execute("""
+                cursor.execute("""
                     INSERT INTO OBSERVED_ELL (TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """, (entry[7], entry[0], entry[1], entry[2], int(entry[3]), entry[4], int(entry[6]), float(entry[8])))
             except (ValueError, IndexError):
                 print('Error at: {}'.format(entry))
 
-    conn.commit(), conn.close()
+    connection.commit(), connection.close()
 
