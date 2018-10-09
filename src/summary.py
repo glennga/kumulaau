@@ -18,32 +18,31 @@ def create_table(cur_j: Cursor) -> None:
         CREATE TABLE IF NOT EXISTS DELTA_POP (
             TIME_R TIMESTAMP,
             SIM_SAMPLE_ID TEXT,
-            SIM_EFF_ID TEXT,
             REAL_SAMPLE_UID TEXT,
             REAL_LOCUS TEXT,
             DELTA FLOAT
         );""")
 
 
-def log_deltas(cur_j: Cursor, deltas: ndarray, sei: str, rsu: str, l: str) -> None:
+def log_deltas(cur_j: Cursor, deltas: ndarray, osu: str, l: str) -> None:
     """ Given the computed differences between two sample's distributions, record each with a
     unique ID into the database.
 
     :param cur_j: Cursor to the database to log to.
     :param deltas: Computed differences from the sampling.
-    :param sei: ID of the simulated population to sample from.
-    :param rsu: ID of the real sample data set to compare to.
-    :param l: Locus of the real sample to compare to.
+    :param osu: ID of the observed sample data set to compare to.
+    :param l: Locus of the observed sample to compare to.
     :return: None.
     """
     from string import ascii_uppercase, digits
     from datetime import datetime
+    from random import choice
 
     # Record our results.
     cur_j.executemany("""
         INSERT INTO DELTA_POP
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, ((datetime.now(), ''.join(choice(ascii_uppercase + digits) for _ in range(20)), sei, rsu, l, a)
+        VALUES (?, ?, ?, ?, ?)
+    """, ((datetime.now(), ''.join(choice(ascii_uppercase + digits) for _ in range(20)), osu, l, a)
           for a in deltas))
 
 
@@ -224,8 +223,7 @@ if __name__ == '__main__':
     from sqlite3 import connect
 
     parser = ArgumentParser(description='Sample a simulated population and compare this to a real data set.')
-    parser.add_argument('-sdb', help='Location of the simulated database file.', type=str, default='data/simulate.db')
-    parser.add_argument('-rdb', help='Location of the observed database file.', type=str, default='data/observed.db')
+    parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
     parser.add_argument('-ssdb', help='Location of the database to record data to.', type=str, default='data/delta.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
@@ -236,18 +234,18 @@ if __name__ == '__main__':
     args = parser.parse_args()  # Parse our arguments.
 
     # Connect to all of our databases, and create our table if it does not already exist.
-    conn_s, conn_r, conn_ss = connect(args.sdb), connect(args.rdb), connect(args.ssdb)
-    cur_s, cur_r, cur_ss = conn_s.cursor(), conn_r.cursor(), conn_ss.cursor()
+    conn_o, conn_ss = connect(args.odb), connect(args.ssdb)
+    cur_o, cur_ss = conn_o.cursor(), conn_ss.cursor()
     create_table(cur_ss)
 
-    freq_r = cur_r.execute(""" -- Pull the frequency distribution from the observed database. --
+    freq_r = conn_o.execute(""" -- Pull the frequency distribution from the observed database. --
         SELECT ELL, ELL_FREQ
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
     """, (args.osu, args.l, )).fetchall()
 
-    n_hat_m = int(cur_r.execute(""" -- Retrieve the sample size, the number of alleles. --
+    n_hat_m = int(conn_o.execute(""" -- Retrieve the sample size, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM REAL_ELL
         WHERE SAMPLE_UID LIKE ?
@@ -255,7 +253,8 @@ if __name__ == '__main__':
     """, (args.osu, args.l, )).fetchone()[0])
 
     # Generate some population.
-    z = Population(BaseParameters(n=100, f=1.0, c=0.01, u=0.001, d=0.001, kappa=3, omega=100)).evolve(array([10, 11]))
+    z = Population(BaseParameters(n=100, f=1.0, c=0.01, u=0.001,
+                                  d=0.001, kappa=3, omega=100)).evolve(array([11]))
 
     # Execute the sampling.
     end_deltas = None
@@ -266,5 +265,5 @@ if __name__ == '__main__':
 
     # Display our results to console, and record to our simulated database.
     print('Results: [\n\t' + ', '.join(str(a) for a in end_deltas) + '\n]')
-    log_deltas(cur_ss, end_deltas, args.sei, args.osu, args.l)
-    conn_ss.commit(), conn_ss.close(), conn_s.close(), conn_r.close()
+    log_deltas(cur_ss, end_deltas, args.osu, args.l)
+    conn_ss.commit(), conn_ss.close(), conn_o.close()

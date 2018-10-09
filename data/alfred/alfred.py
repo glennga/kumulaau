@@ -6,7 +6,7 @@ def create_table() -> None:
 
     :return: None.
     """
-    cur.execute("""
+    cur.execute("""P
         CREATE TABLE IF NOT EXISTS OBSERVED_ELL (
             TIME_R TIMESTAMP,
             POP_NAME TEXT,
@@ -47,7 +47,7 @@ if __name__ == '__main__':
         for entry in freq_reader:
             try:
                 cur.execute("""
-                    INSERT INTO REAL_ELL (TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ)
+                    INSERT INTO OBSERVED_ELL (TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?);
                 """, (entry[7], entry[0], entry[1], entry[2], int(entry[3]), entry[4], int(entry[6]), float(entry[8])))
             except (ValueError, IndexError):
