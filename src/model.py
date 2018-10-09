@@ -1,189 +1,132 @@
 #!/usr/bin/env python3
-from mutate import BaseParameters
+from population import BaseParameters
 from numpy import ndarray
 from sqlite3 import Cursor
-from typing import List, Callable
+from typing import List
 
 
-def create_tables(cur_j: Cursor) -> None:
+def create_tables(cursor: Cursor) -> None:
     """ Create the tables to log the results of our MCMC to.
 
-    :param cur_j: Cursor to the database file to log to.
+    :param cursor: Cursor to the database file to log to.
     :return: None.
     """
-    cur_j.execute("""
-        CREATE TABLE IF NOT EXISTS WAIT_REAL (
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS WAIT_OBSERVED (
             TIME_R TIMESTAMP,
-            REAL_SAMPLE_UID TEXT,
-            REAL_LOCUS TEXT
+            UID_OBSERVED TEXT,
+            LOCUS_OBSERVED TEXT
         );""")
 
-    cur_j.execute("""
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS WAIT_MODEL (
             TIME_R TIMESTAMP,
-            BIG_N INT,
+            N INT,
             F FLOAT,
-            MU FLOAT,
-            S FLOAT,
+            C FLOAT,
+            U FLOAT,
+            D FLOAT,
             KAPPA INT,
             OMEGA INT,
-            U FLOAT,
-            V FLOAT,
-            M FLOAT,
-            P FLOAT,
-            WAITING INT,
-            DELTA FLOAT,
+            WAITING_TIME INT,
+            DISTANCE FLOAT,
             ACCEPTANCE_TIME INT
         );""")
 
 
-def log_states(cur_j: Cursor, rsu: List[str], l: List[str], chain: List) -> None:
+def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str], x: List) -> None:
     """ Record our states to some database.
 
-    :param cur_j: Cursor to the database file to log to.
-    :param rsu: IDs of the real sample data sets to compare to.
-    :param l: Loci of the real samples to compare to.
-    :param chain: States and associated times & probabilities collected after running MCMC.
+    :param cursor: Cursor to the database file to log to.
+    :param uid_observed: IDs of the observed samples to compare to.
+    :param locus_observed: Loci of the observed samples to compare to.
+    :param x: States and associated times & probabilities collected after running MCMC (our Markov chain).
     :return: None.
     """
     from datetime import datetime
-    d_t = datetime.now()
+    date_string = datetime.now()
 
-    # Record our real sample log strings and datetime.
-    cur_j.executemany("""
-        INSERT INTO WAIT_REAL
+    # Record our observed sample log strings and datetime.
+    cursor.executemany("""
+        INSERT INTO WAIT_OBSERVED
         VALUES (?, ?, ?)
-    """, ((d_t, a[0], a[1]) for a in zip(rsu, l)))
+    """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
 
-    cur_j.executemany(f"""
+    cursor.executemany(f"""
         INSERT INTO WAIT_MODEL
-        VALUES ({','.join('?' for _ in range(14))});
-    """, ((d_t,) + tuple(a[0]) + (a[1], a[2], a[3]) for a in chain))
+        VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 4))});
+    """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3]) for a in x))
 
 
-def choose_i_0(rfs: List) -> ndarray:
-    """ We treat the starting population length ancestor as a nuisance parameter. We randomly choose a repeat length
-    from our real samples.
+def choose_i_0(observed_frequencies: List) -> ndarray:
+    """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
+    from our observed samples.
 
-    :param rfs: Real frequency samples. A list of: [first column is the length, second is the frequency].
+    :param observed_frequencies: Observed frequency samples.
     :return: A single repeat length, wrapped in a Numpy array.
     """
     from random import choice
     from numpy import array
 
-    return array([int(choice(choice(rfs))[0])])
+    return array([int(choice(choice(observed_frequencies))[0])])
 
 
-def mcmc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: BaseParameters,
-         theta_sigma: BaseParameters, acceptance_f: Callable) -> List:
+def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: List[int],
+         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
-    chain is determined by some lambda. We start with some initial guess and simulate an entire population. We then
-    compute the average distance between a set of simulated and real samples (delta). This is meant to be wrapped within
-    another function to determine how the chain should be shaped.
+    chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
+    is given below:
 
-    :param it: Number of iterations to run MCMC for.
-    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param rs: Number of samples per simulation to use to obtain delta.
-    :param rp: Number of simulations to use to obtain delta.
-    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
-    :param theta_init: Our initial guess for parameters.
-    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :param acceptance_f: Some lambda that accepts the delta and the previous delta, and returns true/false.
+    1) We start with some initial guess and simulate an entire population.
+    2) We then compute the average distance between a set of simulated and observed samples.
+        a) If this term is above some defined epsilon or ~U(0, 1) < A, we append this to our chain.
+        b) Otherwise, we reject it and increase the waiting time of our current parameter state by one.
+    3) Repeat for 'iterations_n' iterations.
+
+    :param iterations_n: Number of iterations to run MCMC for.
+    :param observed_frequency: Dirty observed frequency samples.
+    :param sample_n: Number of samples per simulation to use to obtain delta.
+    :param population_n: Number of simulations to use to obtain delta.
+    :param n_hat: Sample sizes of the alleles. Must match the order of the observed samples given here.
+    :param epsilon: Minimum acceptance value for our distance.
+    :param theta_0: Our initial guess for parameters.
+    :param q_sigma: The deviations associated with all parameters to use when generating new parameters.
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
-    from numpy.random import normal, lognormal
-    from numpy import average
-    from immediate import Immediate
-    from compare import Cosine
+    from population import Population
+    from numpy.random import normal, uniform
+    from numpy import average, nextafter
+    from scipy.stats import norm
+    from summary import Cosine
 
-    states, d = [[theta_init, 1, 0.0000000001, 0, '']], None  # Seed our chain with our initial guess.
-    walk = lambda a, b, c=False: normal(a, b) if c is False else round(normal(a, b))
-    walk_mu = lambda a, b: lognormal(a, b)  # With mu, we draw from a log-normal distribution.
+    x, summary = [[theta_0, 1, nextafter(0, 1), 0, '']], None  # Seed our Markov chain with our initial guess.
+    walk = lambda a, b: normal(a, b)
 
-    for j in range(1, it):
-        theta_prev = states[-1][0]  # Our current position in the state space. Walk from this point.
-        theta_proposed = BaseParameters(i_0=choose_i_0(rfs_d), big_n=walk(theta_prev.big_n, theta_sigma.big_n, True),
-                                        mu=walk_mu(theta_prev.mu, theta_sigma.mu), s=walk(theta_prev.s, theta_sigma.s),
-                                        kappa=walk(theta_prev.kappa, theta_sigma.kappa, True),
-                                        omega=walk(theta_prev.omega, theta_sigma.omega, True),
-                                        u=walk(theta_prev.u, theta_sigma.u), v=walk(theta_prev.v, theta_sigma.v),
-                                        m=walk(theta_prev.m, theta_sigma.m), p=walk(theta_prev.p, theta_sigma.p))
+    for iteration in range(1, iterations_n):
+        theta_k = x[-1][0]  # Our current position in the state space. Walk from this point.
+        theta_proposed = BaseParameters.from_walk(theta_k, q_sigma, walk)
 
-        for zp in range(rp):
-            z = Immediate(theta_proposed).evolve()  # Generate some population given the current parameter set.
-            d = Cosine(z, 0, rs)
+        for _ in range(population_n):
+            # Generate some population given the current parameter set.
+            population = Population(theta_proposed).evolve(choose_i_0(observed_frequency))
+            summary = Cosine(population, 0, sample_n)
 
-            # Compute the delta term (distance between the two parameter sets).
-            for e in zip(rfs_d, two_n):
-                d.two_n = e[1]
-                d.compute_delta(e[0])
-        distance = average(d.delta_rs)
+            # Compute the distance term.
+            summary.compute_distance_multiple(observed_frequency, n_hat)
 
-        # Accept our proposal according to the given function.
-        if acceptance_f(distance, states[-1][2]):
-            states = states + [[theta_proposed, 1, distance, j]]
+        # Determine our acceptance probability.
+        alpha = average(list(map(lambda a: norm.pdf(a[0], a[1], a[2]), zip(theta_proposed, theta_k, q_sigma))))
+
+        # Accept our proposal if delta < epsilon or if our acceptance probability condition is met.
+        if summary.average_distance() > epsilon or alpha > uniform(0, 1):
+            x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
-            states[-1][1] += 1
+            x[-1][1] += 1
 
-    return states[1:]
-
-
-def abc(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], epsilon: float, theta_init: BaseParameters,
-        theta_sigma: BaseParameters) -> List:
-    """ My interpretation of an MCMC-ABC rejection sampling approach to approximate the posterior distribution of the
-    mutation model. The steps taken are as follows:
-
-    1) We start with some initial guess and simulate an entire population.
-    2) We then compute the average distance between a set of simulated and real samples (delta).
-        a) If this term is above some defined epsilon, we append this to our chain.
-        b) Otherwise, we reject it and increase the waiting time of our current parameter state by one.
-    3) Repeat for 'it' iterations.
-
-    https://theoreticalecology.wordpress.com/2012/07/15/a-simple-approximate-bayesian-computation-mcmc-abc-mcmc-in-r/
-
-    :param it: Number of iterations to run MCMC for.
-    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param rs: Number of samples per simulation to use to obtain delta.
-    :param rp: Number of simulations to use to obtain delta.
-    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
-    :param epsilon: Minimum acceptance value for delta.
-    :param theta_init: Our initial guess for parameters.
-    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
-             acceptance probabilities.
-    """
-    return mcmc(it, rfs_d, rs, rp, two_n, theta_init, theta_sigma, lambda a, b: a > epsilon)
-
-
-def mh(it: int, rfs_d: List, rs: int, rp: int, two_n: List[int], theta_init: BaseParameters,
-       theta_sigma: BaseParameters) -> List:
-    """ My interpretation of an MCMC approach using metropolis hastings sampling to approximate the posterior
-    distribution of the mutation model. The steps taken are as follows:
-
-    1) We start with some initial guess and simulate an entire population.
-    2) We then compute the acceptance probability (alpha) based on the proposed and the past states.
-        a) Accept if some uniform random variable is less than alpha.
-        b) Otherwise, we reject it and increase the waiting of our current parameter state (not proposed) by one.
-    3) Repeat for 'it' iterations.
-
-    https://advaitsarkar.wordpress.com/2014/03/02/the-metropolis-hastings-algorithm-tutorial/
-
-    :param it: Number of iterations to run MCMC for.
-    :param rfs_d: Dirty real frequency samples. A list of: [first column is the length, second is the frequency].
-    :param rs: Number of samples per simulation to use to obtain delta.
-    :param rp: Number of simulations to use to obtain delta.
-    :param two_n: Sample sizes of the alleles. Must match the order of the real samples given here.
-    :param theta_init: Our initial guess for parameters.
-    :param theta_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
-             acceptance probabilities.
-    """
-    from numpy.random import uniform
-
-    return mcmc(it, rfs_d, rs, rp, two_n, theta_init, theta_sigma, lambda a, b: min(1, a / b) > uniform(0, 1))
+    return x[1:]
 
 
 if __name__ == '__main__':
@@ -192,71 +135,59 @@ if __name__ == '__main__':
     from numpy import array
 
     parser = ArgumentParser(description='MCMC for the *microsatellite mutation model* parameter estimation.')
-    parser.add_argument('-rdb', help='Location of the real database file.', type=str, default='data/real.db')
-    parser.add_argument('-edb', help='Location of the database to record to.', type=str, default='data/model.db')
+    parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
+    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/model.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
-    parser.add_argument('-rsu', help='IDs of real samples to compare to.', type=str, nargs='+')
-    parser.add_argument('-l', help='Loci of real samples to compare to (must match with rsu).', type=str, nargs='+')
-    parser.add_argument('-type', help='Type of MCMC to run.', type=str, choices=['ABC', 'MH'])
-    paa('-rp', 'Number of simulations to use to obtain delta.', int)
-    paa('-rs', 'Number of samples per simulation to use to obtain delta.', int)
-    paa('-epsilon', 'Minimum acceptance value for delta (ABC only).', float)
-    paa('-it', 'Number of iterations to run MCMC for.', int)
+    parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
+    parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
+    paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
+    paa('-sample_n', 'Number of samples per simulation to use to obtain a distance.', int)
+    paa('-epsilon', 'Minimum acceptance value for distance between summary statistic.', float)
+    paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
 
-    paa('-big_n', 'Starting effective population size.', int)
-    paa('-f', 'Scaling factor for mutation.', float)
-    paa('-mu', 'Starting mutation rate, bounded by (0, infinity).', float)
-    paa('-s', 'Starting proportional rate, bounded by (-1 / (omega - kappa + 1), infinity).', float)
-    paa('-kappa', 'Starting lower bound of possible repeat lengths.', int)
-    paa('-omega', 'Starting upper bounds of possible repeat lengths.', int)
-    paa('-u', 'Starting constant bias parameter, bounded by [0, 1].', float)
-    paa('-v', 'Starting linear bias parameter, bounded by (-infinity, infinity).', float)
-    paa('-m', 'Starting success probability for truncated geometric distribution.', float)
-    paa('-p', 'Starting probability that the repeat length change is +/- 1.', float)
+    paa('-n', 'Starting effective population size.', int)
+    paa('-f', 'Scaling factor for total mutation rate.', float)
+    paa('-c', 'Constant bias for the upward mutation rate.', float)
+    paa('-u', 'Linear bias for the upward mutation rate.', float)
+    paa('-d', 'Linear bias for the downward mutation rate.', float)
+    paa('-kappa', 'Lower bound of repeat lengths.', int)
+    paa('-omega', 'Upper bound of repeat lengths.', int)
 
-    paa('-big_n_sigma', 'Step size of big_n when changing parameters.', float)
+    paa('-n_sigma', 'Step size of big_n when changing parameters.', float)
     paa('-f_sigma', 'Step size of f when changing parameters.', float)
-    paa('-mu_sigma', 'Step size (log-normal) of mu when changing parameters.', float)
-    paa('-s_sigma', 'Step size of s when changing parameters.', float)
+    paa('-c_sigma', 'Step size of c when changing parameters.', float)
+    paa('-u_sigma', 'Step size of u when changing parameters.', float)
+    paa('-d_sigma', 'Step size of d when changing parameters.', float)
     paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
     paa('-omega_sigma', 'Step size of omega when changing parameters.', float)
-    paa('-u_sigma', 'Step size of u when changing parameters.', float)
-    paa('-v_sigma', 'Step size of v when changing parameters.', float)
-    paa('-m_sigma', 'Step size of m when changing parameters.', float)
-    paa('-p_sigma', 'Step size of p when changing theta.', float)
-    args = parser.parse_args()  # Parse our arguments.
+    main_arguments = parser.parse_args()  # Parse our arguments.
 
     # Connect to all of our databases.
-    conn_r, conn_e = connect(args.rdb), connect(args.edb)
-    cur_r, cur_e = conn_r.cursor(), conn_e.cursor()
-    create_tables(cur_e)
+    connection_o, connection_m = connect(main_arguments.odb), connect(main_arguments.mdb)
+    cursor_o, cursor_m = connection_o.cursor(), connection_m.cursor()
+    create_tables(cursor_m)
 
-    freq_r = list(map(lambda a, b: cur_r.execute(""" -- Pull the frequency distributions from the real database. --
+    main_observed_frequency = list(map(lambda a, b: cursor_o.execute(""" -- Get frequencies from observed database. --
         SELECT ELL, ELL_FREQ
-        FROM REAL_ELL
+        FROM OBSERVED_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (a, b,)).fetchall(), args.rsu, args.l))
+    """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    two_nm = list(map(lambda a, b: int(cur_r.execute(""" -- Retrieve the sample sizes, the number of alleles. --
+    main_n_hat = list(map(lambda a, b: int(cursor_o.execute(""" -- Retrieve the sample sizes, the number of alleles. --
         SELECT SAMPLE_SIZE
-        FROM REAL_ELL
+        FROM OBSERVED_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (a, b,)).fetchone()[0]), args.rsu, args.l))
+    """, (a, b,)).fetchone()[0]), main_arguments.uid_observed, main_arguments.locus_observed))
 
     # Perform the MCMC, and record our chain.
-    theta_0_m = BaseParameters(i_0=choose_i_0(freq_r), big_n=args.big_n, f=args.f, mu=args.mu, s=args.s,
-                               kappa=args.kappa, omega=args.omega, u=args.u, v=args.v, m=args.m, p=args.p)
-    theta_s_m = BaseParameters(i_0=choose_i_0(freq_r), big_n=args.big_n_sigma, f=args.f_sigma, mu=args.mu_sigma,
-                               s=args.s_sigma, kappa=args.kappa_sigma, omega=args.omega_sigma, u=args.u_sigma,
-                               v=args.v_sigma, m=args.m_sigma, p=args.p_sigma)
+    main_theta_0 = BaseParameters.from_args(main_arguments, False)
+    main_q_sigma = BaseParameters.from_args(main_arguments, True)
+    log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed,
+               mcmc(main_arguments.iterations_n, main_observed_frequency, main_arguments.sample_n,
+                    main_arguments.simulation_n, main_n_hat, main_arguments.epsilon, main_theta_0, main_q_sigma))
 
-    if args.type.casefold() == 'abc':
-        log_states(cur_e, args.rsu, args.l, abc(args.it, freq_r, args.rs, args.rp, two_nm, args.epsilon,
-                                                theta_0_m, theta_s_m))
-    elif args.type.casefold() == 'mh':
-        log_states(cur_e, args.rsu, args.l, mh(args.it, freq_r, args.rs, args.rp, two_nm, theta_0_m, theta_s_m))
-
-    conn_e.commit(), conn_r.close(), conn_e.close()
+    # Record and exit.
+    connection_m.commit(), connection_o.close(), connection_m.close()
