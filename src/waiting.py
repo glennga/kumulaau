@@ -67,26 +67,26 @@ if __name__ == '__main__':
     from sqlite3 import connect
     from matplotlib import use
 
-    parser = ArgumentParser(description='Display the results of various scripts (posterior, ...).')
+    parser = ArgumentParser(description='Display the results of various MCMC scripts.')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
     parser.add_argument('-f', help='Data to display.', type=str, choices=['model'])
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
     parser.add_argument('-hs', help='(posterior) Histogram step sizes in order: MU, S, U, V, M, P', nargs=6, type=float)
-    args = parser.parse_args()  # Parse our arguments.
+    main_arguments = parser.parse_args()  # Parse our arguments.
 
     # Connect to the appropriate database.
-    conn = connect(args.db)
-    cur = conn.cursor()
+    connection_r = connect(main_arguments.db)
+    cursor_r = connection_r.cursor()
 
     # Determine if we need to use X-server (plotting to display).
-    use('Agg') if args.image is not None else None
+    use('Agg') if main_arguments.image is not None else None
     from matplotlib import pyplot as plt
 
     # Perform the appropriate function.
-    if args.f == 'model':
-        model(cur, dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], args.hs)))
+    if main_arguments.f == 'model':
+        model(cursor_r, dict(zip(['MU', 'S', 'U', 'V', 'M', 'P'], main_arguments.hs)))
 
     # Save or display, your choice!
-    plt.savefig(args.image, dpi=100) if args.image is not None else plt.show()
+    plt.savefig(main_arguments.image, dpi=100) if main_arguments.image is not None else plt.show()
