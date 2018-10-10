@@ -2,6 +2,7 @@
 __pycache__
 data/old/*
 doc/build/*
+old/*
 
 *.pdf
 *.aux
