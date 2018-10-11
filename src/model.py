@@ -2,7 +2,7 @@
 from population import BaseParameters
 from numpy import ndarray
 from sqlite3 import Cursor
-from typing import List
+from typing import List, Tuple, Callable
 
 
 def create_tables(cursor: Cursor) -> None:
@@ -68,10 +68,53 @@ def choose_i_0(observed_frequencies: List) -> ndarray:
     from random import choice
     from numpy import array
 
-    return array([int(choice(choice(observed_frequencies))[0])])
+    return array([int(choice(observed_frequencies)[0])])
 
 
-def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: List[int],
+def condense_frequencies(observed_frequencies: List, n_hats: List[int]) -> Tuple[List, int]:
+    """ TODO: Finish this documentation.
+
+    :param observed_frequencies:
+    :param n_hats:
+    :return:
+    """
+    from collections import Counter
+
+    # Generate a population of repeat lengths given sets of frequencies and sample sizes.
+    population = []
+    for frequencies in zip(observed_frequencies, n_hats):
+        for repeat_unit in frequencies[0]:
+            population = [repeat_unit[0] for _ in range(round(repeat_unit[1] * frequencies[1]))] + population
+
+    # Determine the total frequency of each repeat length for this new population
+    population_counter, total_n_hat = Counter(population), sum(n_hats)
+    total_population_frequencies = [(a[0], a[1] / total_n_hat) for a in population_counter.items()]
+
+    return total_population_frequencies, total_n_hat
+
+
+def acceptance_probability(x: List, theta_proposed: BaseParameters, q_sigma: BaseParameters,
+                           dimensions: int):
+    """ TODO: Finish acceptance_probability for documentation.
+
+    :param x:
+    :param theta_proposed:
+    :param q_sigma:
+    :param dimensions:
+    :return:
+    """
+    from scipy.stats import norm
+
+    # We assume that our prior is equal to our initial proposal.
+    proposal_density = lambda a: norm.pdf(a[0], a[1], a[2]) if a[2] != 0 else 0
+    p_proposed = sum(list(map(proposal_density, zip(theta_proposed, x[0][0], q_sigma)))) / dimensions
+    p_k = sum(list(map(proposal_density, zip(x[-1][0], x[0][0], q_sigma)))) / dimensions
+
+    # Our proposal is symmetric so this cancels out. We determine our acceptance probability.
+    return min(1, p_proposed / p_k)
+
+
+def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: int,
          epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
@@ -84,10 +127,10 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
     3) Repeat for 'iterations_n' iterations.
 
     :param iterations_n: Number of iterations to run MCMC for.
-    :param observed_frequency: Dirty observed frequency samples.
-    :param sample_n: Number of samples per simulation to use to obtain delta.
-    :param population_n: Number of simulations to use to obtain delta.
-    :param n_hat: Sample sizes of the alleles. Must match the order of the observed samples given here.
+    :param observed_frequency: Dirty observed frequency sample.
+    :param sample_n: Number of samples per simulation to use to obtain a distance.
+    :param population_n: Number of simulations to use to obtain a distance.
+    :param n_hat: Sample size of the alleles.
     :param epsilon: Minimum acceptance value for our distance.
     :param theta_0: Our initial guess for parameters.
     :param q_sigma: The deviations associated with all parameters to use when generating new parameters.
@@ -96,11 +139,11 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
     """
     from population import Population
     from numpy.random import normal, uniform
-    from numpy import average, nextafter
-    from scipy.stats import norm
+    from numpy import nextafter
     from summary import Cosine
 
     x, summary = [[theta_0, 1, nextafter(0, 1), 0, '']], None  # Seed our Markov chain with our initial guess.
+    dimensions = sum([1 for a in q_sigma if a != 0])
     walk = lambda a, b: normal(a, b)
 
     for iteration in range(1, iterations_n):
@@ -112,14 +155,12 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
             population = Population(theta_proposed).evolve(choose_i_0(observed_frequency))
             summary = Cosine(population, 0, sample_n)
 
-            # Compute the distance term.
-            summary.compute_distance_multiple(observed_frequency, n_hat)
-
-        # Determine our acceptance probability.
-        alpha = average(list(map(lambda a: norm.pdf(a[0], a[1], a[2]), zip(theta_proposed, theta_k, q_sigma))))
+            summary.n_hat = n_hat  # Compute the distance term.
+            summary.compute_distance(observed_frequency)
 
         # Accept our proposal if delta < epsilon or if our acceptance probability condition is met.
-        if summary.average_distance() > epsilon or alpha > uniform(0, 1):
+        if summary.average_distance() > epsilon or \
+                acceptance_probability(x, theta_proposed, q_sigma, dimensions) > uniform(0, 1):
             x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
@@ -168,26 +209,28 @@ if __name__ == '__main__':
     cursor_o, cursor_m = connection_o.cursor(), connection_m.cursor()
     create_tables(cursor_m)
 
-    main_observed_frequency = list(map(lambda a, b: cursor_o.execute(""" -- Get frequencies from observed database. --
+    main_observed_frequencies = list(map(lambda a, b: cursor_o.execute(""" -- Get frequencies from observed database. --
         SELECT ELL, ELL_FREQ
         FROM OBSERVED_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    main_n_hat = list(map(lambda a, b: int(cursor_o.execute(""" -- Retrieve the sample sizes, the number of alleles. --
+    main_n_hats = list(map(lambda a, b: int(cursor_o.execute(""" -- Retrieve the sample sizes, the number of alleles. --
         SELECT SAMPLE_SIZE
         FROM OBSERVED_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
     """, (a, b,)).fetchone()[0]), main_arguments.uid_observed, main_arguments.locus_observed))
 
+    # Convert our collection of observations into one list.
+    main_observed_frequency, main_h_hat = condense_frequencies(main_observed_frequencies, main_n_hats)
+
     # Perform the MCMC, and record our chain.
     main_theta_0 = BaseParameters.from_args(main_arguments, False)
     main_q_sigma = BaseParameters.from_args(main_arguments, True)
     log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed,
                mcmc(main_arguments.iterations_n, main_observed_frequency, main_arguments.sample_n,
-                    main_arguments.simulation_n, main_n_hat, main_arguments.epsilon, main_theta_0, main_q_sigma))
+                    main_arguments.simulation_n, main_h_hat, main_arguments.epsilon, main_theta_0, main_q_sigma))
 
-    # Record and exit.
     connection_m.commit(), connection_o.close(), connection_m.close()
