@@ -93,25 +93,21 @@ def condense_frequencies(observed_frequencies: List, n_hats: List[int]) -> Tuple
     return total_population_frequencies, total_n_hat
 
 
-def acceptance_probability(x: List, theta_proposed: BaseParameters, q_sigma: BaseParameters,
-                           dimensions: int):
+def accept_theta_proposed(theta: BaseParameters):
     """ TODO: Finish acceptance_probability for documentation.
 
-    :param x:
-    :param theta_proposed:
-    :param q_sigma:
-    :param dimensions:
+    :param theta:
     :return:
     """
-    from scipy.stats import norm
+    from numpy import nextafter
 
-    # We assume that our prior is equal to our initial proposal.
-    proposal_density = lambda a: norm.pdf(a[0], a[1], a[2]) if a[2] != 0 else 0
-    p_proposed = sum(list(map(proposal_density, zip(theta_proposed, x[0][0], q_sigma)))) / dimensions
-    p_k = sum(list(map(proposal_density, zip(x[-1][0], x[0][0], q_sigma)))) / dimensions
-
-    # Our proposal is symmetric so this cancels out. We determine our acceptance probability.
-    return min(1, p_proposed / p_k)
+    # We assume a uniform prior and our proposal is symmetric (Metropolis algorithm). We only perform bounds checking.
+    return theta.n > 0 and \
+        theta.f > 0 and \
+        theta.c > nextafter(0, 1) and \
+        theta.u > 1 and \
+        theta.d > 0 and \
+        0 < theta.kappa < theta.omega
 
 
 def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: int,
@@ -138,12 +134,11 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
              acceptance probabilities.
     """
     from population import Population
-    from numpy.random import normal, uniform
+    from numpy.random import normal
     from numpy import nextafter
     from summary import Cosine
 
     x, summary = [[theta_0, 1, nextafter(0, 1), 0, '']], None  # Seed our Markov chain with our initial guess.
-    dimensions = sum([1 for a in q_sigma if a != 0])
     walk = lambda a, b: normal(a, b)
 
     for iteration in range(1, iterations_n):
@@ -158,9 +153,8 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
             summary.n_hat = n_hat  # Compute the distance term.
             summary.compute_distance(observed_frequency)
 
-        # Accept our proposal if delta < epsilon or if our acceptance probability condition is met.
-        if summary.average_distance() > epsilon or \
-                acceptance_probability(x, theta_proposed, q_sigma, dimensions) > uniform(0, 1):
+        # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
+        if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed):
             x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
