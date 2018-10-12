@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Visualize all instances of our mutation model parameter estimation.
+# Visualize all instances of our MCMC waiting times.
 for f in data/model-*.db; do
-    python3 src/visual.py \
+    python3 src/waiting.py \
         -db "$f" \
-        -f "model" \
+        -f 1 \
         -image "${f%".db"}.png" \
-        -hs 0.001 0.001 0.001 0.001 0.001 0.0005
+        0 0 0.0005 0.001 0.0005 0 0
 done

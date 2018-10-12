@@ -45,7 +45,7 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float]) -> None:
 
         # Obtain the data to plot. Waiting times indicate the number of repeats to apply to this state.
         axis_wait = cursor.execute(f"""
-          SELECT CAST({dimension} AS FLOAT), WAITING
+          SELECT CAST({dimension} AS FLOAT), WAITING_TIME
           FROM WAIT_MODEL
         """).fetchall()
         axis = list(chain.from_iterable([[float(a[0]) for _ in range(int(a[1]))] for a in axis_wait]))
@@ -53,7 +53,7 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float]) -> None:
         # Plot the histogram, and find the best fit line (assuming beta distribution).
         plt.gca().set_title(dimension_labels[j]), plt.hist(axis, bins=bins, density=True, histtype='stepfilled')
 
-    plt.subplots_adjust(top=0.924, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
+    plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
 
 if __name__ == '__main__':
