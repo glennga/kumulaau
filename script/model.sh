@@ -12,7 +12,7 @@ for run in 1 2 3; do
 
     # Run the MCMC.
     python3 src/model.py \
-        -mdb "data/model-${run}-abc.db" \
+        -mdb "data/model-${run}.db" \
         -simulation_n 10 \
         -sample_n 10 \
         -epsilon 0.60 \
