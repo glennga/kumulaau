@@ -108,12 +108,11 @@ def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameter
     beta_c = lambda a: beta.pdf(a, 1.48949, 4.14753, -1.71507e-05, 0.00618)
     beta_u = lambda a: beta.pdf(a, 7.40276, 4.62949, 1.17313, 0.04163)
     beta_d = lambda a: beta.pdf(a, 2.23564, 4.97695, -4.51903e-05, 0.00243)
-    r = uniform(0, 1)
 
     # Evaluate our prior.
-    beta_prior = (beta_c(theta_proposed.c) / beta_c(theta_k.c)) < r and \
-                 (beta_u(theta_proposed.u) / beta_u(theta_k.u)) < r and \
-                 (beta_d(theta_proposed.d) / beta_d(theta_k.d)) < r
+    beta_prior = (beta_c(theta_proposed.c) / beta_c(theta_k.c)) > uniform(0, 1) and \
+                 (beta_u(theta_proposed.u) / beta_u(theta_k.u)) > uniform(0, 1) and \
+                 (beta_d(theta_proposed.d) / beta_d(theta_k.d)) > uniform(0, 1)
 
     # Our proposal is symmetric (Metropolis algorithm). We perform bounds checking with our prior.
     return theta_proposed.n > 0 and \
@@ -169,7 +168,7 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
             summary.compute_distance(observed_frequency)
 
         # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
-        if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed):
+        if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed, theta_k):
             x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
