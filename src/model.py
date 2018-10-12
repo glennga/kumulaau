@@ -93,21 +93,36 @@ def condense_frequencies(observed_frequencies: List, n_hats: List[int]) -> Tuple
     return total_population_frequencies, total_n_hat
 
 
-def accept_theta_proposed(theta: BaseParameters):
+def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameters):
     """ TODO: Finish acceptance_probability for documentation.
 
-    :param theta:
+    :param theta_proposed:
+    :param theta_k:
     :return:
     """
+    from numpy.random import uniform
+    from scipy.stats import beta
     from numpy import nextafter
 
-    # We assume a uniform prior and our proposal is symmetric (Metropolis algorithm). We only perform bounds checking.
-    return theta.n > 0 and \
-        theta.f > 0 and \
-        theta.c > nextafter(0, 1) and \
-        theta.u > 1 and \
-        theta.d > 0 and \
-        0 < theta.kappa < theta.omega
+    # We assume a beta prior for the following variables, and a uniform prior for the rest.
+    beta_c = lambda a: beta.pdf(a, 1.48949, 4.14753, -1.71507e-05, 0.00618)
+    beta_u = lambda a: beta.pdf(a, 7.40276, 4.62949, 1.17313, 0.04163)
+    beta_d = lambda a: beta.pdf(a, 2.23564, 4.97695, -4.51903e-05, 0.00243)
+    r = uniform(0, 1)
+
+    # Evaluate our prior.
+    beta_prior = (beta_c(theta_proposed.c) / beta_c(theta_k.c)) < r and \
+                 (beta_u(theta_proposed.u) / beta_u(theta_k.u)) < r and \
+                 (beta_d(theta_proposed.d) / beta_d(theta_k.d)) < r
+
+    # Our proposal is symmetric (Metropolis algorithm). We perform bounds checking with our prior.
+    return theta_proposed.n > 0 and \
+        theta_proposed.f > 0 and \
+        theta_proposed.c > nextafter(0, 1) and \
+        theta_proposed.u > 1 and \
+        theta_proposed.d > 0 and \
+        0 < theta_proposed.kappa < theta_proposed.omega and \
+        beta_prior
 
 
 def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: int,

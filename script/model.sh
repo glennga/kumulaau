@@ -15,15 +15,15 @@ for run in 1 2 3; do
         -mdb "data/model-${run}.db" \
         -simulation_n 10 \
         -sample_n 10 \
-        -epsilon 0.60 \
-        -iterations_n 10000 \
+        -epsilon 0.55 \
+        -iterations_n 12500 \
         -uid_observed ${sample_uids} \
         -locus_observed ${loci} \
         -n 1000 -n_sigma 0.0 \
         -f 1 -f_sigma 0.0 \
-        -c 0.001 -c_sigma 0.001 \
-        -u 1.2 -u_sigma 0.001 \
-        -d 0.001 -d_sigma 0.001 \
+        -c 0.00162 -c_sigma 0.00103 \
+        -u 1.19875 -u_sigma 0.00562 \
+        -d 0.00070 -d_sigma 0.00038 \
         -kappa 3 -kappa_sigma 0.0 \
         -omega 100 -omega_sigma 0.0
 
