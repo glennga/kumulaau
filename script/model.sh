@@ -5,18 +5,18 @@ for run in 1 2 3; do
 
     # Our criteria for the loci and sample IDs to use for this run of MCMC.
     sample_uids=(); loci=()
-    for r in $(sqlite3 data/real.db "SELECT DISTINCT SAMPLE_UID, LOCUS FROM OBSERVED_ELL"); do
+    for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS FROM OBSERVED_ELL"); do
         IFS='|' read -r -a array <<< "$r"
         sample_uids+="${array[0]} "; loci+="${array[1]} "
     done
 
-    # Run the MCMC. We are now only focusing on PL1 model from Sainudiin paper.
+    # Run the MCMC.
     python3 src/model.py \
         -mdb "data/model-${run}-abc.db" \
-        -simulation_n 200 \
+        -simulation_n 10 \
         -sample_n 10 \
-        -epsilon 0.65 \
-        -iterations_n 25000 \
+        -epsilon 0.60 \
+        -iterations_n 10000 \
         -uid_observed ${sample_uids} \
         -locus_observed ${loci} \
         -n 1000 -n_sigma 0.0 \
