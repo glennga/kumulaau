@@ -6,11 +6,11 @@ for f in data/model-*.db; do
         -db "$f" \
         -function 1 \
         -image "${f%".db"}-waiting.png" \
-        0 0 0.0005 0.001 0.0005 0 0
+        0 0 0.0005 0.001 0.0001 0 0
 
     python3 src/plot.py \
         -db "$f" \
-        -function 1 \
+        -function 2 \
         -image "${f%".db"}-posterior.png" \
-        0 0 0.0005 0.001 0.0005 0 0
+        0 0 0.0005 0.001 0.0001 0 0
 done

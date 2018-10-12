@@ -56,16 +56,17 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float]) -> None:
     plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
 
-def histogram_2(cursor: Cursor, step_sizes: Dict[str, float]) -> None:
+def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], db_name: str) -> None:
     """ Display the results of the MCMC script for our mutation model: a histogram of posterior samples for each
      parameter and an overlaid beta distribution estimation.
 
     :param cursor: Cursor to the MCMC database to pull the data from.
     :param step_sizes: Histogram step sizes for the N, F, C, U, D, KAPPA, OMEGA dimensions.
+    :param db_name: TODO: Finish this parameter.
     :return: None.
     """
     from scipy.stats import beta
-    from numpy import arange, linspace
+    from numpy import arange, linspace, average, std
 
     set_style(), plt.suptitle(r'$P(\theta \mid Y_0)$ (Posterior Distribution) for Mutation Model MCMC')
 
@@ -93,10 +94,20 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float]) -> None:
 
         # Plot the histogram, and find the best fit line (assuming beta distribution).
         plt.gca().set_title(dimension_labels[j]), plt.hist(axis, bins=bins, density=True, histtype='stepfilled')
-        if axis.count(axis[0]) != len(axis):  # Do not plot for constant dimensions.
+        if axis.count(axis[0]) != len(axis):
             spc, c_ylim = linspace(min(plt.xticks()[0]), max(plt.xticks()[0]), len(axis)), plt.ylim()
             ab, bb, cb, db = beta.fit(axis)
-            plt.plot(spc, beta.pdf(spc, ab, bb, cb, db)), plt.ylim(c_ylim)  # Retain past y-limits, focus is histogram.
+            plt.plot(spc, beta.pdf(spc, ab, bb, cb, db)), plt.ylim(c_ylim)
+
+            # Print out our beta values and our mean.
+            print(f"[{db_name}, {dimension}]: "
+                  f"alpha = {ab}, "
+                  f"beta = {bb}, "
+                  f"loc = {cb}, "
+                  f"scale = {db}")
+            print(f"[{db_name}, {dimension}]: "
+                  f"std = {std(axis)}, "
+                  f"mean = {average(axis)}")
 
     plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
@@ -107,18 +118,20 @@ if __name__ == '__main__':
     from matplotlib import use
 
     # Generate our plot help strings.
-    plot_help = """ Visualization function to use: 
+    plot_help = """ Visualization function to use:
         [1 <- Waiting times histogram of mutation model MCMC.]
+        [2 <- Probability of our mutation model parameters given our data (histogram & MCMC).]
     """
     plot_parmeters_help = """ Parameters associated with function of use:
-        [1 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.] 
+        [1 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.]         
+        [2 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.] 
     """
 
     parser = ArgumentParser(description='Display the results of MCMC scripts.')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
     parser.add_argument('-function', help=plot_help, type=int, choices=[1, 2])
     parser.add_argument('-image_file', help='Image file to save resulting figure to.', type=str)
-    parser.add_argument('plot_parameters', help='Parameters associated with function of use.', type=float, nargs='+')
+    parser.add_argument('plot_parameters', help=plot_parmeters_help, type=float, nargs='+')
     main_arguments = parser.parse_args()  # Parse our arguments.
 
     # Connect to the appropriate database.
@@ -133,7 +146,8 @@ if __name__ == '__main__':
     if main_arguments.function == 1 and len(main_arguments.plot_parameters) == 7:
         histogram_1(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.plot_parameters)))
     elif main_arguments.function == 2 and len(main_arguments.plot_parameters) == 7:
-        histogram_2(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.plot_parameters)))
+        histogram_2(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.plot_parameters)),
+                    main_arguments.db)
     else:
         print('Incorrect number of plot parameters.') and exit(-1)
 
