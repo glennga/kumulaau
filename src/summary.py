@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from sqlite3 import Cursor
 from typing import List
-from numpy.random import choice
 from numpy.linalg import norm
 from numpy import ndarray, dot
 from numba import jit, prange
@@ -47,19 +46,17 @@ def log_distances(cursor: Cursor, distances: ndarray, uid_observed: str, locus_o
 
 
 class Summary(ABC):
-    def __init__(self, generated_effective: ndarray, n_hat: int, sample_n: int):
+    def __init__(self, generated_samples: ndarray, n_hat: int):
         """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
 
-        :param generated_effective: Simulated population of repeat units (one dimensional list).
+        :param generated_samples: Simulated population of repeat units (one dimensional list).
         :param n_hat: Sample size of the alleles.
-        :param sample_n: Number of times to sample the simulated population.
         """
         from numpy import array
-        self.generated_effective, self.n_hat, self.sample_n = generated_effective, n_hat, sample_n
+        self.generated_sample, self.n_hat = generated_samples, n_hat
 
         # We will set the following fields upon preparation.
-        self.generated_sample, self.generated_frequency, \
-            self.observed_frequency, self.distances = [array([]) for _ in range(4)]
+        self.generated_frequency, self.observed_frequency, self.distances = [array([]) for _ in range(3)]
 
     def _prepare(self, observed_frequency_dirty: List) -> None:
         """ Given a "dirty" (non-length normalized) frequency vector of observed samples, generate the appropriate
@@ -73,15 +70,15 @@ class Summary(ABC):
         # Cast our observed frequencies into numbers.
         observed_dictionary = {int(a[0]): float(a[1]) for a in observed_frequency_dirty}
 
-        # Determine the omega and kappa from the simulated effective population and our observed sample.
-        self.omega = max(self.generated_effective) + 1 if \
-            max(self.generated_effective) > max(observed_dictionary.keys()) else max(observed_dictionary.keys()) + 1
-        self.kappa = min(self.generated_effective) if \
-            min(self.generated_effective) < min(observed_dictionary.keys()) else min(observed_dictionary.keys())
+        # Determine the omega and kappa from the simulated population and our observed sample.
+        self.omega = max(self.generated_sample) + 1 if \
+            max(self.generated_sample) > max(observed_dictionary.keys()) else max(observed_dictionary.keys()) + 1
+        self.kappa = min(self.generated_sample) if \
+            min(self.generated_sample) < min(observed_dictionary.keys()) else min(observed_dictionary.keys())
 
         # Create the vectors to return.
-        self.generated_sample, self.generated_frequency, self.observed_frequency, self.distances = \
-            [zeros(self.n_hat), zeros(self.omega), zeros(self.omega), zeros(self.sample_n)]
+        self.generated_frequency, self.observed_frequency, self.distances = \
+            [zeros(self.omega), zeros(self.omega), zeros(1)]
 
         # Fit our observed distribution into a sparse frequency vector.
         for repeat_unit in observed_dictionary.keys():
@@ -90,16 +87,15 @@ class Summary(ABC):
     @staticmethod
     @abstractmethod
     def _distance(generated_sample: ndarray, generated_frequency: ndarray, observed_frequency: ndarray,
-                  generated_effective: ndarray, distances: ndarray, omega: int, kappa: int) -> None:
-        """ Given individuals from the effective simulated population and the frequencies of individuals from an
-        observed sample, sample the same amount from the simulated population 'sample_n' times and determine the
-        differences in distribution for each different simulated sample. All vectors passed MUST be of appropriate size 
-        and must be zeroed out before use.
+                  distances: ndarray, omega: int, kappa: int) -> None:
+        """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
+        sample the same amount from the simulated population 'r' times and determine the differences in distribution
+        for each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out
+        before use. Optimized by Numba.
 
         :param generated_sample: Storage vector, used to hold the sampled simulated population.
         :param generated_frequency: Storage sparse vector, used to hold the frequency sample.
         :param observed_frequency: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param generated_effective: Simulated population of repeat units (one dimensional list).
         :param distances: Output vector, used to store the computed distances of each sample.
         :param omega: Upper bound of the repeat unit space.
         :param kappa: Lower bound of the repeat unit space.
@@ -120,7 +116,7 @@ class Summary(ABC):
 
         # Run our sampling and comparison. Concatenate our previous state.
         self._distance(self.generated_sample, self.generated_frequency, self.observed_frequency,
-                       self.generated_effective, self.distances, self.omega, self.kappa)
+                       self.distances, self.omega, self.kappa)
         self.distances = concatenate((self.distances, d_previous), axis=None)
 
         return self.distances
@@ -146,38 +142,33 @@ class Summary(ABC):
 
 
 class Frequency(Summary):
-    def __init__(self, generated_effective: ndarray, n_hat: int, sample_n: int):
+    def __init__(self, generated_sample: ndarray, n_hat: int):
         """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
 
-        :param generated_effective: Simulated population of repeat units (one dimensional list).
+        :param generated_sample: Simulated population of repeat units (one dimensional list).
         :param n_hat: Sample size of the alleles.
-        :param sample_n: Number of times to sample the simulated population.
         """
-        super(Frequency, self).__init__(generated_effective, n_hat, sample_n)
+        super(Frequency, self).__init__(generated_sample, n_hat)
         raise DeprecationWarning  # Do not want to use this class for comparison... Cosine is better.
 
     @staticmethod
     @jit(nopython=True, nogil=True, target='cpu', parallel=True)
     def _distance(generated_sample: ndarray, generated_frequency: ndarray, observed_frequency: ndarray,
-                  generated_effective: ndarray, distances: ndarray, omega: int, kappa: int) -> None:
-        """ Given individuals from the effective simulated population and the frequencies of individuals from an
-        observed sample, sample the same amount from the simulated population 'r' times and determine the differences in
-        distribution for each different simulated sample. All vectors passed MUST be of appropriate size and must be
-        zeroed out before use. Optimized by Numba.
+                  distances: ndarray, omega: int, kappa: int) -> None:
+        """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
+        sample the same amount from the simulated population 'r' times and determine the differences in distribution
+        for each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out
+        before use. Optimized by Numba.
 
         :param generated_sample: Storage vector, used to hold the sampled simulated population.
         :param generated_frequency: Storage sparse vector, used to hold the frequency sample.
         :param observed_frequency: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param generated_effective: Simulated population of repeat units (one dimensional list).
         :param distances: Output vector, used to store the computed distances of each sample.
         :param omega: Upper bound of the repeat unit space.
         :param kappa: Lower bound of the repeat unit space.
         :return: None.
         """
         for k_0 in prange(distances.size):
-            for k_1 in prange(generated_sample.size):  # Randomly sample n individuals from population.
-                generated_sample[k_1] = choice(generated_effective)
-
             # Fit the simulated population into a sparse vector of frequencies.
             for repeat_unit in prange(kappa, omega):
                 i_count = 0
@@ -196,25 +187,21 @@ class Cosine(Summary):
     @staticmethod
     @jit(nopython=True, nogil=True, target='cpu', parallel=True)
     def _distance(generated_sample: ndarray, generated_frequency: ndarray, observed_frequency: ndarray,
-                  generated_effective: ndarray, distances: ndarray, omega: int, kappa: int) -> None:
-        """ Given individuals from the effective simulated population and the frequencies of individuals from an
-        observed sample, sample the same amount from the simulated population 'r' times and determine the differences in
-        distribution for each different simulated sample. All vectors passed MUST be of appropriate size and must be
-        zeroed out before use. Optimized by Numba.
+                  distances: ndarray, omega: int, kappa: int) -> None:
+        """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
+        sample the same amount from the simulated population 'r' times and determine the differences in distribution
+        for each different simulated sample. All vectors passed MUST be of appropriate size and must be zeroed out
+         before use. Optimized by Numba.
 
         :param generated_sample: Storage vector, used to hold the sampled simulated population.
         :param generated_frequency: Storage sparse vector, used to hold the frequency sample.
         :param observed_frequency: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param generated_effective: Simulated population of repeat units (one dimensional list).
         :param distances: Output vector, used to store the computed distances of each sample.
         :param omega: Upper bound of the repeat unit space.
         :param kappa: Lower bound of the repeat unit space.
         :return: None.
         """
         for k_0 in prange(distances.size):
-            for k_1 in prange(generated_sample.size):  # Randomly sample n individuals from population.
-                generated_sample[k_1] = choice(generated_effective)
-
             # Fit the simulated population into a sparse vector of frequencies.
             for repeat_unit in prange(kappa, omega):
                 i_count = 0
@@ -239,7 +226,6 @@ if __name__ == '__main__':
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-function', help='Similarity function to use.', type=str, choices=['COSINE', 'FREQ'])
-    paa('-sample_n', 'Number of times to sample the simulated population.', int)
     paa('-uid_observed', 'ID of the observed sample to compare to.', str)
     paa('-locus_observed', 'Locus of the observed sample to compare to.', str)
     main_arguments = parser.parse_args()  # Parse our arguments.
@@ -269,13 +255,11 @@ if __name__ == '__main__':
 
     # Execute the sampling.
     if main_arguments.function.casefold() == 'freq':
-        main_distances = Frequency(main_population, main_n_hat,
-                                   main_arguments.sample_n).compute_distance(main_observed_frequency)
+        main_distances = Frequency(main_population, main_n_hat).compute_distance(main_observed_frequency)
     else:
-        main_distances = Cosine(main_population, main_n_hat,
-                                main_arguments.sample_n).compute_distance(main_observed_frequency)
+        main_distances = Cosine(main_population, main_n_hat).compute_distance(main_observed_frequency)
 
     # Display our results to console, and record to our simulated database.
-    print('Results: [\n\t' + ', '.join(str(a) for a in main_distances) + '\n]')
+    print('Result: [\n\t' + ', '.join(str(a) for a in main_distances) + '\n]')
     log_distances(cursor_r, main_distances, main_arguments.uid_observed, main_arguments.locus_observed)
     connection_r.commit(), connection_r.close(), connection_o.close()

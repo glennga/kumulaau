@@ -12,7 +12,7 @@ class BaseParameters(object):
     def __init__(self, n: float, f: float, c: float, u: float, d: float, kappa: float, omega: float):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
-        :param n: Effective population size, used for determining the number of generations between events.
+        :param n: Population size, used for determining the number of generations between events.
         :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
         :param c: Constant bias for the upward mutation rate.
         :param u: Linear bias for the upward mutation rate.
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
 
     parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
-    paa('-n', 'Starting effective population size.', int)
+    paa('-n', 'Starting population size.', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
     paa('-c', 'Constant bias for the upward mutation rate.', float)
     paa('-u', 'Linear bias for the upward mutation rate.', float)

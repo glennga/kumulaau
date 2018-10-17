@@ -71,28 +71,6 @@ def choose_i_0(observed_frequencies: List) -> ndarray:
     return array([int(choice(observed_frequencies)[0])])
 
 
-def condense_frequencies(observed_frequencies: List, n_hats: List[int]) -> Tuple[List, int]:
-    """ TODO: Finish this documentation.
-
-    :param observed_frequencies:
-    :param n_hats:
-    :return:
-    """
-    from collections import Counter
-
-    # Generate a population of repeat lengths given sets of frequencies and sample sizes.
-    population = []
-    for frequencies in zip(observed_frequencies, n_hats):
-        for repeat_unit in frequencies[0]:
-            population = [repeat_unit[0] for _ in range(round(repeat_unit[1] * frequencies[1]))] + population
-
-    # Determine the total frequency of each repeat length for this new population
-    population_counter, total_n_hat = Counter(population), sum(n_hats)
-    total_population_frequencies = [(a[0], a[1] / total_n_hat) for a in population_counter.items()]
-
-    return total_population_frequencies, total_n_hat
-
-
 def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameters):
     """ TODO: Finish acceptance_probability for documentation.
 
@@ -223,16 +201,6 @@ if __name__ == '__main__':
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
-
-    main_n_hats = list(map(lambda a, b: int(cursor_o.execute(""" -- Retrieve the sample sizes, the number of alleles. --
-        SELECT SAMPLE_SIZE
-        FROM OBSERVED_ELL
-        WHERE SAMPLE_UID LIKE ?
-        AND LOCUS LIKE ?
-    """, (a, b,)).fetchone()[0]), main_arguments.uid_observed, main_arguments.locus_observed))
-
-    # Convert our collection of observations into one list.
-    main_observed_frequency, main_h_hat = condense_frequencies(main_observed_frequencies, main_n_hats)
 
     # Perform the MCMC, and record our chain.
     main_theta_0 = BaseParameters.from_args(main_arguments, False)
