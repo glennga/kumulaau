@@ -11,10 +11,9 @@ for run in 1 2 3; do
     done
 
     # Run the MCMC.
-    python3 src/model.py \
-        -mdb "data/model-${run}.db" \
+    python3 src/methoda.py \
+        -mdb "data/methoda-${run}.db" \
         -simulation_n 10 \
-        -sample_n 10 \
         -epsilon 0.55 \
         -iterations_n 12500 \
         -uid_observed ${sample_uids} \

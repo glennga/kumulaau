@@ -2,7 +2,7 @@
 from population import BaseParameters
 from numpy import ndarray
 from sqlite3 import Cursor
-from typing import List, Tuple, Callable
+from typing import List
 
 
 def create_tables(cursor: Cursor) -> None:
@@ -30,7 +30,7 @@ def create_tables(cursor: Cursor) -> None:
             OMEGA INT,
             WAITING_TIME INT,
             DISTANCE FLOAT,
-            ACCEPTANCE_TIME INT
+            PROPOSED_TIME INT
         );""")
 
 
@@ -83,7 +83,7 @@ def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameter
     from numpy import nextafter
 
     # We assume a beta prior for the following variables, and a uniform prior for the rest.
-    beta_c = lambda a: beta.pdf(a, 1.48949, 4.14753, -1.71507e-05, 0.00618)
+    beta_c = lambda a: beta.pdf(a, 1.48949, 4.14753, -1.71507e-05, 0.00618)  # Obtained from sole uniform prior run.
     beta_u = lambda a: beta.pdf(a, 7.40276, 4.62949, 1.17313, 0.04163)
     beta_d = lambda a: beta.pdf(a, 2.23564, 4.97695, -4.51903e-05, 0.00243)
 
@@ -98,8 +98,8 @@ def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameter
         theta_proposed.c > nextafter(0, 1) and \
         theta_proposed.u > 1 and \
         theta_proposed.d > 0 and \
-        0 < theta_proposed.kappa < theta_proposed.omega and \
-        beta_prior
+        0 < theta_proposed.kappa < theta_proposed.omega #and \
+       # beta_prior
 
 
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
@@ -128,20 +128,17 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     from numpy import nextafter
     from summary import Cosine
 
-    x, summary = [[theta_0, 1, nextafter(0, 1), 0, '']], None  # Seed our Markov chain with our initial guess.
+    x = [[theta_0, 1, nextafter(0, 1), 0, '']]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
     for iteration in range(1, iterations_n):
-        theta_k = x[-1][0]  # Our current position in the state space. Walk from this point.
+        theta_k, summary = x[-1][0], Cosine()  # Our current position in the state space. Walk from this point.
         theta_proposed = BaseParameters.from_walk(theta_k, q_sigma, walk)
 
         for _ in range(simulation_n):
-            # Generate some population given the current parameter set.
+            # Generate some population given the current parameter set. Compute the distance.
             population = Population(theta_proposed).evolve(choose_i_0(observed_frequencies))
-            summary = Cosine(population, 0)
-
-            # Compute the distance term for all observed frequencies.
-            summary.compute_distance_multiple(observed_frequencies)
+            summary.compute_distance_multiple(observed_frequencies, population)
 
         # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
         if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed, theta_k):
@@ -157,11 +154,10 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
-    from numpy import array
 
-    parser = ArgumentParser(description='ABC MCMC for the *microsatellite mutation model* parameter estimation.')
+    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model parameter estimation.')
     parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
-    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/model.db')
+    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/method-a.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
