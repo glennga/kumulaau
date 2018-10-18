@@ -46,14 +46,13 @@ def log_distances(cursor: Cursor, distances: ndarray, uid_observed: str, locus_o
 
 
 class Summary(ABC):
-    def __init__(self, generated_samples: ndarray, n_hat: int):
-        """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
+    def __init__(self, generated_sample: ndarray=None):
+        """ Constructor. Store the population we are comparing to.
 
-        :param generated_samples: Simulated population of repeat units (one dimensional list).
-        :param n_hat: Sample size of the alleles.
+        :param generated_sample: Simulated population of repeat units (one dimensional list). Optional.
         """
         from numpy import array
-        self.generated_sample, self.n_hat = generated_samples, n_hat
+        self.generated_sample = generated_sample
 
         # We will set the following fields upon preparation.
         self.generated_frequency, self.observed_frequency, self.distances = [array([]) for _ in range(3)]
@@ -102,14 +101,16 @@ class Summary(ABC):
         """
         raise NotImplementedError
 
-    def compute_distance(self, observed_frequency_dirty: List) -> ndarray:
+    def compute_distance(self, observed_frequency_dirty: List, generated_sample: ndarray=None) -> ndarray:
         """ Compute the distance for 'sample_n' samples, and return the results. For repeated runs of this function,
         we append our results to the same 'distances' field.
 
         :param observed_frequency_dirty: Dirty observed frequency sample. Needs to be transformed into a sparse vector.
+        :param generated_sample: Simulated population of repeat units (one dimensional list). Optional.
         :return: The computed distances for each sample.
         """
         from numpy import concatenate, array
+        self.generated_sample = generated_sample if generated_sample is not None else array([])
 
         d_previous = array(self.distances)  # Save our previous state.
         self._prepare(observed_frequency_dirty)
@@ -121,16 +122,15 @@ class Summary(ABC):
 
         return self.distances
 
-    def compute_distance_multiple(self, observed_frequency_dirty: List, n_hat: List):
+    def compute_distance_multiple(self, observed_frequencies_dirty: List, generated_sample: ndarray=None) -> None:
         """ TODO: Finish documentation for compute_distance_multiple.
 
-        :param observed_frequency_dirty:
-        :param n_hat:
+        :param observed_frequencies_dirty: Dirty observed frequency samples.
+        :param generated_sample: Simulated population of repeat units (one dimensional list). Optional.
         :return:
         """
-        for a in zip(observed_frequency_dirty, n_hat):
-            self.n_hat = a[1]
-            self.compute_distance(a[0])
+        for a in observed_frequencies_dirty:
+            self.compute_distance(a, generated_sample)
 
     def average_distance(self):
         """ TODO: Finish documentation for average_distance.
@@ -142,13 +142,12 @@ class Summary(ABC):
 
 
 class Frequency(Summary):
-    def __init__(self, generated_sample: ndarray, n_hat: int):
-        """ Constructor. Store the population we are comparing to, the sample size, and the number of times to sample.
+    def __init__(self, generated_sample: ndarray=None):
+        """ Constructor. Store the population we are comparing to.
 
-        :param generated_sample: Simulated population of repeat units (one dimensional list).
-        :param n_hat: Sample size of the alleles.
+        :param generated_sample: Simulated population of repeat units (one dimensional list). Optional.
         """
-        super(Frequency, self).__init__(generated_sample, n_hat)
+        super(Frequency, self).__init__(generated_sample)
         raise DeprecationWarning  # Do not want to use this class for comparison... Cosine is better.
 
     @staticmethod
@@ -242,22 +241,15 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (main_arguments.uid_observed, main_arguments.locus_observed,)).fetchall()
 
-    main_n_hat = int(connection_o.execute(""" -- Retrieve the sample size, the number of alleles. --
-        SELECT SAMPLE_SIZE
-        FROM OBSERVED_ELL
-        WHERE SAMPLE_UID LIKE ?
-        AND LOCUS LIKE ?
-    """, (main_arguments.uid_observed, main_arguments.locus_observed,)).fetchone()[0])
-
     # Generate some population.
     main_population = Population(BaseParameters(n=100, f=1.0, c=0.01, u=1.2,
                                                 d=0.001, kappa=3, omega=100)).evolve(array([11]))
 
     # Execute the sampling.
     if main_arguments.function.casefold() == 'freq':
-        main_distances = Frequency(main_population, main_n_hat).compute_distance(main_observed_frequency)
+        main_distances = Frequency(main_population).compute_distance(main_observed_frequency)
     else:
-        main_distances = Cosine(main_population, main_n_hat).compute_distance(main_observed_frequency)
+        main_distances = Cosine(main_population).compute_distance(main_observed_frequency)
 
     # Display our results to console, and record to our simulated database.
     print('Result: [\n\t' + ', '.join(str(a) for a in main_distances) + '\n]')

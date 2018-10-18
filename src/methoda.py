@@ -68,7 +68,7 @@ def choose_i_0(observed_frequencies: List) -> ndarray:
     from random import choice
     from numpy import array
 
-    return array([int(choice(observed_frequencies)[0])])
+    return array([int(choice(choice(observed_frequencies)[0]))])
 
 
 def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameters):
@@ -102,7 +102,7 @@ def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameter
         beta_prior
 
 
-def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_n: int, n_hat: int,
+def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
          epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
@@ -115,10 +115,8 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
     3) Repeat for 'iterations_n' iterations.
 
     :param iterations_n: Number of iterations to run MCMC for.
-    :param observed_frequency: Dirty observed frequency sample.
-    :param sample_n: Number of samples per simulation to use to obtain a distance.
-    :param population_n: Number of simulations to use to obtain a distance.
-    :param n_hat: Sample size of the alleles.
+    :param observed_frequencies: Dirty observed frequency samples.
+    :param simulation_n: Number of simulations to use to obtain a distance.
     :param epsilon: Minimum acceptance value for our distance.
     :param theta_0: Our initial guess for parameters.
     :param q_sigma: The deviations associated with all parameters to use when generating new parameters.
@@ -137,13 +135,13 @@ def mcmc(iterations_n: int, observed_frequency: List, sample_n: int, population_
         theta_k = x[-1][0]  # Our current position in the state space. Walk from this point.
         theta_proposed = BaseParameters.from_walk(theta_k, q_sigma, walk)
 
-        for _ in range(population_n):
+        for _ in range(simulation_n):
             # Generate some population given the current parameter set.
-            population = Population(theta_proposed).evolve(choose_i_0(observed_frequency))
-            summary = Cosine(population, 0, sample_n)
+            population = Population(theta_proposed).evolve(choose_i_0(observed_frequencies))
+            summary = Cosine(population, 0)
 
-            summary.n_hat = n_hat  # Compute the distance term.
-            summary.compute_distance(observed_frequency)
+            # Compute the distance term for all observed frequencies.
+            summary.compute_distance_multiple(observed_frequencies)
 
         # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
         if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed, theta_k):
@@ -161,7 +159,7 @@ if __name__ == '__main__':
     from sqlite3 import connect
     from numpy import array
 
-    parser = ArgumentParser(description='MCMC for the *microsatellite mutation model* parameter estimation.')
+    parser = ArgumentParser(description='ABC MCMC for the *microsatellite mutation model* parameter estimation.')
     parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
     parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/model.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
@@ -169,11 +167,10 @@ if __name__ == '__main__':
     parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
     parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
     paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
-    paa('-sample_n', 'Number of samples per simulation to use to obtain a distance.', int)
-    paa('-epsilon', 'Minimum acceptance value for distance between summary statistic.', float)
     paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
+    paa('-epsilon', 'Minimum acceptance value for distance between summary statistic.', float)
 
-    paa('-n', 'Starting effective population size.', int)
+    paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
     paa('-c', 'Constant bias for the upward mutation rate.', float)
     paa('-u', 'Linear bias for the upward mutation rate.', float)
@@ -181,7 +178,7 @@ if __name__ == '__main__':
     paa('-kappa', 'Lower bound of repeat lengths.', int)
     paa('-omega', 'Upper bound of repeat lengths.', int)
 
-    paa('-n_sigma', 'Step size of big_n when changing parameters.', float)
+    paa('-n_sigma', 'Step size of n when changing parameters.', float)
     paa('-f_sigma', 'Step size of f when changing parameters.', float)
     paa('-c_sigma', 'Step size of c when changing parameters.', float)
     paa('-u_sigma', 'Step size of u when changing parameters.', float)
@@ -202,11 +199,11 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    # Perform the MCMC, and record our chain.
+    # Perform the ABC MCMC, and record our chain.
     main_theta_0 = BaseParameters.from_args(main_arguments, False)
     main_q_sigma = BaseParameters.from_args(main_arguments, True)
     log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed,
-               mcmc(main_arguments.iterations_n, main_observed_frequency, main_arguments.sample_n,
-                    main_arguments.simulation_n, main_h_hat, main_arguments.epsilon, main_theta_0, main_q_sigma))
+               mcmc(main_arguments.iterations_n, main_observed_frequencies, main_arguments.simulation_n,
+                    main_arguments.epsilon, main_theta_0, main_q_sigma))
 
     connection_m.commit(), connection_o.close(), connection_m.close()
