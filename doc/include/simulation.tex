@@ -1,0 +1,87 @@
+\section{Algorithm for Microsatellite Evolution}\label{sec:afme}
+In this section, we describe our algorithm for evolving a microsatellite population of size $N$ using our mutation
+model.
+This procedure can be generally described as:
+\begin{enumerate}
+    \item Generate a Kingman's coalescent tree for $N$ individual sequences.
+    \item Seed the tree with some common ancestor.
+    \item Evolve forward to our effective population by following our tree and applying our mutation model.
+\end{enumerate}
+
+We now describe the process given above in detail.
+Let $\pi_t^{\ell}$ represent the repeat unit associated with some individual $\ell$ in population $\pi$ at
+generation $t$,
+and $v_j$ be a node associated with some repeat unit $\pi_t^i$, enumerated by $j$ for a set of populations.
+%To better differentiate between the two, an example is given below for three populations and two nodes:
+%\begin{align*}
+%    \pi_{1} &= \{ 5, 5, 7, 8, 10, 11 \} \\
+%    \pi_{2} &= \{ 5, 6, 9, 10, 11, 11 \} \\
+%    \pi_{3} &= \{ 3, 4, 5, 6, 9, 10 \} \\
+%    v_1 &\text{ is associated with 5 from } \pi_1 \\
+%    v_8 &\text{ is associated with 6 from } \pi_2
+%\end{align*}
+%
+Let $V$ represent the set that holds all nodes used in an instance of a Kingman's coalescent to obtain $\pi_N$.
+$V$ can be thought of as all the nodes associated with the evolutionary tree, or graph, that we are building.
+To state that some node $v_m$ is the direct descendant of $v_n$ is to use the following \emph{directed} edge:
+\begin{equation}
+    (v_m, v_n) \rightarrow v_m \text{ is the direct descendant of } v_n
+\end{equation}
+To build the set of connecting directed edges $E$ requires several conditions:
+\begin{enumerate}
+    \item For some edge $(v_m, v_n)$, $v_m$ must exist in the generation after $v_n$.
+        This implies that $v_0$ is the sink of our graph and all nodes in $\pi_N$ are sources.
+    \item For some edge $(v_m, v_n)$, both $v_m$ and $v_n$ must exist in the set of nodes associated with some instance
+        of a Kingman's coalescent $V$.
+    \item Recall that all individuals of a Kingman's coalescent at generation $t$ are copied into the following
+        generation, with only one individual being copied twice.
+        Let $V_t$ represent all nodes used in the Kingman's coalescent that exist in population $\pi_t$ at generation
+        $t$.
+        For all edges formed using $V_{t+1}$ and $V_{t}$, there exists only two edges $(v_m, v_n), (v_o, v_n)$ where
+        the ancestor node $v_n$ is seen twice.
+        For all other edges the descendant node must be unique \& from $V_t$, and the ancestor node must be unique \&
+        from the set $V_{t+1}$.
+\end{enumerate}
+
+An instance of a Kingman's coalescent is now described using the graph $G = (V, E)$.
+We define the following function $f$, which evaluates the repeat unit associated with a node $v$.
+This allows us to separate the process of building $G$ from determining the repeat unit value.
+\begin{equation}
+    f : V \rightarrow \left( \pi_0 \cup \pi_1 \cup \ldots \cup \pi_N \right)
+\end{equation}
+Constructing this function depends on applying the mutation model.
+
+\begin{algorithm}[t]
+    \KwIn{Number of sequences in the effective population $N$, observed repeat lengths $D$}
+    \KwOut{$\pi_{N}$}
+    $Z \gets $
+
+
+%    \caption{Generate a population of $2N$ microsatellite variations, originating from a common ancestor $\pi_0$ and
+%    using the Kingman's coalescent.}\label{alg:afme}
+\end{algorithm}
+
+%	\newcommand{\set}[1]{\{#1\}}
+%	\subsection{The Algorithm}\label{subsec:theAlgorithm}
+%	\begin{frame}
+%		\frametitle{The Algorithm}
+%		\begin{algorithmic}[1]
+%			\Procedure{Evolve}{}
+%				\State $\ell \gets \set{i_0}$
+%				\For{$j = 1 \text{\textbf{ to }} 2N$} \Comment Repeat until $2N$ alleles exist
+%					\State $\ell_j \gets \emptyset$
+%					\For{$C(j, 2)$ times} \Comment All of current population.
+%						\State $i \gets $ some allele from $\ell$
+%						\For{$2N / C(j, 2)$} \Comment Time to coalescence.
+%							\State $y_1 \gets 1$ dependent on: $\beta(i, s)$, else $0$
+%							\State $y_2 \gets 1$ dependent on: $\alpha(u, v, i)$, else $-1$
+%							\State $y_3 \gets 1$ dependent on: $p$, else  $\sim \gamma(m)$
+%							\State $i \gets i + y_1 \cdot y_2 \cdot y_3$
+%						\EndFor
+%						\State $\ell_j \gets \set{i} \cup \ell_j$
+%					\EndFor
+%					\State $\ell \gets \ell_j$ \Comment Replace old ancestors with new ones.
+%				\EndFor
+%				\State \textbf{return} $\ell$
+%			\EndProcedure
+%		\end{algorithmic}

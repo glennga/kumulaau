@@ -1,17 +1,21 @@
 \documentclass[11pt]{article}
-\usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage{algorithm} \usepackage{algpseudocode}
-\usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage{hyperref} \usepackage{float}
+\usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled]{algorithm2e}
+\usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage{hyperref} \usepackage{float} \usepackage{amssymb}
+\usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig}
 
 \setcounter{secnumdepth}{3}
-\newcommand{\algorithmautorefname}{Algorithm}
+\title{Efficient Parameter Estimation in Microsatellite Mutation Models}
 
-
+% TODO: Replace all instances of 'we' and 'our'?
 \author{Glenn Galvizo}
-\title{Microsatellite Mutation Modeling for Human Admixture Inferences}
 \date{\today}
+
+% Has to be in the preamble...
+\usetikzlibrary{calligraphy}
 
 \begin{document}
     \maketitle
+    \input{include/macros.tex}
     \input{include/abstract.tex}
     \newpage
 
@@ -19,13 +23,16 @@
     \newpage
 
     \input{include/introduction.tex}
-    \input{include/background.tex}
-    \input{include/methods.tex}
+    \input{include/snps-vs-str.tex}
+    \input{include/evolution.tex}
+    \input{include/mutation.tex}
+    \input{include/simulation.tex}
+    \input{include/parameter.tex}
+    \input{include/data.tex}
     \input{include/results.tex}
     \input{include/discussion.tex}
     \input{include/future-work.tex}
 
-    \nocite{*}
     \bibliographystyle{abbrv}
 	\bibliography{include/references}
 
