@@ -1,0 +1,50 @@
+\usetikzlibrary{decorations.pathreplacing}
+\begin{tikzpicture}
+    \begin{scope}[auto, every node/.style={draw=black,circle,thick,minimum size=1em}]
+        \foreach \x in {1,...,5}
+            \foreach \y in {0,...,8}{
+                \node (\x\y) at (\x,\y) {};
+            }
+    \end{scope}
+
+    \begin{scope}[auto, every node/.style={draw=black,circle,thick,minimum size=1em,fill=blue}]
+        \node (A_1) at (3,0) {};
+        \node (A_2) at (5,0) {};
+
+        \node (B_1) at (1,1) {};
+        \node (B_2) at (4, 1) {};
+
+        \node (C_1) at (2, 2) {};
+        \node (C_2) at (5, 2) {};
+
+        \node (D_1) at (2, 3) {};
+        \node (D_2) at (3, 3) {};
+
+        \node (E_1) at (3, 4) {};
+        \node (F_1) at (1, 5) {};
+        \node (G_1) at (4, 6) {};
+        \node (H_1) at (2, 7) {};
+        \node (I_1) at (3, 8) {};
+    \end{scope}
+
+    \begin{scope}[every edge/.style={draw=black,thick}]
+        \path (A_1) edge (B_1);
+        \path (A_2) edge (B_2);
+        \path (B_1) edge (C_1);
+        \path (B_2) edge (C_2);
+        \path (C_1) edge (D_1);
+        \path (C_2) edge (D_2);
+        \path (D_1) edge (E_1);
+        \path (D_2) edge (E_1);
+
+        \path (E_1) edge (F_1);
+        \path (F_1) edge (G_1);
+        \path (G_1) edge (H_1);
+        \path (H_1) edge (I_1);
+    \end{scope}
+
+    \node (T_A) at (0.5, -0.25) {};
+    \node (T_B) at (0.5, 4.25) {};
+    \draw[decoration={calligraphic brace,amplitude=10pt},decorate,line width=1.2pt]
+    (T_A) -- node[anchor=east, xshift=-8pt] {$\bar{t} = N$} (T_B);
+\end{tikzpicture}

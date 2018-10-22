@@ -1,0 +1,20 @@
+\usetikzlibrary{decorations.pathreplacing}
+\begin{tikzpicture}
+    \begin{scope}[auto, every node/.style={draw=black,circle,thick,minimum size=1em,fill=blue}]
+        \node (A_1) at (1,0) {};
+        \node (A_2) at (5, 0) {};
+        \node (A_3) at (3, 4) {};
+    \end{scope}
+
+    \begin{scope}[every edge/.style={draw=black,thick}]
+        \path (A_1) edge (A_3);
+        \path (A_2) edge (A_3);
+        \node (A_4) at (3, 8.5) {};
+        \path (A_3) edge (A_4);
+    \end{scope}
+
+    \node (T_A) at (0.5, -0.25) {};
+    \node (T_B) at (0.5, 4.25) {};
+    \draw[decoration={calligraphic brace,amplitude=10pt},decorate,line width=1.2pt]
+    (T_A) -- node[anchor=east, xshift=-8pt] {$\bar{t} = N$} (T_B);
+\end{tikzpicture}
