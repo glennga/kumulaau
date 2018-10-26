@@ -69,12 +69,14 @@ class BaseParameters(object):
 
     @staticmethod
     def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
-        """ TODO: Finish documentation for the from_walk method.
+        """ Generate a new point from some walk function. We apply this walk function to each dimension, using the
+        walking parameters specified in 'pi_sigma'. 'walk' must accept two variables, with the first being
+        the point to walk from and second being the parameter to walk with.
 
-        :param theta:
-        :param pi_sigma:
-        :param walk: For some parameter in theta, generate a new one with the corresponding pi_sigma.
-        :return:
+        :param theta: Current point in our model space. The point we are currently walking from.
+        :param pi_sigma: Walking parameters. These are commonly deviations.
+        :param walk: For some point theta, generate a new one with the corresponding pi_sigma.
+        :return: A new BaseParameters (point).
         """
         return BaseParameters(n=walk(theta.n, pi_sigma.n),
                               f=walk(theta.f, pi_sigma.f),
