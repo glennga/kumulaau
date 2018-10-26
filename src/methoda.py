@@ -30,6 +30,7 @@ def create_tables(cursor: Cursor) -> None:
             OMEGA INT,
             WAITING_TIME INT,
             DISTANCE FLOAT,
+            LIKELIHOOD FLOAT,
             PROPOSED_TIME INT
         );""")
 
@@ -46,6 +47,10 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     from datetime import datetime
     date_string = datetime.now()
 
+    if len(x) == 0:  # We can't record if we have nothing to record!
+        print("No accepted states exist.")
+        return
+
     # Record our observed sample log strings and datetime.
     cursor.executemany("""
         INSERT INTO WAIT_OBSERVED
@@ -54,52 +59,23 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
 
     cursor.executemany(f"""
         INSERT INTO WAIT_MODEL
-        VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 4))});
-    """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3]) for a in x))
+        VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
+    """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
 
-def choose_i_0(observed_frequencies: List) -> ndarray:
+def choose_i_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
     """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
-    from our observed samples.
+    from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
 
     :param observed_frequencies: Observed frequency samples.
+    :param kappa: Lower bound of our state space.
+    :param omega: Upper bound of our state space.
     :return: A single repeat length, wrapped in a Numpy array.
     """
     from random import choice
     from numpy import array
 
-    return array([int(choice(choice(observed_frequencies)[0]))])
-
-
-def accept_theta_proposed(theta_proposed: BaseParameters, theta_k: BaseParameters):
-    """ TODO: Finish acceptance_probability for documentation.
-
-    :param theta_proposed:
-    :param theta_k:
-    :return:
-    """
-    from numpy.random import uniform
-    from scipy.stats import beta
-    from numpy import nextafter
-
-    # We assume a beta prior for the following variables, and a uniform prior for the rest.
-    beta_c = lambda a: beta.pdf(a, 1.48949, 4.14753, -1.71507e-05, 0.00618)  # Obtained from sole uniform prior run.
-    beta_u = lambda a: beta.pdf(a, 7.40276, 4.62949, 1.17313, 0.04163)
-    beta_d = lambda a: beta.pdf(a, 2.23564, 4.97695, -4.51903e-05, 0.00243)
-
-    # Evaluate our prior.
-    beta_prior = (beta_c(theta_proposed.c) / beta_c(theta_k.c)) > uniform(0, 1) and \
-                 (beta_u(theta_proposed.u) / beta_u(theta_k.u)) > uniform(0, 1) and \
-                 (beta_d(theta_proposed.d) / beta_d(theta_k.d)) > uniform(0, 1)
-
-    # Our proposal is symmetric (Metropolis algorithm). We perform bounds checking with our prior.
-    return theta_proposed.n > 0 and \
-        theta_proposed.f > 0 and \
-        theta_proposed.c > nextafter(0, 1) and \
-        theta_proposed.u > 1 and \
-        theta_proposed.d > 0 and \
-        0 < theta_proposed.kappa < theta_proposed.omega #and \
-       # beta_prior
+    return array([min(omega, max(kappa, int(choice(choice(observed_frequencies)[0]))))])
 
 
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
@@ -108,11 +84,16 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
     is given below:
 
-    1) We start with some initial guess and simulate an entire population.
-    2) We then compute the average distance between a set of simulated and observed samples.
-        a) If this term is above some defined epsilon or ~U(0, 1) < A, we append this to our chain.
-        b) Otherwise, we reject it and increase the waiting time of our current parameter state by one.
-    3) Repeat for 'iterations_n' iterations.
+    1) We start with some initial guess theta_0. Right off the bat, we move to another theta from theta_0.
+    2) For 'iterations_n' iterations...
+        a) For 'simulation_n' iterations...
+            i) We simulate a population using the given theta.
+            ii) For each observed frequency ... 'D'
+                1) We compute the difference between the two distributions.
+                2) If this difference is less than our epsilon term, we add 1 to a vector modeling D.
+        b) Compute the probability that each observed frequency matches a generated population: all of D / simulation_n.
+        c) If this probability is greater than the probability of the previous, we accept.
+        d) Otherwise, we accept our proposed with probability p(proposed) / p(prev).
 
     :param iterations_n: Number of iterations to run MCMC for.
     :param observed_frequencies: Dirty observed frequency samples.
@@ -124,25 +105,28 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
              acceptance probabilities.
     """
     from population import Population
-    from numpy.random import normal
-    from numpy import nextafter
-    from summary import Cosine
+    from numpy import average, nextafter
+    from numpy.random import normal, uniform
+    from distance import Cosine
 
-    x = [[theta_0, 1, nextafter(0, 1), 0, '']]  # Seed our Markov chain with our initial guess.
+    x = [[theta_0, 1, nextafter(0, 1), nextafter(0, 1), 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
-    for iteration in range(1, iterations_n):
-        theta_k, summary = x[-1][0], Cosine()  # Our current position in the state space. Walk from this point.
-        theta_proposed = BaseParameters.from_walk(theta_k, q_sigma, walk)
+    for iteration in range(1, iterations_n):  # Walk from our previous state.
+        theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
+        distance_accumulator, delta_sum = Cosine(observed_frequencies, theta_proposed.kappa,
+                                                 theta_proposed.omega, simulation_n), 0
 
-        for _ in range(simulation_n):
-            # Generate some population given the current parameter set. Compute the distance.
-            population = Population(theta_proposed).evolve(choose_i_0(observed_frequencies))
-            summary.compute_distance_multiple(observed_frequencies, population)
+        for simulation in range(simulation_n):
+            # Generate some population given the current parameter set. Compute the distance and save the matches.
+            ell_ancestor = choose_i_0(observed_frequencies, theta_proposed.kappa, theta_proposed.omega)
+            population = Population(theta_proposed).evolve(ell_ancestor)
+            delta_sum += average(distance_accumulator.compute_deltas(epsilon, simulation, population))
 
-        # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
-        if summary.average_distance() > epsilon and accept_theta_proposed(theta_proposed, theta_k):
-            x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
+        # Accept our proposal according to our alpha value.
+        p_proposed, p_k = distance_accumulator.match_likelihood(), x[-1][2]
+        if p_proposed / p_k > uniform(0, 1):
+            x = x + [[theta_proposed, 1, delta_sum / simulation_n, p_proposed, iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
@@ -164,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
     paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
     paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
-    paa('-epsilon', 'Minimum acceptance value for distance between summary statistic.', float)
+    paa('-epsilon', "Maximum acceptance value for distance between an angular distance [0, 1].", float)
 
     paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
