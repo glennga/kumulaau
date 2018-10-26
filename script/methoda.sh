@@ -16,17 +16,17 @@ for run in 1 2 3; do
     python3 src/methoda.py \
         -mdb "data/methoda-${run}.db" \
         -simulation_n 10 \
-        -epsilon 0.25 \
+        -epsilon 0.7 \
         -iterations_n 1000 \
         -uid_observed ${sample_uids} \
         -locus_observed ${loci} \
         -n 1000 -n_sigma 0.0 \
         -f 1 -f_sigma 0.0 \
-        -c 0.00162 -c_sigma 0.00103 \
-        -u 1.19875 -u_sigma 0.00562 \
-        -d 0.00070 -d_sigma 0.00038 \
+        -c 0.00162 -c_sigma 0.0103 \
+        -u 1.19875 -u_sigma 0.0562 \
+        -d 0.00070 -d_sigma 0.0038 \
         -kappa 3 -kappa_sigma 0.0 \
-        -omega 100 -omega_sigma 0.0
+        -omega 30 -omega_sigma 0.0
 done
 
 sem --wait
