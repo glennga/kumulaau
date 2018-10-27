@@ -29,8 +29,8 @@ def create_tables(cursor: Cursor) -> None:
             KAPPA INT,
             OMEGA INT,
             WAITING_TIME INT,
-            DISTANCE FLOAT,
             LIKELIHOOD FLOAT,
+            DISTANCE FLOAT,
             PROPOSED_TIME INT
         );""")
 
@@ -126,13 +126,13 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
         # Accept our proposal according to our alpha value.
         p_proposed, p_k = distance_accumulator.match_likelihood(), x[-1][2]
         if p_proposed / p_k > uniform(0, 1):
-            x = x + [[theta_proposed, 1, delta_sum / simulation_n, p_proposed, iteration]]
+            x = x + [[theta_proposed, 1, p_proposed, delta_sum / simulation_n, iteration]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
             x[-1][1] += 1
 
-    return x[1:]
+    return x
 
 
 if __name__ == '__main__':
