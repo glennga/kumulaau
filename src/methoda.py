@@ -63,7 +63,7 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
 
-def choose_i_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
+def choose_ell_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
     """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
     from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
 
@@ -76,6 +76,29 @@ def choose_i_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
     from numpy import array
 
     return array([min(omega, max(kappa, int(choice(choice(observed_frequencies)[0]))))])
+
+
+def alpha(theta_proposed: BaseParameters, p_proposed: float, p_k: float) -> bool:
+    """ An acceptance function, which determines if we should accept a proposed point or reject it based on its
+    likelihood. We also perform bounds checking here.
+
+    :param theta_proposed: Our proposed parameters. Required to perform bounds checking.
+    :param p_proposed: Likelihood of the proposed point.
+    :param p_k: Likelihood of the current point.
+    :return True if we should accept our proposal. False otherwise.
+    """
+    from numpy.random import uniform
+
+    # Perform bounds checking.
+    within_bounds = theta_proposed.n > 0 and \
+        theta_proposed.f >= 0 and \
+        theta_proposed.c > 0 and \
+        theta_proposed.u >= 1 and \
+        theta_proposed.d >= 0 and \
+        0 < theta_proposed.kappa < theta_proposed.omega
+
+    # If the likelihood of our proposal is greater than our current, we always accept. Otherwise, fall back to this ratio.
+    return p_proposed / p_k > uniform(0, 1) and within_bounds
 
 
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
@@ -106,27 +129,27 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     """
     from population import Population
     from numpy import average, nextafter
-    from numpy.random import normal, uniform
+    from numpy.random import normal
     from distance import Cosine
 
     x = [[theta_0, 1, nextafter(0, 1), nextafter(0, 1), 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
-    for iteration in range(1, iterations_n):  # Walk from our previous state.
+    for i in range(1, iterations_n):  # Walk from our previous state.
         theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
         distance_accumulator, delta_sum = Cosine(observed_frequencies, theta_proposed.kappa,
                                                  theta_proposed.omega, simulation_n), 0
 
-        for simulation in range(simulation_n):
+        for j in range(simulation_n):
             # Generate some population given the current parameter set. Compute the distance and save the matches.
-            ell_ancestor = choose_i_0(observed_frequencies, theta_proposed.kappa, theta_proposed.omega)
+            ell_ancestor = choose_ell_0(observed_frequencies, theta_proposed.kappa, theta_proposed.omega)
             population = Population(theta_proposed).evolve(ell_ancestor)
-            delta_sum += average(distance_accumulator.compute_deltas(epsilon, simulation, population))
+            delta_sum += average(distance_accumulator.compute_deltas(epsilon, j, population))
 
         # Accept our proposal according to our alpha value.
-        p_proposed, p_k = distance_accumulator.match_likelihood(), x[-1][2]
-        if p_proposed / p_k > uniform(0, 1):
-            x = x + [[theta_proposed, 1, p_proposed, delta_sum / simulation_n, iteration]]
+        p_proposed = distance_accumulator.match_likelihood()
+        if alpha(theta_proposed, p_proposed, x[-1][2]):
+            x = x + [[theta_proposed, 1, p_proposed, delta_sum / simulation_n, i]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:

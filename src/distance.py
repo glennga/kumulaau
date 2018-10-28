@@ -89,7 +89,7 @@ class Distance(ABC):
         self.generated_frequency = zeros(self.omega - self.kappa + 1)
 
         # Construct an empty matched matrix.
-        self.matched_matrix = zeros((simulation_n, len(observed_frequencies_dirty)))
+        self.matched_matrix = zeros((simulation_n, len(observed_frequencies_dirty)), dtype='bool')
 
     @staticmethod
     @abstractmethod
@@ -135,7 +135,7 @@ class Distance(ABC):
         # If our distance is less than a defined epsilon, we mark this as 'matched' with 1. Otherwise, 0.
         for j, observed_frequency in enumerate(self.observed_frequencies):
             deltas_at_number[j] = self._compute_delta(observed_frequency, self.generated_sample)
-            self.matched_matrix[generated_number, j] = 1 if deltas_at_number[j] < epsilon else 0
+            self.matched_matrix[generated_number, j] = deltas_at_number[j] < epsilon
 
         # Return our distance vector.
         return deltas_at_number
