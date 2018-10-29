@@ -71,20 +71,31 @@ class BaseParameters(object):
     def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
         """ Generate a new point from some walk function. We apply this walk function to each dimension, using the
         walking parameters specified in 'pi_sigma'. 'walk' must accept two variables, with the first being
-        the point to walk from and second being the parameter to walk with.
+        the point to walk from and second being the parameter to walk with. We must be within bounds.
 
         :param theta: Current point in our model space. The point we are currently walking from.
         :param pi_sigma: Walking parameters. These are commonly deviations.
         :param walk: For some point theta, generate a new one with the corresponding pi_sigma.
         :return: A new BaseParameters (point).
         """
-        return BaseParameters(n=walk(theta.n, pi_sigma.n),
-                              f=walk(theta.f, pi_sigma.f),
-                              c=walk(theta.c, pi_sigma.c),
-                              u=walk(theta.u, pi_sigma.u),
-                              d=walk(theta.d, pi_sigma.d),
-                              kappa=walk(theta.kappa, pi_sigma.kappa),
-                              omega=walk(theta.omega, pi_sigma.omega))
+        while True:
+            theta_proposed = BaseParameters(n=walk(theta.n, pi_sigma.n),
+                                            f=walk(theta.f, pi_sigma.f),
+                                            c=walk(theta.c, pi_sigma.c),
+                                            u=walk(theta.u, pi_sigma.u),
+                                            d=walk(theta.d, pi_sigma.d),
+                                            kappa=walk(theta.kappa, pi_sigma.kappa),
+                                            omega=walk(theta.omega, pi_sigma.omega))
+
+            if theta_proposed.n > 0 and \
+                    theta_proposed.f >= 0 and \
+                    theta_proposed.c > 0 and \
+                    theta_proposed.u >= 1 and \
+                    theta_proposed.d >= 0 and \
+                    0 < theta_proposed.kappa < theta_proposed.omega:
+                break
+
+        return theta_proposed
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)

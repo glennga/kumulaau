@@ -140,7 +140,7 @@ class Distance(ABC):
         # Return our distance vector.
         return deltas_at_number
 
-    def match_likelihood(self) -> ndarray:
+    def match_likelihood(self) -> float:
         """ 'j' specifies the column or associated observed microsatellite sample in 'matched_matrix'. To determine
         the probability of a model (parameters) matching this observed sample, we compute the average of this column.
         Repeat this for all 'j's, and take the product (assumes each is independent).

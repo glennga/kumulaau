@@ -78,29 +78,6 @@ def choose_ell_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
     return array([min(omega, max(kappa, int(choice(choice(observed_frequencies)[0]))))])
 
 
-def alpha(theta_proposed: BaseParameters, p_proposed: float, p_k: float) -> bool:
-    """ An acceptance function, which determines if we should accept a proposed point or reject it based on its
-    likelihood. We also perform bounds checking here.
-
-    :param theta_proposed: Our proposed parameters. Required to perform bounds checking.
-    :param p_proposed: Likelihood of the proposed point.
-    :param p_k: Likelihood of the current point.
-    :return True if we should accept our proposal. False otherwise.
-    """
-    from numpy.random import uniform
-
-    # Perform bounds checking.
-    within_bounds = theta_proposed.n > 0 and \
-        theta_proposed.f >= 0 and \
-        theta_proposed.c > 0 and \
-        theta_proposed.u >= 1 and \
-        theta_proposed.d >= 0 and \
-        0 < theta_proposed.kappa < theta_proposed.omega
-
-    # If the likelihood of our proposal is greater than our current, we always accept. Otherwise, fall back to this ratio.
-    return p_proposed / p_k > uniform(0, 1) and within_bounds
-
-
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
          epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
@@ -129,7 +106,7 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     """
     from population import Population
     from numpy import average, nextafter
-    from numpy.random import normal
+    from numpy.random import normal, uniform
     from distance import Cosine
 
     x = [[theta_0, 1, nextafter(0, 1), nextafter(0, 1), 0]]  # Seed our Markov chain with our initial guess.
@@ -147,8 +124,8 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
             delta_sum += average(distance_accumulator.compute_deltas(epsilon, j, population))
 
         # Accept our proposal according to our alpha value.
-        p_proposed = distance_accumulator.match_likelihood()
-        if alpha(theta_proposed, p_proposed, x[-1][2]):
+        p_proposed, p_k = distance_accumulator.match_likelihood(), x[-1][2]
+        if p_proposed / p_k > uniform(0, 1):
             x = x + [[theta_proposed, 1, p_proposed, delta_sum / simulation_n, i]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
