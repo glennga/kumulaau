@@ -112,6 +112,31 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], db_name: str) -> N
     plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
 
+def trace_1(cursor: Cursor) -> None:
+    """ TODO:
+
+    :param cursor: Cursor to the MCMC database to pull the data from.
+    :return: None.
+    """
+    set_style(), plt.suptitle(r'Trace Plot for Mutation Model MCMC')
+
+    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$u$', r'$d$', r'$\kappa$', r'$\Omega$']
+    for j, dimension in enumerate(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA']):
+        plt.subplot(2, 4, j + 1)
+
+        # Obtain the data to plot. The acceptance time indicates how we sort our data.
+        axis_accept = sorted(list(map(lambda a: [int(a[0]), float(a[1])], cursor.execute(f"""
+          SELECT PROPOSED_TIME, CAST({dimension} AS FLOAT)
+          FROM WAIT_MODEL
+        """).fetchall())), key=lambda a: a[0])
+        x_axis, y_axis = list(zip(*axis_accept))
+
+        # Plot each point as (proposed_time, dimension).
+        plt.gca().set_title(dimension_labels[j]), plt.plot(x_axis, y_axis)
+
+    plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
+
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     from sqlite3 import connect
@@ -121,17 +146,19 @@ if __name__ == '__main__':
     plot_help = """ Visualization function to use:
         [1 <- Waiting times histogram of mutation model MCMC.]
         [2 <- Probability of our mutation model parameters given our data (histogram & MCMC).]
+        [3 <- Trace plot of our parameters for the mutation model MCMC.]
     """
     plot_parmeters_help = """ Parameters associated with function of use:
         [1 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.]         
         [2 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.] 
+        [3 <- None.]
     """
 
     parser = ArgumentParser(description='Display the results of MCMC scripts.')
     parser.add_argument('-db', help='Location of the database required to operate on.', type=str)
-    parser.add_argument('-function', help=plot_help, type=int, choices=[1, 2])
+    parser.add_argument('-function', help=plot_help, type=int, choices=[1, 2, 3])
     parser.add_argument('-image_file', help='Image file to save resulting figure to.', type=str)
-    parser.add_argument('plot_parameters', help=plot_parmeters_help, type=float, nargs='+')
+    parser.add_argument('-params', help=plot_parmeters_help, type=float, nargs='+')
     main_arguments = parser.parse_args()  # Parse our arguments.
 
     # Connect to the appropriate database.
@@ -143,11 +170,13 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
     # Perform the appropriate function.
-    if main_arguments.function == 1 and len(main_arguments.plot_parameters) == 7:
-        histogram_1(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.plot_parameters)))
-    elif main_arguments.function == 2 and len(main_arguments.plot_parameters) == 7:
-        histogram_2(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.plot_parameters)),
+    if main_arguments.function == 1 and main_arguments is not None and len(main_arguments.params) == 7:
+        histogram_1(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.params)))
+    elif main_arguments.function == 2 and main_arguments is not None and len(main_arguments.params) == 7:
+        histogram_2(cursor_r, dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.params)),
                     main_arguments.db)
+    elif main_arguments.function == 3:
+        trace_1(cursor_r)
     else:
         print('Incorrect number of plot parameters.') and exit(-1)
 
