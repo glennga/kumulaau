@@ -1,0 +1,16 @@
+\pgfplotsset{compat=1.5}
+\pgfmathdeclarefunction{gauss}{2}{%
+  \pgfmathparse{1/(#2*sqrt(2*pi))*exp(-((x-#1)^2)/(2*#2^2))}%
+}
+
+\begin{tikzpicture}
+    \begin{axis}[
+    width=0.8\linewidth, height=5.6cm,
+    ylabel={Likelihood}, ymax=0.3,
+    xlabel={Parameter}, xmin=0, xmax=10,
+    samples=100, no markers, enlargelimits=false, legend style={at={(0.5,-0.35)},anchor=north},
+    domain=0:25, ticks=none
+    ]
+    \addplot [very thick,cyan!50!black] {gauss(5,1.5)};
+    \end{axis}
+\end{tikzpicture}
