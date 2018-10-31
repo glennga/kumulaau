@@ -10,7 +10,7 @@ fi
 cd ${MICRO_SAT_PATH}/doc
 
 # If "paper" is passed, then we have to build the bibliography as well.
-if [[ "$1" = *"paper" ]]; then
+if [[ "$1" = *"paper" ]] || [[ "$1" = *"present" ]]; then
     pdflatex $1.tex >> $1-build.log
     sleep 0.1
 
