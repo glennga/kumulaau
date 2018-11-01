@@ -63,21 +63,6 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
 
-def choose_ell_0(observed_frequencies: List, kappa: int, omega: int) -> ndarray:
-    """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
-    from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
-
-    :param observed_frequencies: Observed frequency samples.
-    :param kappa: Lower bound of our state space.
-    :param omega: Upper bound of our state space.
-    :return: A single repeat length, wrapped in a Numpy array.
-    """
-    from random import choice
-    from numpy import array
-
-    return array([min(omega, max(kappa, int(choice(choice(observed_frequencies)[0]))))])
-
-
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
          epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
@@ -104,35 +89,29 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
              acceptance probabilities.
     """
-    from population import Population
-    from numpy import average, nextafter
     from numpy.random import normal, uniform
     from distance import Cosine
 
-    x = [[theta_0, 1, nextafter(0, 1), nextafter(0, 1), 0]]  # Seed our Markov chain with our initial guess.
+    x = [[theta_0, 1, 1.0e-10, 1.0e-10, 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
     for i in range(1, iterations_n):  # Walk from our previous state.
         theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
-        distance_accumulator, delta_sum = Cosine(observed_frequencies, theta_proposed.kappa,
-                                                 theta_proposed.omega, simulation_n), 0
+        delta = Cosine(observed_frequencies, theta_proposed.kappa, theta_proposed.omega, simulation_n)
 
-        for j in range(simulation_n):
-            # Generate some population given the current parameter set. Compute the distance and save the matches.
-            ell_ancestor = choose_ell_0(observed_frequencies, theta_proposed.kappa, theta_proposed.omega)
-            population = Population(theta_proposed).evolve(ell_ancestor)
-            delta_sum += average(distance_accumulator.compute_deltas(epsilon, j, population))
+        # Compute our matched and delta matrix (simulation (rows) by observation (columns)). Get a mean distance.
+        expected_distance = delta.fill_matrices(theta_proposed, epsilon)
 
         # Accept our proposal according to our alpha value.
-        p_proposed, p_k = distance_accumulator.match_likelihood(), x[-1][2]
+        p_proposed, p_k = delta.match_likelihood(), x[-1][2]
         if p_proposed / p_k > uniform(0, 1):
-            x = x + [[theta_proposed, 1, p_proposed, delta_sum / simulation_n, i]]
+            x = x + [[theta_proposed, 1, p_proposed, expected_distance, i]]
 
         # Reject our proposal. We keep our current state and increment our waiting times.
         else:
             x[-1][1] += 1
 
-    return x
+    return x[1:]  # Do not record our initial guess.
 
 
 if __name__ == '__main__':
