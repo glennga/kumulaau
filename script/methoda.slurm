@@ -5,10 +5,10 @@
 #SBATCH --partition=community.q
 #SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=10
-#SBATCH --mem=8000
-#SBATCH --error=/home/glennga/lus/methoda-%A.err
-#SBATCH --output=/home/glennga/lus/methoda-%A.out
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=10000
+#SBATCH --error=/home/glennga/lus/methoda-%A_%a.err
+#SBATCH --output=/home/glennga/lus/methoda-%A_%a.out
 #SBATCH --mail-type=BEGIN,END,FAIL,REQUEUE,TIME_LIMIT_80
 #SBATCH --mail-user=glennga@hawaii.edu
 
@@ -20,4 +20,4 @@ source ~/.bashrc
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 conda activate /home/glennga/apps/software/coaenv
-/home/glennga/apps/micro-coa/script/methoda.sh 
+/home/glennga/apps/micro-coa/script/methoda.sh ${SLURM_ARRAY_TASK_ID}
