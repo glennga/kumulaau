@@ -59,18 +59,17 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
     plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
 
-def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], db_name: str, burn_in: int) -> None:
+def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> None:
     """ Display the results of the MCMC script for our mutation model: a histogram of posterior samples for each
      parameter and an overlaid beta distribution estimation.
 
     :param cursor: Cursor to the MCMC database to pull the data from.
     :param step_sizes: Histogram step sizes for the N, F, C, U, D, KAPPA, OMEGA dimensions.
-    :param db_name: Name of the database. Used for printing out statistics to console.
     :param burn_in: Burn in period. We only use datum whose acceptance time falls after this.
     :return: None.
     """
-    from scipy.stats import beta
-    from numpy import arange, linspace, average, std
+    from scipy.stats import beta, norm, gamma
+    from numpy import arange, linspace
 
     set_style(), plt.suptitle(r'Parameter Frequency for Mutation Model MCMC')
 
@@ -98,22 +97,21 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], db_name: str, burn
             WHERE PROPOSED_TIME > {burn_in}
         """).fetchall()))
 
-        # Plot the histogram, and find the best fit line (assuming beta distribution).
+        # Plot the histogram, and find the best fit line.
         plt.gca().set_title(dimension_labels[j]), plt.hist(axis, bins=bins, density=True, histtype='stepfilled')
         if axis.count(axis[0]) != len(axis):
             spc, c_ylim = linspace(min(plt.xticks()[0]), max(plt.xticks()[0]), len(axis)), plt.ylim()
-            ab, bb, cb, db = beta.fit(axis)
-            plt.plot(spc, beta.pdf(spc, ab, bb, cb, db)), plt.ylim(c_ylim)
 
-            # Print out our beta values and our mean.
-            print(f"[{db_name}, {dimension}]: "
-                  f"alpha = {ab}, "
-                  f"beta = {bb}, "
-                  f"loc = {cb}, "
-                  f"scale = {db}")
-            print(f"[{db_name}, {dimension}]: "
-                  f"std = {std(axis)}, "
-                  f"mean = {average(axis)}")
+            ab, bb, cb, db = beta.fit(axis)  # Beta distribution plot (red).
+            plt.plot(spc, beta.pdf(spc, ab, bb, cb, db), '#A60628')
+
+            an, bn= norm.fit(axis)  # Gaussian distribution plot (purple).
+            plt.plot(spc, norm.pdf(spc, an, bn), '#7A68A6')
+
+            ag, bg, cg = gamma.fit(axis)  # Gamma distribution plot (green).
+            plt.plot(spc, gamma.pdf(spc, ag, bg, cg), '#467821')
+
+            plt.ylim(c_ylim)  # Focus is our histogram, not our line of fits.
 
     plt.subplots_adjust(top=0.909, bottom=0.051, left=0.032, right=0.983, hspace=0.432, wspace=0.135)
 
@@ -216,7 +214,7 @@ if __name__ == '__main__':
     dict_arg = lambda: dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.params))
     {
         1: lambda: histogram_1(cursor_r, dict_arg(), main_arguments.burn_in),
-        2: lambda: histogram_2(cursor_r, dict_arg(), main_arguments.db, main_arguments.burn_in),
+        2: lambda: histogram_2(cursor_r, dict_arg(), main_arguments.burn_in),
         3: lambda: trace_1(cursor_r, main_arguments.burn_in),
         4: lambda: likelihood_1(cursor_r, main_arguments.burn_in)
     }.get(main_arguments.function)()
