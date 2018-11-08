@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from numpy.random import uniform, choice, shuffle
-from numpy import ndarray, array, arange
+from numpy import ndarray, array, arange, empty, nextafter
+from numpy.random import uniform, choice, shuffle, exponential
 from collections import Callable
 from argparse import Namespace
 from numba import jit, prange
@@ -104,8 +104,6 @@ class Population(object):
 
         :param theta: Parameter models to use to evolve our population.
         """
-        from numpy import empty, nextafter
-
         # Ensure that all variables are bounded properly.
         theta.n = max(theta.n, 0)
         theta.f = max(theta.f, 0)
@@ -193,15 +191,18 @@ class Population(object):
         """
         n, f, c, u, d, kappa, omega = theta  # Unpack our parameters.
 
-        # We define our ancestors and descendants for the tau'th coalescent.
+        # We define our descendants for the tau'th coalescent.
         descendants = coalescent_tree[triangle(tau + 1):triangle(tau + 2)]
+
+        # Determine the time to coalescence. This is exponentially distributed, but the mean stays the same. Scale by f.
+        t_coalescence = max(1, round(exponential(f * 2 * n / triangle(tau + 1))))
 
         # Iterate through each of the descendants (currently pointers) and determine each ancestor.
         for k in prange(descendants.size):
             descendant_to_evolve = coalescent_tree[descendants[k]]
 
             # Evolve each ancestor according to the average time to coalescence and the scaling factor f.
-            for _ in range(max(1, round(f * 2 * n / triangle(tau + 1)))):
+            for _ in range(t_coalescence):
                 descendant_to_evolve = mutate(descendant_to_evolve, c, u, d, kappa, omega)
 
             # Save our descendant state.
@@ -260,8 +261,8 @@ class Population(object):
         self.coalescent_tree[self.triangle(self.offset):self.triangle(self.offset + 1)] = i_0
 
         # From our common ancestors, descend forward in time and populate our tree with repeat lengths.
-        f = (self._evolve, self.triangle, self._mutate)
-        self._evolve_n(self.coalescent_tree, array(list(self.theta)), self.offset, *f)
+        k = (self._evolve, self.triangle, self._mutate)
+        self._evolve_n(self.coalescent_tree, array(list(self.theta)), self.offset, *k)
 
         # Return the evolved generation of ancestors.
         return self.coalescent_tree[-2 * self.theta.n:]

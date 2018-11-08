@@ -13,15 +13,15 @@ done
 python3 src/methoda.py \
     -mdb "data/methoda-$1.db" \
     -simulation_n 100 \
-    -epsilon 0.60 \
-    -iterations_n 20000 \
+    -epsilon 0.65 \
+    -iterations_n 25000 \
     -uid_observed ${sample_uids} \
     -locus_observed ${loci} \
-    -n 100 -n_sigma 0.0 \
-    -f 1 -f_sigma 0.0 \
-    -c 0.01067 -c_sigma 0.00503 \
-    -u 1.23414 -u_sigma 0.01062 \
-    -d 0.00255 -d_sigma 0.00068 \
+    -n 50 -n_sigma 0.0 \
+    -f 100 -f_sigma 0.0 \
+    -c 0.01067 -c_sigma 0.01003 \
+    -u 1.23414 -u_sigma 0.02062 \
+    -d 0.00255 -d_sigma 0.00108 \
     -kappa 3 -kappa_sigma 0.0 \
     -omega 30 -omega_sigma 0.0
 
