@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 from population import BaseParameters
-from numpy import ndarray
 from sqlite3 import Cursor
-from typing import List
+from typing import List, Callable
 
 
 def create_tables(cursor: Cursor) -> None:
@@ -48,7 +47,6 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     date_string = datetime.now()
 
     if len(x) == 0:  # We can't record if we have nothing to record!
-        print("No accepted states exist.")
         return
 
     # Record our observed sample log strings and datetime.
@@ -62,9 +60,12 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
         VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
+    # Clear our chain except for the first state.
+    x[:] = [x[-1]]
+
 
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
-         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
+         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters, log: Callable) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
     is given below:
@@ -86,8 +87,8 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     :param epsilon: Minimum acceptance value for our distance.
     :param theta_0: Our initial guess for parameters.
     :param q_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
-             acceptance probabilities.
+    :param log: A log function, used to flush our chain to disk.
+    :return: None.
     """
     from numpy.random import normal, uniform
     from distance import Cosine
@@ -111,7 +112,8 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
         else:
             x[-1][1] += 1
 
-    return x[1:]  # Do not record our initial guess.
+        # We record to our chain. This is dependent on the current iteration of MCMC.
+        log(x, i)
 
 
 if __name__ == '__main__':
@@ -127,6 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
     paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
     paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
+    paa('-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int)
     paa('-epsilon', "Maximum acceptance value for distance between an angular distance [0, 1].", float)
 
     paa('-n', 'Starting sample size (population size).', int)
@@ -158,11 +161,12 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    # Perform the ABC MCMC, and record our chain.
     main_theta_0 = BaseParameters.from_args(main_arguments, False)
     main_q_sigma = BaseParameters.from_args(main_arguments, True)
-    log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed,
-               mcmc(main_arguments.iterations_n, main_observed_frequencies, main_arguments.simulation_n,
-                    main_arguments.epsilon, main_theta_0, main_q_sigma))
+    main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
+        connection_m.commit() if b % main_arguments.flush_n == 0 else None
 
+    # Perform the ABC MCMC. Record at every 'flush_n'.
+    mcmc(main_arguments.iterations_n, main_observed_frequencies, main_arguments.simulation_n,
+         main_arguments.epsilon, main_theta_0, main_q_sigma, main_log)
     connection_m.commit(), connection_o.close(), connection_m.close()
