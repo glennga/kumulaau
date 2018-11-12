@@ -2,10 +2,11 @@
 
 # Parameters for all functions.
 BURN_IN=15000
-PARAMS="0 0 0.0005 0.001 0.0001 0 0"
+PARAMS="0 0 0.0001 0.01 0.00005 0 0"
 
 # Visualize all instances of our mutation model MCMC.
 for f in data/methoda-*.db; do
+    echo "Plotting [${f}, Waiting Times]."
     python3 src/plot.py \
         -db ${f} \
         -function 1 \
@@ -13,6 +14,7 @@ for f in data/methoda-*.db; do
         -burn_in ${BURN_IN} \
         -params $(echo "$PARAMS")
 
+    echo "Plotting [${f}, Frequency]."
     python3 src/plot.py \
         -db ${f} \
         -function 2 \
@@ -20,12 +22,14 @@ for f in data/methoda-*.db; do
         -burn_in ${BURN_IN} \
         -params $(echo "$PARAMS")
 
+    echo "Plotting [${f}, Trace]."
     python3 src/plot.py \
         -db ${f} \
         -function 3 \
         -burn_in ${BURN_IN} \
         -image ${f%".db"}-trace.png
 
+    echo "Plotting [${f}, Likelihood]."
     python3 src/plot.py \
         -db ${f} \
         -function 4 \
@@ -34,7 +38,7 @@ for f in data/methoda-*.db; do
 done
 
 # Combine all samples of our mutation model MCMC.
-cp $(find data/ -name methoda-*.db | head -1) data/all-methoda.db
+cp $(find data/ -maxdepth 1 -name methoda-*.db | head -1) data/all-methoda.db
 sqlite3 data/all-methoda.db "DELETE FROM WAIT_MODEL \
                              WHERE 1 = 1;"
 
@@ -43,12 +47,12 @@ for f in data/methoda-*.db; do
 	sqlite3 data/all-methoda.db "ATTACH '${f}' AS A; \
 	                             INSERT INTO WAIT_MODEL \
 	                             SELECT * \
-	                             FROM A.WAIT_MODEL \
-	                             WHERE PROPOSED_TIME > ${BURN_IN}; \
+	                             FROM A.WAIT_MODEL; \
 	                             DETACH DATABASE A;"
 done
 
 # Plot a frequency graph for all.
+echo "Plotting [All, Frequency]."
 python3 src/plot.py \
     -db data/all-methoda.db \
     -function 2 \

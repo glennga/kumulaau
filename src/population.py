@@ -242,7 +242,7 @@ class Population(object):
         """
         n, f, c, u, d, kappa, omega = theta  # Unpack our parameters.
 
-        for tau in range(offset, 2 * n - 1):
+        for tau in range(offset, int(2 * n - 1)):
             evolve(coalescent_tree, tau, theta, triangle, mutate)
 
     def evolve(self, i_0: ndarray) -> ndarray:
