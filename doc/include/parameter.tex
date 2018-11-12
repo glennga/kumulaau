@@ -1,22 +1,61 @@
 \section{Parameter Estimation}\label{sec:pe}
 In this section, we discuss our approach toward parameter estimation.
+Specifically, we aim to address the problem of maximum likelihood.
+Let $\mathcal{M} : \theta, V \mapsto \mathcal{D}'$ define a function that maps a parameter set $\theta$ and some
+random variables $V$ to generated data $\mathcal{D}'$.
+Given that $V$ is randomly distributed, $\mathcal{M}(\theta, V)$ may produce different $\mathcal{D}'$ for the same
+parameter set $\theta$.
+This means that our generated data set $\mathcal{D}'$ is also randomly distributed. % TODO: Expand here???
+Given observations $\mathcal{D}$ and the property that both $\mathcal{D}$ \& $\mathcal{D}'$ are discrete,
+the likelihood of parameters $\theta$ is the probability that our generated data
+$\mathcal{D}'$ equals our observed data $\mathcal{D}$~\cite{liepeABCSysBioApproximateBayesian2010}.
+\begin{equation}
+    \mathcal{L}(\theta) = \Pr(\mathcal{D} = \mathcal{M}(\theta, V))
+\end{equation}
 
-Let $P$
-
-\subsection{Markov Chain Monte Carlo}\label{subsec:mcmc}
-
-
-\subsubsection{Monte Carlo}
-To introduce Monte Carlo methods,
-
-\subsubsection{Markov Chain}
-
-\subsubsection{Metropolis Algorithm}
+If $\mathcal{L}$ is continuous, one technique to calculate a maximum likelihood for our parameters $\hat{\theta}$
+involves finding the critical points of $\mathcal{L}$ (where $\frac{d\mathcal{L}}{d\theta} = 0$) and choosing the point
+$\hat{\theta}$ with the largest value of $\mathcal{L}$.
+There are however, several problems with this approach:
+\begin{enumerate}
+    \item This assumes that we can explicitly express $\mathcal{L}$.
+        For simulator based $\mathcal{M}$ like ours, this is not trivial to do.
+    \item $\theta$ may represent multiple parameters to differentiate over.
+        Even if we could express our likelihood, calculating this multi-dimensional derivative analytically may be
+        not feasible.
+    \item With high dimensional data $\mathcal{D}$ and $\mathcal{D}'$, an exact match
+        $\mathcal{D} = \mathcal{D}'$ may not occur within a reasonable amount of time.
+\end{enumerate}
+Consequently, we must look into other approaches to \textit{infer} $\mathcal{L}$.
+The two problems this section aims to address are given below:
+\begin{enumerate}
+    \item How to efficiently compute $\mathcal{L}$ for a single $\theta$.
+    \item How to infer $\mathcal{L}$ for all $\theta$.
+\end{enumerate}
 
 \subsection{Approximate Bayesian Computation}\label{subsec:abc}
+In this section, we discuss an approximate method to compute the likelihood $\mathcal{L}$ for some parameter set
+$\theta$.
+
+
 TODO: Mention how finding an exact match is near to impossible, briefly mention the use of summary statistics,
 go over the approximate matches.
 
 \subsubsection{Approximate Matches: $\epsilon$}
 
 \subsection{Likelihood Estimation}\label{subsec:le}
+
+\subsection{Markov Chain Monte Carlo}\label{subsec:mcmc}
+In this section, we discuss the Markov Chain Monte Carlo (MCMC) approach to approximating a likelihood function.
+
+\subsubsection{Monte Carlo}
+In Bayesian inference, the characterization of the uncertainty of some parameter set given observations is given by
+the posterior distribution below:
+\begin{equation}
+    \Pr(\theta \mid \mathcal{D}') \propto \mathcal{L}(\theta) p(\theta)
+\end{equation}
+where $p(\theta)$ represents our prior beliefs our the parameters~\cite{liepeABCSysBioApproximateBayesian2010}.
+
+\subsubsection{Markov Chain}
+
+\subsubsection{Metropolis Algorithm}

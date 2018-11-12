@@ -1,13 +1,13 @@
 \documentclass[11pt]{article}
 \usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled]{algorithm2e}
 \usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage{hyperref} \usepackage{float} \usepackage{amssymb}
-\usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig}
+\usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig} \usepackage{multicol}
 
 \setcounter{secnumdepth}{3}
-\title{Efficient Parameter Estimation in Microsatellite Mutation Models}
+\title{\huge Efficient Parameter Estimation for Human Microsatellite Mutation}
 
 % TODO: Replace all instances of 'we' and 'our'?
-\author{Glenn Galvizo}
+\author{Glenn Galvizo, under Dr. Floyd Reed}
 \date{\today}
 
 % Has to be in the preamble...
@@ -27,9 +27,8 @@
     \input{include/evolution.tex}
     \input{include/mutation.tex}
     \input{include/simulation.tex}
-    \input{include/parameter.tex}
     \input{include/data.tex}
-    \input{include/results.tex}
+    \input{include/parameter.tex}
     \input{include/discussion.tex}
     \input{include/future-work.tex}
 

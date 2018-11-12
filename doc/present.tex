@@ -12,10 +12,10 @@
 \setbeamerfont{page number in head/foot}{size=\fontsize{9}{11}}
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{section in toc}{\inserttocsectionnumber.~\inserttocsection}
+\setbeameroption{show notes}  % Comment this out to not show the notes.
 
-\author{Glenn Galvizo}
-\title{Efficient Determination of an Optimal Microsatellite Mutation Model}
-%\subtitle{\scriptsize A Coalescent-based Approximate Bayesian Markov Chain Monte Carlo approach.}
+\author{Glenn Galvizo, under Dr. Floyd Reed}
+\title{Efficient Parameter Estimation for Human Microsatellite Mutation}
 \institute{University of Hawaii at Manoa}
 
 % Has to be in the preamble...
@@ -30,18 +30,63 @@
 	\begin{frame}
 		\frametitle{Overview}
         \tableofcontents
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Introduce research, talk about human history.
+                \item Talk about microsatellites, what they are and my mutation model.
+                \item How to find the best parameters for my model.
+                \item What the best parameters are.
+            \end{enumerate}
+        }
 	\end{frame}
 
 	\begin{frame}
-		\frametitle{How much do we know about human history?}
+		\frametitle{A brief overview of modern human history:}
+        \centering{\includegraphics[scale=0.9]{images/modern-human-history.png}}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Start with the origin of modern humans.
+                \item What do we know about human history?
+                \item We have some common ancestor in Africa.
+                \item Graph, x axis is geographical location, y axis is time.
+                \item Modern humans emerged 200,000 years ago.
+                \item We migrated out of Africa 100,000 years ago to Europe and Middle East, then
+                    Asia / America / Australia.
+                \item How do we know this?- Variations in DNA!
+                \item Basis of research: Explore different evolutionary models using highly variable genetic marker.
+            \end{enumerate}
+        }
 	\end{frame}
 
 	\subsection{Problem Statement}\label{subsec:ps}
 	\begin{frame}
-		\frametitle{Research Goal: Efficient Parameter Estimation}
-        \begin{enumerate}
-            \item What are the best microsatellite mutation parameters?
-        \end{enumerate}
+		\frametitle{What is the goal of this research?}
+        \begin{block}{Problem Statement}
+            \emph{Which microsatellite mutation model parameters most likely produce our observed data?}
+        \end{block} \medskip
+
+        \begin{block}{Essential Questions}
+            \begin{enumerate}
+                \item What is a microsatellite?
+                \item What is the observed data?
+                \item How do microsatellites mutate?
+                    What is the model?
+                \item How do we simulate evolution?
+                \item How can we find the best parameters?
+            \end{enumerate}
+        \end{block}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Verbatim, my problem statement is: \ldots
+                \item Dissecting this, we get the following essential questions: \ldots
+            \end{enumerate}
+        }
 	\end{frame}
 
 	\section{Microsatellites}\label{sec:mi}
@@ -49,7 +94,7 @@
     \begin{frame}
         \frametitle{What is a microsatellite?}
         \begin{definition}[Microsatellite]
-            A \emph{microsatellite} is a short sequence in DNA that is repeated in tandem.
+            A \emph{microsatellite} is a short sequence in DNA, repeated in tandem.
         \end{definition} \bigskip
 
         \begin{columns}
@@ -72,57 +117,91 @@
                 \end{equation*}
             \end{column}
         \end{columns}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Let's start with the first essential question: \ldots
+                \item Form of genetic variation in which short sequences of DNA are repeated in tandem.
+                \item Variation = how many times this short sequence is repeated.
+                \item On the right, five microsatellite variants with AT as the repeated sequence.
+                \item One individual in a population can have the variant on top, with 5 repeats of AT.
+                    Another individual can have the variant on the bottom, with 2 repeats of AT.
+                \item Infer human history by tracking the changes in repeat length over generations.
+                \item A more popular marker for genetic variation is the SNP, but we use microsatellites because they
+                    mutate more often.
+                    More mutations means that we can potentially infer more in a shorter time period.
+            \end{enumerate}
+        }
     \end{frame}
 
     \subsection{Microsatellite Data}\label{subsec:md}
     \begin{frame}
         \frametitle{What data are we working with?} \bigskip
-        \centering{\input{include/floats/frequency-graphs-present.tex}}
+        \centering{\input{include/floats/present/frequency-graphs.tex}}
         \bigskip
         \newline
         \centering{\emph{Populations of \text{GATA} microsatellite variations, interested in frequency of a
         repeat length.}}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Next essential question, \ldots
+                \item The data we are working with = observed populations of microsatellites variants.
+                \item These variants have GATA as their repeat sequence.
+                \item Interested in frequency of repeat length in each population.
+                \item We know what a microsatellite is and what data we are working with, how do we get populations?
+            \end{enumerate}
+        }
     \end{frame}
 
-    \subsection{Mutation}\label{subsec:mm}
+    \subsection{Mutation Model}\label{subsec:mm}
     \begin{frame}
-        \frametitle{How do microsatellites mutate?}
+        \frametitle{How do microsatellites mutate?} \medskip
         \begin{columns}
-            \begin{column}{0.5\textwidth}
+            \begin{column}{0.55\textwidth}
                 \begin{itemize}
-                    \item SMM: Mutate up one, down one, or not at all~\cite{sainudiinMicrosatelliteMutationModels2004}.
+                    \item \emph{Single Step}: Mutate up one, down one, or not at all
+                        ~\cite{ohtaModelMutationAppropriate2007}. \medskip
+                    \item \emph{Proportional:} Mutation rate dependent on
+                        length~\cite{calabreseDynamicsMicrosatelliteDivergence2001} \medskip
+                    \item \emph{Focal Bias}: Mutate toward some length~\cite{garzaMicrosatelliteAlleleFrequencies1995}.
                         \medskip
-                    \item Three parameters: $c, u, d$ \medskip.
-                    \item Upward mutation = $\frac{d}{u}\ell + c$. \medskip
-                    \item Downward mutation = $d\ell$. \medskip
-                    \item Focal bias = intersection of both lines.
+                    \item $\mu_u = $ upward mutation rate \newline
+                        $\mu_d = $ downward mutation rate.
                 \end{itemize}
             \end{column}
-            \begin{column}{0.6\textwidth}
-                \medskip
-
-                \centering{\input{include/floats/mutation-model-present.tex}} \newline
+            \begin{column}{0.5\textwidth}
+                \centering{\input{include/floats/present/mutation-model.tex}} \newline
             \end{column}
         \end{columns}
-    \end{frame}
 
-%    \subsection{Human Dataset}\label{subsec:hm}
-%    \begin{frame}
-%        \frametitle{What dataset are we using?}
-%        \begin{itemize}
-%            \item Using GATA sequences.
-%            \item 330 different populations from ALFRED (the ALelle FREquency Database).
-%            \item
-%        \end{itemize}
-%    \end{frame}
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item Third essential question: \ldots
+                \item There exists a lot of research toward accurately characterizing microsatellite mutation in
+                    humans, but the focus of my project lies with the methodology.
+                \item To prove my methods, we want a flexible model with a small number of parameters.
+                \item Our first point comes from Ohta and Kimura: Microsatellites mutate up one, down one, or
+                    stay the same per generation.
+                \item Our second point comes from Kruglyak: Microsatellites mutate differently at different repeat
+                    lengths.
+                \item The third point comes from Garza: Microsatellites mutate toward some focal length.
+                \item This brings us to our model: we have two lines that always intersect each other, using three
+                    parameters: $c, u, d$.
+            \end{enumerate}
+        }
+    \end{frame}
 
     \section{Methodology}\label{sec:m}
 	\subsection{Coalescent Simulation}\label{subsec:c}
     \begin{frame}
         \frametitle{How do we simulate evolution?}
         \begin{columns}
-            \begin{column}{0.5\textwidth}
-                We construct a evolutionary tree!
+            \begin{column}{0.6\textwidth}
+                \emph{Answer:} We construct a evolutionary tree! \medskip
                 \begin{enumerate}
                     \item Given sample size $n$, parameters $c, u, d$. \medskip
                     \item Construct random tree with $n$ leaves and common ancestor. \medskip
@@ -130,72 +209,164 @@
                     \item Mutate children from ancestors until leaves are reached.
                 \end{enumerate}
             \end{column}
-            \begin{column}{0.5\textwidth}
-                \centering{\input{include/floats/coalescent-tree-present.tex}}
+            \begin{column}{0.4\textwidth}
+                \centering{\input{include/floats/present/coalescent-tree.tex}}
             \end{column}
         \end{columns}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
     \end{frame}
 
-	\subsection{Markov Chain Monte Carlo (MCMC)}\label{subsec:mcmc}
+	\subsection{ABC MCMC}\label{subsec:abcmcmc}
     \begin{frame}
-        \frametitle{How do we choose which parameters are best?}
-        \begin{definition}[Markov Chain Monte Carlo]
-            A \emph{Markov Chain Monte Carlo} (MCMC) method is a technique to draw samples from a distribution.
-        \end{definition}
+        \frametitle{How can we find the best parameters?}
         \begin{columns}
-            \begin{column}{0.5\textwidth}
-                \begin{enumerate}
-                    \item Given data to compare to and starting parameters. \medskip
-                    \item Generate several populations using parameters. \medskip
-                    \item Compare this to observed data. Compute the likelihood $p_x$. \medskip
-                    \item  $p_x$
-                \end{enumerate}
-            \end{column}
             \begin{column}{0.6\textwidth}
-                \medskip
-                \centering{\input{include/floats/mcmc-diagram-present.tex}} \newline
+                \begin{itemize}
+                    \item \emph{Problem}: Which model parameters are the most likely to generate our observed data?
+                        \begin{enumerate}
+                            \item How do we compute this likelihood? \smallskip
+                            \item How can we maximize this likelihood?
+                        \end{enumerate} \bigskip
+                    \item \emph{Solution}: ABC -- MCMC (\footnotesize{Approximate Bayesian Computation -- Markov
+                        Chain Monte Carlo})
+                \end{itemize}
+            \end{column}
+            \begin{column}{0.4\textwidth}
+                \begin{flushleft}
+                    \input{include/floats/present/likelihood-general.tex}
+                \end{flushleft}
             \end{column}
         \end{columns}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{How do we compute likelihood?}
+        \begin{columns}
+            \begin{column}{0.6\textwidth}
+                \begin{itemize}
+                    \item \emph{Problem}: Frequency of exact matches is low. \bigskip
+                    \item \emph{Solution}: Count approximate matches instead!
+                        \begin{enumerate}
+                            \item Quantify difference $\delta$ between observed and generated.
+                            \item Run simulation several times.
+                            \item Count number of generated samples where $\delta$ is below some threshold.
+                        \end{enumerate}
+                \end{itemize}
+            \end{column}
+            \begin{column}{0.4\textwidth}
+                \begin{flushleft}
+                    \input{include/floats/present/approximate-likelihood.tex}
+                \end{flushleft}
+            \end{column}
+        \end{columns}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{How do we maximize likelihood?}
+        \begin{columns}
+            \begin{column}{0.6\textwidth}
+                \begin{itemize}
+                    \item \emph{Problem}: Cannot write likelihood function for simulator model. \bigskip
+                    \item \emph{Solution}: Use MCMC!
+                        \begin{itemize}
+                            \item Randomly samples from likelihood distribution (walks).
+                            \item Spends longer time in regions of high likelihood.
+                            \item Frequency of samples is proportional to likelihood.
+                            \item Fit frequency to curve, maximize this curve.
+                        \end{itemize}
+                \end{itemize}
+            \end{column}
+            \begin{column}{0.4\textwidth}
+                \begin{flushleft}
+                    \input{include/floats/present/likelihood-mcmc.tex}
+                \end{flushleft}
+            \end{column}
+        \end{columns}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
     \end{frame}
 
     \section{Results}\label{sec:r}
     \subsection{Posterior Distribution}\label{subsec:pd}
     \begin{frame}
         \frametitle{What are our results?}
+
+        \scriptsize{
+            \begin{align*}
+                \text{Hyperparameters}: \mathit{I} &= 50000, \mathit{SPP} = 100, \tau = 0.5, f = 100, n = 50, \\
+                g_d &= N(1.65, 0.1), g_c = N(0.002, 0.0002), g_u = N(0.01, 0.002) \\
+                \mathcal{D} &= \text{Columbian Populace}
+            \end{align*}
+        }
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
     \end{frame}
 
     \subsection{Trace Plot}\label{subsec:tp}
     \begin{frame}
         \frametitle{How do we know if this is correct?}
+
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item
+            \end{enumerate}
+        }
     \end{frame}
 
     \section{Conclusion}\label{sec:c}
     \begin{frame}
-        
+        \frametitle{Conclusion}
+
+        \begin{enumerate}
+            \item
+        \end{enumerate}
     \end{frame}
 
     \begin{frame}
         \frametitle{Acknowledgments}
-        \begin{columns}
-            \begin{column}{0.4\textwidth}
-                \begin{itemize}
-                    \item Dr. Floyd Reed \bigskip
-                    \item Undergraduate Showcase \bigskip
-                    \item The Audience \bigskip
-                \end{itemize}
-            \end{column}
-            \begin{column}{0.5\textwidth}
-                \centering{\includegraphics[scale=0.08]{images/undergraduate-showcase-logo.png}}
-                \bigskip \bigskip
-                \newline
-                \centering{\includegraphics[scale=0.07]{images/uh-logo.png}}
-            \end{column}
-        \end{columns}
+        \begin{itemize}
+            \item Dr. Floyd Reed \bigskip
+            \item Reed Lab \bigskip
+            \item Undergraduate Showcase \bigskip
+            \item UHM Mathematical Biology Committee \bigskip
+            \item The Audience
+        \end{itemize}
     \end{frame}
 
     \begin{frame}
         \frametitle{References}
-        \scriptsize
+        \tiny
         \bibliographystyle{abbrv}
         \bibliography{include/references}
     \end{frame}

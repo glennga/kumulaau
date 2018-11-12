@@ -1,0 +1,21 @@
+\pgfplotsset{compat=1.5}
+\pgfmathdeclarefunction{gauss}{2}{%
+  \pgfmathparse{1/(#2*sqrt(2*pi))*exp(-((x-#1)^2)/(2*#2^2))}%
+}
+\pgfmathdeclarefunction{smallergauss}{2}{%
+  \pgfmathparse{0.03/(#2*sqrt(2*pi))*exp(-((x-#1)^2)/(2*#2^2))}%
+}
+
+\begin{tikzpicture}
+    \begin{axis}[
+    width=1.15\linewidth, height=6.4cm,
+    ylabel={Likelihood}, ymax=0.03,
+    xlabel={Parameter}, xmin=0, xmax=40,
+    samples=100, no markers, enlargelimits=false, legend style={at={(0.5,-0.35)},anchor=north},
+    domain=0:40, ticks=none
+    ]
+    \addplot [very thick,blue!50!black] {smallergauss(20,1.5)};
+    \addplot [very thick,red!50!black] {gauss(20,20)};
+
+    \end{axis}
+\end{tikzpicture}

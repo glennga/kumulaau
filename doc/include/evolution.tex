@@ -15,7 +15,7 @@ $\kappa$ and some upper bound $\Omega$.
 Any $\ell_M$ that meets the criteria in~\autoref{eq:microsatelliteCriteria} is defined to be the repeat length associated
 with some variant for the microsatellite $M$:
 \begin{equation}\label{eq:microsatelliteCriteria}
-    \left(\ell_M \in [\kappa, \Omega]\right) \land \left(\ell_M \in \mathbb{Z}\right)
+    \left(\ell_M \in [\kappa, \Omega]\right) \land \left(\ell_M \in \mathbb{Z}^+\right)
 \end{equation}
 
 Let $\pi_t$ represent an $N$-sized tuple, or microsatellite \emph{population} of sequences
@@ -39,8 +39,9 @@ losing repeats until we are able to compare this to observed data.
 \subsection{Forward Simulation}\label{subsec:fs}
 There exists two main approaches toward which direction we should simulate toward: from the past to the present
 (forward) or from the present to the past (backward).
-In both cases, the goal is to create some evolutionary tree of $N$ microsatellites that trace back to some common
-ancestor \emph{efficiently}.
+In both cases, the goal is to create some evolutionary tree of $n$ (distinct from $N$) microsatellites that trace back
+to some common ancestor \emph{efficiently}.
+Using these $n$ generated microsatellite variants, we would then compare this to our $n$ observed microsatellites.
 In the section, we focus on forward simulation.
 
 In order to simplify this problem, we assume the Wright-Fisher population model:
@@ -61,8 +62,10 @@ To generate $\pi_2$, we repeat the process to construct $\pi_1$ using $\pi_1$ in
 This is repeated until we reach $\pi_{\bar{t}}$.
 
 An example of the Wright-Fisher evolution process is given in~\autoref{fig:wrightFisherEvolution}.
-Here, there exists two populations: a parent population $\pi_{t+1}$ and a child population $\pi_t$.
-
+Here, there exists two populations: a parent population $\pi_{t+1}$ and a child population $\pi_t$, both of size $N=8$.
+Note that two individuals from the parent population $\ell_5^t, \ell_6^t$ do not move to $\pi_{t+1}$, a consequence of
+choosing descendants \emph{with replacement} from our ancestors.
+As we evolve for more instances, we eventually end up our entire population sharing some individual from $\pi_t$.
 
 \begin{figure}
     \centering{\input{include/floats/wright-fisher-model.tex}}
@@ -70,9 +73,8 @@ Here, there exists two populations: a parent population $\pi_{t+1}$ and a child 
     \label{fig:wrightFisherEvolution}
 \end{figure}
 
-
 \subsubsection{Average Time Until $N$ Individuals Coalesce: $\bar{t}$}
-The next question that follows is, ``What is $\bar{t}$?''
+The next question that follows is, ``What is $\bar{t}$?''.
 The naive approach (but most correct) is to keep track of the evolutionary history for all populations.
 This however requires (a) storage for the evolutionary tree formed and (b) an expensive search as we move forward for
 each generation.
@@ -100,7 +102,7 @@ Noting that $p$ is geometrically distributed, we can generalize $p$ for $y$ gene
     p(2, t-y) = \frac{1}{N} \cdot \left(1 - \frac{1}{N}\right)^{y-1}
 \end{equation}
 with $p(2, t-y)$ having mean $E_2 = N$.
-$E_2$ is interpreted as the expected number of generations until two individuals coalesce.
+The mean $E_2$ is interpreted as the expected number of generations until two individuals coalesce.
 
 Now we look at the probability that \emph{three} individuals in $\pi_t$ share a parent from $\pi_{t-1}$.
 Here, we asking how many pairs can be formed with $k=3$:
@@ -109,7 +111,7 @@ Here, we asking how many pairs can be formed with $k=3$:
 \end{equation}
 Given $k=4$ individuals, the probability that any of the four share a parent in $\pi_{t-1}$ is
 $p(4, t-1) = \frac{6}{N}$.
-$p$ can be generalized for $k$ individuals:
+We generalize $p$ for a coalescent event occuring with $k$ individuals in the previous generation as such:
 \begin{equation}
     p(k, t-1) = \frac{\binom{k}{2}}{N}
 \end{equation}
@@ -118,7 +120,7 @@ For $y$ generations, the general form of $p$ is given~\cite{hudsonGeneGenealogie
     p(k, t-y) = \frac{\binom{k}{2}}{N} \cdot \left(1 - \frac{\binom{k}{2}}{N}\right)^{y-1}
 \end{equation}
 with $p(k, t-y)$ having mean $E_k = \frac{N}{\binom{k}{2}}$.
-$E_k$ is interpreted as the expected number of generations until $k$ individuals coalesce.
+The mean $E_k$ is interpreted as the expected number of generations until $k$ individuals coalesce.
 
 Going back to our original question, what is the average time until all $N$ individuals share a common ancestor?
 Let us start with the average time until two individuals coalesce: $E_2 = N$ generations.
@@ -126,24 +128,47 @@ The average time until three individuals coalesce is the average time until any 
 average time until coalescence occurs in any three individuals.
 For all $N$ individuals, this average time must be greater than:
 \begin{equation}
-    \bar{t} > \sum_{i=2}^{N} E_i \approx 2N
+    \begin{aligned}
+        \bar{t} >& \sum_{i=2}^{N} E_i \\
+        \bar{t} \gtrapprox& \ 2N
+    \end{aligned}
 \end{equation}
 
+\subsubsection{Sample Size $n$ vs. Effective Population Size $N$}
+As specified in the beginning of this section, the goal our both simulation techniques is to generate $n$ samples that
+share an evolutionary tree.
+After generating $N$ individuals, $n$ individuals would be randomly sampled and compared to an observed sample.
+
+
 \subsubsection{Algorithm for Forward Evolution}
-The function  for forward evolution is presented in~\autoref{alg:forwardEvolution}.
-There exists no applied mutation
+Before proceeding to the function, a few more points need to be addressed:
+\begin{enumerate}
+    \item For simplicity, we treat our starting population $\pi_0$ as $N$ instances of some common ancestor $\ell_0$.
+        All individuals in the output $\pi$ are expected to share one member from $\pi_0$, meaning that all other
+        individuals in $\pi_0$ get thrown away.
+        With this approach, we only need to worry about one parameter.
+    \item $N$ represents the size of an \emph{effective} population, which must be larger than the size of the sample
+        population $n$.
+        % TODO
+    \item An extra parameter $t_\epsilon$ exists to simulate for extra generations beyond $2N$.
+    \item Mutation is discussed in detail in~\autoref{sec:mm}.
+        For now, we define $\lambda_{mutate}$ to be some function $\lambda : \mathbb{Z}^+ \rightarrow \mathbb{Z}^+$ which
+        takes some repeat unit and returns another repeat unit.
+\end{enumerate}
+With all of this now mentioned, the function for forward evolution is presented below in~\autoref{alg:forwardEvolution}.
 
 \begin{algorithm}[ht]
     \SetAlgoLined
     \DontPrintSemicolon
-    \Fn{SimulateForward \ {$(\ell^0, N, t_{epsilon})$}} {
+    \Fn{ForwardSimulator \ {$(\ell^0, N, t_{\epsilon}, \lambda_{mutate})$}} {
         \KwIn{A common ancestor $\ell^0$, population size $N$, extra running time $t_\epsilon$}
-        \KwOut{The resultant generation $\pi_{2N}$}
+        \KwOut{The resultant generation $\pi_{2N + t_\epsilon}$}
         $\pi_{t-1} \gets $ an $N$ sized vector, whose values are all set to $\ell^0$ \;
         $\pi_t \gets $ an empty $N$ sized vector \;
         \For{$i \gets 2$ \KwTo $t_\epsilon + 2N$} {
             \For{$j \gets 1$ \KwTo $N$} {
-                $\pi_t[j] \gets $ a randomly selected $\ell$ from $\pi_{t-1}$ \;
+                $\pi_t[j] \gets \lambda_{mutate}$(a randomly selected $\ell$ from $\pi_{t-1}$) \;
+
             }
             $\pi_{t-1} \gets \pi_t$ \;
             $\pi_t \gets$ an empty $N$ sized vector \;
@@ -151,15 +176,122 @@ There exists no applied mutation
         \Return $\pi_{t-1}$ \;
     }
     \textbf{end} \;
-    \caption{Generate a population of individuals who \emph{likely} share some common
-    ancestors.}\label{alg:forwardEvolution}
+    \caption{Generate a population of individuals who \emph{likely} share some common ancestors.}
+    \label{alg:forwardEvolution}
 \end{algorithm}
 
 \subsection{Backward Simulation}\label{subsec:bs}
 Forward simulation has the advantage of being incredibly straightforward to implement and apply complex generation to
 generation models to.
-The biggest disadvantage with this type of simulation though, is that (1) $2N^2$ individuals must be generated and
-(2) several returned populations from
+The biggest disadvantages with this type of simulation though, are that (1) $2N^2$ individuals must
+be generated per simulation and (2) several returned populations from the forward simulator will not coalesce.
+In this section, we will go over backward simulation -- an approach that addresses both of these problems.
+
+\subsubsection{Constructing a Kingman's Coalescent}
+As previously mentioned, the first drawback to forward simulation is the retention of individuals that do not exist in
+the evolutionary tree of the latest generation.
+Let $\mathcal{N}$ represent the total number of individuals we must simulate.
+For a population $\pi$ of size $|\pi| = N$, we can compute the minimum number of total individuals that we simulate
+$\mathcal{N}^\star$:
+\begin{equation}
+    \mathcal{N}^\star = \sum_{i=1}^N i = \binom{N + 1}{2}
+\end{equation}
+When using forward simulation with $\mathcal{N}_{forward} = 2N^2$, there exists a waste of
+$\mathcal{N}_{{forward \ waste}}$ individuals created:
+\begin{equation}
+    \begin{aligned}
+        \mathcal{N}_{{forward \ waste}} &= \mathcal{N}_{forward} - \mathcal{N}^\star \\
+        &= 2N^2 - \binom{N + 1}{2} \\
+        &= \frac{3}{2}N^2 - \frac{1}{2}N
+    \end{aligned}
+\end{equation}
+With an effective population size of $N = 1000$, there exists $\mathcal{N}_{waste} = 1499500$.
+
+A backwards simulation reduces $\mathcal{N}_{waste}$ to 0 for all values of $N$ by only working with individuals
+involved in a coalescent event.
+Instead of working from generation to generation, this type of simulation works from one \emph{coalescent event} to
+another.
+From the common ancestor
+
+
+This abstraction allows us to
+The simulation itself is coined as ``backward simulation'', but the abstraction itself allows us to start from the
+common ancestor generation $t = 1$ and work forward.
+
+For a given generation $t$, the next generation $t + 1$ is constructed by copying all individuals
+
+
+
+For a generation $t \in \{ 1, 2, \ldots N \}$, we move to the next generation $t + 1$ by randomly choosing
+For each step backward, we
+
+To start, we define $\pi_t^{\ell}$ as the repeat unit associated with some individual $\ell$ in population $\pi$ at
+generation $t$, and $v_j$ a node associated with some repeat unit $\pi_t^i$, enumerated by $j$ for a set of
+populations.
+Let $V$ represent the set that holds all nodes used in an instance of a Kingman's coalescent to obtain $\pi_N$.
+$V$ can be thought of as all the nodes associated with the evolutionary tree, or graph, that we are building.
+To state that some node $v_m$ is the direct descendant of $v_n$ is to use the following \emph{directed} edge:
+\begin{equation}
+    (v_m, v_n) \rightarrow v_m \text{ is the direct descendant of } v_n
+\end{equation}
+To build the set of connecting directed edges $E$ requires several conditions:
+\begin{enumerate}
+    \item For some edge $(v_m, v_n)$, $v_m$ must exist in the generation after $v_n$.
+        This implies that $v_0$ is the sink of our graph and all nodes in $\pi_N$ are sources.
+    \item For some edge $(v_m, v_n)$, both $v_m$ and $v_n$ must exist in the set of nodes associated with some instance
+        of a Kingman's coalescent $V$.
+    \item Recall that all individuals of a Kingman's coalescent at generation $t$ are copied into the following
+        generation, with only one individual being copied twice.
+        Let $V_t$ represent all nodes used in the Kingman's coalescent that exist in population $\pi_t$ at generation
+        $t$.
+        For all edges formed using $V_{t+1}$ and $V_{t}$, there exists only two edges $(v_m, v_n), (v_o, v_n)$ where
+        the ancestor node $v_n$ is seen twice.
+        For all other edges the descendant node must be unique \& from $V_t$, and the ancestor node must be unique \&
+        from the set $V_{t+1}$.
+\end{enumerate}
+
+
+
+An important aspect of backward simulation, is that only the individuals that exist as ancestors to the latest
+gener
+
+\subsubsection{Algorithm for Backward Evolution}
+\begin{algorithm}[ht]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \Fn{TwoStageBackwardSimulator \ {$(\ell^0, N, \lambda_{mutate})$}} {
+        \KwIn{A common ancestor $\ell^0$, population size $N$}
+        \KwOut{The resultant generation $\pi_{2N}$}
+        $Y \gets $ an empty $\binom{2N}{2}$ sized vector \;
+
+        \For{$i \gets 1$ \KwTo $2N - 1$} {
+            $\pi^i \gets $ the last $i$ elements of $Y$ \;
+            $\pi^\star \gets $ an empty $i + 1$ sized vector \;
+            \For{$j \gets 1$ \KwTo $i$} {
+                $\pi^\star \gets $ (a randomly selected $\omega(\pi)$) \;
+            }
+        }
+
+        $\pi \gets $
+
+        \Return last $2N$ elements of $Y$ \;
+
+        $\pi_{t-1} \gets $ an $N$ sized vector, whose values are all set to $\ell^0$ \;
+        $\pi_t \gets $ an empty $N$ sized vector \;
+        \For{$i \gets 2$ \KwTo $t_\epsilon + 2N$} {
+            \For{$j \gets 1$ \KwTo $N$} {
+                $\pi_t[j] \gets \lambda_{mutate}$(a randomly selected $\ell$ from $\pi_{t-1}$) \;
+
+            }
+            $\pi_{t-1} \gets \pi_t$ \;
+            $\pi_t \gets$ an empty $N$ sized vector \;
+        }
+    }
+    \textbf{end} \;
+    \caption{Generate a population of individuals who share a common ancestor.}
+    \label{alg:twoStageBackwardEvolution}
+\end{algorithm}
+
 
 \begin{figure}
     \centering

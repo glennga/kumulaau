@@ -1,45 +1,65 @@
 \section{Single Nucleotide Polymorphisms vs. Microsatellites}\label{sec:snpvm}
-In this section we cover what single nucleotide polymorphisms and microsatellites are.
+In this section we briefly cover what polymorphisms, single nucleotide polymorphisms, and microsatellites are.
+
+\subsection{Polymorphism}\label{subsec:p}
+\emph{Polymorphism} is the existence of two or more \emph{morphs} (forms) in some population.
+These variations are generated in humans by the mutational process, recombination, and mating.
+
+In terms of genetics, polymorphisms describe different alleles within a gene.
+These changes may occur in both coding regions (i.e.\ a polymorphism results in different protein being produced) and
+non-coding regions.
+Once this change occurs in some individual, all the offspring of said individual will possess this new morph.
+Given this nature these changes may also select toward certain alleles, or solely exist as a result of genetic drift.
+In most cases though, polymorphisms are not functional and are selectively
+neutral~\cite{wrightGeneticVariationPolymorphisms2005}.
+Consequently this paper does not review the functional aspect of certain morphs and assumes this selective neutrality.
 
 \subsection{Single Nucleotide Polymorphisms}\label{subsec:snp}
 \emph{Single nucleotide polymorphisms} (abbreviated as SNPs), are single nucleotide differences in a DNA sequence.
 The set of nucleotides that compose such a sequence are $\{ A, T, C, G \}$, which represent adenine, thymine,
 cytosine and guanine respectively.
-An example of an SNP with 3 variants is given by the set $S$ below:
+To be considered a SNP and not a point mutation, the least frequent allele must be present in at least 1\% of a
+population.
+An example of an SNP with 2 variants is given by the set $S$ below:
 \begin{align*}
-    S &= \{ S_1, S_2, S_3 \} \\
-    S_1 &= \ldots \mathit{GGGTCACAT}\textbf{G}\mathit{GTTAC} \ldots \\
-    S_2 &= \ldots \mathit{GGGTCACAT}\textbf{C}\mathit{GTTACAG} \ldots \\
-    S_3 &= \ldots \mathit{GGGTCACAT}\textbf{A}\mathit{GTTACAGTA} \ldots
+    S &= \{ S_1, S_2 \} \\
+    S_1 &= \ldots \text{GGGTCACAT}\textbf{G}\text{GTTAC} \ldots \\
+    S_2 &= \ldots \text{GGGTCACAT}\textbf{A}\text{GTTACAGTA} \ldots
 \end{align*}
+
+Theoretically a SNP could have up to 4 variants, but most are biallelic in nature.
+Given that two states exist for most SNPs, multiple SNPs are used to determine one's evolutionary
+history~\cite{jehanSingleNucleotidePolymorphism2006}.
 
 \subsection{Microsatellites}\label{subsec:m}
 \emph{Microsatellites} are sequences in DNA that are repeated in tandem.
 These sequences typically range from 1 to 5 nucleotides long, with copies of this sequence (in units of
 \emph{repeat units}) ranging from $\sim 6$ nucleotides to
 100~\cite{roseThresholdSizeMicrosatellite1998,fanBriefReviewShort2007}.
-An example of a microsatellite variation with the $AT$ sequence and 5 repeat units in arbitrary
+An example of a microsatellite variation with the AT sequence and 5 repeat units in arbitrary
 sequence of DNA is given below.
 \begin{equation*}
-     \ldots \mathit{AACG}\textbf{ATATATATAT}\mathit{GGCTA} \ldots
+     \ldots \text{AACG}\textbf{ATATATATAT}\text{GGCTA} \ldots
 \end{equation*}
 
 In more precise terms, a microsatellite is a set of nucleotide sequences whose elements are only varied by repeat units.
-The microsatellite itself belongs to a class of repeat \emph{polymorphisms} known as repeat polymorphisms.
-An example of a repeat polymorphism with the repeat sequence $CA$ is given by the set $M$ below.
+The microsatellite itself belongs to a class of repeat polymorphisms known as short tandem repeat polymorphisms (STRP).
+An example of a repeat polymorphism with the repeat sequence cA is given by the set $M$ below.
 \begin{align*}
     M &= \{ M_1, M_2, M_3, M_4 \} \\
-    M_1 &= \ldots \mathit{GGGT}\textbf{CACACACACACA}\mathit{GTTAC} \ldots \\
-    M_2 &= \ldots \mathit{GGGT}\textbf{CACACACACA}\mathit{GTTACAG} \ldots \\
-    M_3 &= \ldots \mathit{GGGT}\textbf{CACACACA}\mathit{GTTACAGTA} \ldots \\
-    M_4 &= \ldots \mathit{GGGT}\textbf{CACACA}\mathit{GTTACAGTAAA} \ldots
+    M_1 &= \ldots \text{GGGT}\textbf{CACACACACACA}\text{GTTAC} \ldots \\
+    M_2 &= \ldots \text{GGGT}\textbf{CACACACACA}\text{GTTACAG} \ldots \\
+    M_3 &= \ldots \text{GGGT}\textbf{CACACACA}\text{GTTACAGTA} \ldots \\
+    M_4 &= \ldots \text{GGGT}\textbf{CACACA}\text{GTTACAGTAAA} \ldots
 \end{align*}
 
 Microsatellites are of evolutionary interest due to their repeat unit instability across generations.
 In the 1990s, microsatellites and other repeat polymorphisms were replaced by nucleotide polymorphisms due to being
-more abundant and having functional consequences if the sequence is in a coding
-region~\cite{graySingleNucleotidePolymorphisms2000}.
+more abundant, easier to recover, and having more functional consequences if the sequence is in a coding
+region~\cite{graySingleNucleotidePolymorphisms2000,butlerSTRsVsSNPs2007}.
 When compared to SNPs though, microsatellites mutate at rates between $10^{-3}$ to $10^{-6}$ per generation,
 1 to 10 orders of magnitude greater than SNPs~\cite{gemayelJunkVariableTandemRepeats2012}.
 Approximately 40--60 SNPs are required to discriminate as effectively as 13--15 short repeat
 polymorphisms~\cite{butlerSTRsVsSNPs2007}.
+For these reasons, we have chosen to use microsatellites over SNPs as the genetic marker to explore various evolutionary
+models.
