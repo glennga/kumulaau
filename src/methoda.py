@@ -64,6 +64,21 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     x[:] = [x[-1]]
 
 
+def retrieve_last(cursor: Cursor) -> BaseParameters:
+    """ TODO:
+
+    :param cursor:
+    :return:
+    """
+    a = cursor.execute("""
+        SELECT N, F, C, U, D, KAPPA, OMEGA
+        FROM WAIT_MODEL
+        ORDER BY TIME_R, PROPOSED_TIME DESC
+        LIMIT 1
+    """).fetchone()
+    return BaseParameters(*a)
+
+
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
          epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters, log: Callable) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
@@ -96,7 +111,7 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     x = [[theta_0, 1, 1.0e-10, 1.0e-10, 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
-    for i in range(1, iterations_n):  # Walk from our previous state.
+    for i in range(1, iterations_n + 1):  # Walk from our previous state.
         theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
         delta = Cosine(observed_frequencies, theta_proposed.kappa, theta_proposed.omega, simulation_n)
 
@@ -129,8 +144,10 @@ if __name__ == '__main__':
     parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
     paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
     paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
+    paa('-epsilon', "Maximum acceptance value for distance between [0, 1].", float)
+
     paa('-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int)
-    paa('-epsilon', "Maximum acceptance value for distance between an angular distance [0, 1].", float)
+    paa('-seed', 'If assigned "1", last recorded position in "mdb" is used (TIME_R, PROPOSED_TIME).', int)
 
     paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
@@ -161,7 +178,9 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    main_theta_0 = BaseParameters.from_args(main_arguments, False)
+    # Parse our starting point. If 'seed' is specified, we use this over any (n, f, c, d, u, ...) given.
+    main_theta_0 = BaseParameters.from_args(main_arguments, False) if main_arguments.seed != 1 else \
+        retrieve_last(cursor_m)
     main_q_sigma = BaseParameters.from_args(main_arguments, True)
     main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
         connection_m.commit() if b % main_arguments.flush_n == 0 else None
