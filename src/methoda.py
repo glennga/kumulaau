@@ -60,7 +60,7 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
         VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
-    # Clear our chain except for the first state.
+    # Clear our chain except for the last state.
     x[:] = [x[-1]]
 
 
@@ -79,14 +79,14 @@ def retrieve_last(cursor: Cursor) -> BaseParameters:
     return BaseParameters(*a)
 
 
-def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
-         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters, log: Callable) -> List:
+def mcmc(iterations_bounds: List, observed_frequencies: List, simulation_n: int,
+         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters, log: Callable) -> None:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
     is given below:
 
     1) We start with some initial guess theta_0. Right off the bat, we move to another theta from theta_0.
-    2) For 'iterations_n' iterations...
+    2) For 'iterations_bounds[1] - iterations_bounds[0]' iterations...
         a) For 'simulation_n' iterations...
             i) We simulate a population using the given theta.
             ii) For each observed frequency ... 'D'
@@ -96,7 +96,7 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
         c) If this probability is greater than the probability of the previous, we accept.
         d) Otherwise, we accept our proposed with probability p(proposed) / p(prev).
 
-    :param iterations_n: Number of iterations to run MCMC for.
+    :param iterations_bounds: Number of iterations to run MCMC between.
     :param observed_frequencies: Dirty observed frequency samples.
     :param simulation_n: Number of simulations to use to obtain a distance.
     :param epsilon: Minimum acceptance value for our distance.
@@ -111,7 +111,7 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
     x = [[theta_0, 1, 1.0e-10, 1.0e-10, 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
 
-    for i in range(1, iterations_n + 1):  # Walk from our previous state.
+    for i in range(iterations_bounds[0] + 1, iterations_bounds[1]):  # Walk from our previous state.
         theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
         delta = Cosine(observed_frequencies, theta_proposed.kappa, theta_proposed.omega, simulation_n)
 
@@ -185,7 +185,20 @@ if __name__ == '__main__':
     main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
         connection_m.commit() if b % main_arguments.flush_n == 0 else None
 
+    main_iterations_start = 0 if main_arguments.seed == 0 else cursor_m.execute("""
+        SELECT PROPOSED_TIME -- Determine our iteration boundaries. --
+        FROM WAIT_MODEL
+        ORDER BY PROPOSED_TIME DESC
+        LIMIT 1
+    """).fetchone()[0]
+    main_iterations_bounds = [main_iterations_start, main_arguments.iterations_n + main_iterations_start + 1]
+
     # Perform the ABC MCMC. Record at every 'flush_n'.
-    mcmc(main_arguments.iterations_n, main_observed_frequencies, main_arguments.simulation_n,
+    mcmc(main_iterations_bounds, main_observed_frequencies, main_arguments.simulation_n,
          main_arguments.epsilon, main_theta_0, main_q_sigma, main_log)
-    connection_m.commit(), connection_o.close(), connection_m.close()
+
+    # Remove the initial states of our chain.
+    cursor_m.execute("""
+        DELETE FROM WAIT_MODEL
+        WHERE PROPOSED_TIME = 0
+    """), connection_m.commit(), connection_o.close(), connection_m.close()
