@@ -1,4 +1,4 @@
-from population import triangle_n, mutate_n, evolve_n, coalesce_n, BaseParameters, Population
+from population import BaseParameters, Population
 import unittest
 
 
@@ -147,27 +147,25 @@ class BaseParametersTest(unittest.TestCase):
         :return: None.
         """
         # All of our parameters should be equal to 0.
-        theta = BaseParameters(0, 0, 0, 0, 0, 0, 0)
+        theta = BaseParameters(0, 0, 0, 0, 0, 0)
         self.assertEqual(theta.n, 0)
         self.assertEqual(theta.f, 0)
         self.assertEqual(theta.c, 0)
-        self.assertEqual(theta.u, 0)
         self.assertEqual(theta.d, 0)
         self.assertEqual(theta.kappa, 0)
         self.assertEqual(theta.omega, 0)
 
         # Given floats, our constructor should round to the nearest integer for n, kappa, and omega.
-        theta = BaseParameters(0.6, 1, 1, 1, 1, 30.2, 100.9)
+        theta = BaseParameters(0.6, 1, 1, 1, 30.2, 100.9)
         self.assertEqual(theta.n, 1)
         self.assertEqual(theta.kappa, 30)
         self.assertEqual(theta.omega, 101)
 
         # Given theta = (0, 1, 2, 3, 4, 5, 6), our parameters should be set accordingly.
-        theta = BaseParameters(0, 1, 2, 3, 4, 5, 6)
+        theta = BaseParameters(0, 1, 2, 4, 5, 6)
         self.assertEqual(theta.n, 0)
         self.assertEqual(theta.f, 1)
         self.assertEqual(theta.c, 2)
-        self.assertEqual(theta.u, 3)
         self.assertEqual(theta.d, 4)
         self.assertEqual(theta.kappa, 5)
         self.assertEqual(theta.omega, 6)
@@ -177,16 +175,16 @@ class BaseParametersTest(unittest.TestCase):
 
         :return: None.
         """
-        # Our BaseParameter should be able to work in a for loop, we test from [0, 6].
-        for a in zip(range(7), BaseParameters(0, 1, 2, 3, 4, 5, 6)):
+        # Our BaseParameter should be able to work in a for loop, we test from [0, 5].
+        for a in zip(range(6), BaseParameters(0, 1, 2, 3, 4, 5)):
             self.assertEqual(a[0], a[1])
 
-        # Our BaseParameter should be able to work in a for loop, we test from [-6, 0].
-        for a in zip(range(0, -6, -1), BaseParameters(0, -1, -2, -3, -4, -5, -6)):
+        # Our BaseParameter should be able to work in a for loop, we test from [-5, 0].
+        for a in zip(range(0, -5, -1), BaseParameters(0, -1, -2, -3, -4, -5)):
             self.assertEqual(a[0], a[1])
 
         # The length in some BaseParameter object should determine the number of iterations to perform.
-        a, b = iter([0, 1, 2, 3, 4, 5, 6]), BaseParameters(0, 1, 2, 3, 4, 5, 6)
+        a, b = iter([0, 1, 2, 4, 5, 6]), BaseParameters(0, 1, 2, 4, 5, 6)
         c = iter(b)
         for _ in range(len(b)):
             self.assertEqual(next(a), next(c))
@@ -199,8 +197,8 @@ class BaseParametersTest(unittest.TestCase):
         from types import SimpleNamespace
 
         # We simulate the parsing of our arguments by creating a namespace.
-        namespace = SimpleNamespace(n=1, f=1, c=1, u=1, d=1, kappa=1, omega=1,
-                                    n_sigma=-1, f_sigma=-1, c_sigma=-1, u_sigma=-1, d_sigma=-1,
+        namespace = SimpleNamespace(n=1, f=1, c=1, d=1, kappa=1, omega=1,
+                                    n_sigma=-1, f_sigma=-1, c_sigma=-1, d_sigma=-1,
                                     kappa_sigma=-1, omega_sigma=-1)
 
         # Without altering the is_sigma flag, we should only get our initial parameters.
@@ -226,18 +224,18 @@ class BaseParametersTest(unittest.TestCase):
         walk = lambda a, b: normal(a, b)
 
         # Given deviations of 0, we should remain at the same state.
-        c, d = BaseParameters(1, 1, 1, 1, 1, 1, 1), BaseParameters(0, 0, 0, 0, 0, 0, 0)
+        c, d = BaseParameters(1, 1, 1, 1, 1, 1), BaseParameters(0, 0, 0, 0, 0, 0)
         e = BaseParameters.from_walk(c, d, walk)
         self.assertListEqual(list(c), list(e))
 
         # Given a small deviation, we should not walk far.
-        c, d = BaseParameters(1, 1, 1, 1, 1, 1, 1), BaseParameters(0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001)
+        c, d = BaseParameters(1, 1, 1, 1, 1, 1), BaseParameters(0.001, 0.001, 0.001, 0.001, 0.001, 0.001)
         e = BaseParameters.from_walk(c, d, walk)
         for f in zip(c, e):
             self.assertAlmostEqual(f[0], f[1], delta=1.0)
 
         # Given a larger deviation, we walk farther.
-        c, d = BaseParameters(1, 1, 1, 1, 1, 1, 1), BaseParameters(1000, 1000, 1000, 1000, 1000, 1000, 1000)
+        c, d = BaseParameters(1, 1, 1, 1, 1, 1), BaseParameters(1000, 1000, 1000, 1000, 1000, 1000)
         e = BaseParameters.from_walk(c, d, walk)
         for f in zip(c, e):
             self.assertNotAlmostEqual(f[0], f[1], delta=1.0)
@@ -252,32 +250,30 @@ class PopulationTest(unittest.TestCase):
         from numpy import nextafter
 
         # None of our parameters instead the population object should be out of bounds.
-        a = Population(BaseParameters(-1, -1, 0, 0.5, -1, -1, -1))
+        a = Population(BaseParameters(-1, -1, 0, -1, -1, -1))
         self.assertEqual(a.theta.n, 0)
         self.assertEqual(a.theta.f, 0)
         self.assertEqual(a.theta.c, nextafter(0, 1))
-        self.assertEqual(a.theta.u, 1.0)
         self.assertEqual(a.theta.d, 0)
         self.assertEqual(a.theta.kappa, 0)
         self.assertEqual(a.theta.omega, 0)
 
         # If kappa > omega, kappa = omega.
-        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.5, 1.0, 30, 3))
+        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.0, 30, 3))
         self.assertEqual(a.theta.kappa, a.theta.omega)
         self.assertEqual(a.theta.kappa, 30)
 
         # If our parameters are correct, then we should see them in our Population object.
-        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.5, 1.0, 3, 30))
+        a = Population(BaseParameters(1.0, 1.0, 1.0, 1.0, 3, 30))
         self.assertEqual(a.theta.n, 1.0)
         self.assertEqual(a.theta.f, 1.0)
         self.assertEqual(a.theta.c, 1.0)
-        self.assertEqual(a.theta.u, 1.5)
         self.assertEqual(a.theta.d, 1.0)
         self.assertEqual(a.theta.kappa, 3)
         self.assertEqual(a.theta.omega, 30)
 
         # Our ancestor chain length should hold enough elements to store our tree.
-        a = Population(BaseParameters(100, 1.0, 1.0, 1.5, 1.0, 3, 30))
+        a = Population(BaseParameters(100, 1.0, 1.0, 1.0, 3, 30))
         self.assertEqual(a.coalescent_tree.size, triangle_n(2 * 100))
 
         # Our tree should be traced upon instantiation.
@@ -302,7 +298,7 @@ class PopulationTest(unittest.TestCase):
         for p in range(30):
 
             # Our tree should be populated upon instantiation, except for our initial element.
-            c = Population(BaseParameters(25, 1.0, 1.0, 1.5, 1.0, 3, 30))
+            c = Population(BaseParameters(25, 1.0, 1.0, 1.0, 3, 30))
             for d in c.coalescent_tree[1:]:
                 self.assertIn(d, a)
 
@@ -317,7 +313,7 @@ class PopulationTest(unittest.TestCase):
         :return: None.
         """
         from numpy import array, array_equal
-        a = Population(BaseParameters(100, 1.0, 0.001, 1.3, 0.001, 3, 30))
+        a = Population(BaseParameters(100, 1.0, 0.001, 0.001, 3, 30))
         z = array(a.coalescent_tree)
 
         # The returned array should be our current descendants.
@@ -337,7 +333,7 @@ class PopulationTest(unittest.TestCase):
 
         # Repeat for 10 different runs.
         for _ in range(100):
-            a = Population(BaseParameters(100, 1.0, 0.001, 1.3, 0.001, 3, 30))
+            a = Population(BaseParameters(100, 1.0, 0.001, 0.001, 3, 30))
             z = array(a.coalescent_tree)
             b = array(a.evolve(array([10])))
 

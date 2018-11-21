@@ -9,28 +9,27 @@ from numba import jit, prange
 
 
 class BaseParameters(object):
-    def __init__(self, n: float, f: float, c: float, u: float, d: float, kappa: float, omega: float):
+    def __init__(self, n: float, f: float, c: float, d: float, kappa: float, omega: float):
         """ Constructor. This is just meant to be a data class for the mutation model.
 
         :param n: Population size, used for determining the number of generations between events.
         :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
         :param c: Constant bias for the upward mutation rate.
-        :param u: Linear bias for the upward mutation rate.
         :param d: Linear bias for the downward mutation rate.
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        self.n, self.f, self.c, self.u, self.d, self.kappa, self.omega = \
-            round(n), f, c, u, d, round(kappa), round(omega)
+        self.n, self.f, self.c, self.d, self.kappa, self.omega = \
+            round(n), f, c, d, round(kappa), round(omega)
 
-        self.PARAMETER_COUNT = 7
+        self.PARAMETER_COUNT = 6
 
     def __iter__(self):
-        """ Return each our of parameters in the following order: n, f, c, u, d, kappa, omega
+        """ Return each our of parameters in the following order: n, f, c, d, kappa, omega
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in [self.n, self.f, self.c, self.u, self.d, self.kappa, self.omega]:
+        for parameter in [self.n, self.f, self.c, self.d, self.kappa, self.omega]:
             yield parameter
 
     def __len__(self):
@@ -54,7 +53,6 @@ class BaseParameters(object):
             return BaseParameters(n=arguments.n,
                                   f=arguments.f,
                                   c=arguments.c,
-                                  u=arguments.u,
                                   d=arguments.d,
                                   kappa=arguments.kappa,
                                   omega=arguments.omega)
@@ -62,7 +60,6 @@ class BaseParameters(object):
             return BaseParameters(n=arguments.n_sigma,
                                   f=arguments.f_sigma,
                                   c=arguments.c_sigma,
-                                  u=arguments.u_sigma,
                                   d=arguments.d_sigma,
                                   kappa=arguments.kappa_sigma,
                                   omega=arguments.omega_sigma)
@@ -82,7 +79,6 @@ class BaseParameters(object):
             theta_proposed = BaseParameters(n=walk(theta.n, pi_sigma.n),
                                             f=walk(theta.f, pi_sigma.f),
                                             c=walk(theta.c, pi_sigma.c),
-                                            u=walk(theta.u, pi_sigma.u),
                                             d=walk(theta.d, pi_sigma.d),
                                             kappa=walk(theta.kappa, pi_sigma.kappa),
                                             omega=walk(theta.omega, pi_sigma.omega))
@@ -90,7 +86,6 @@ class BaseParameters(object):
             if theta_proposed.n > 0 and \
                     theta_proposed.f >= 0 and \
                     theta_proposed.c > 0 and \
-                    theta_proposed.u >= 1 and \
                     theta_proposed.d >= 0 and \
                     0 < theta_proposed.kappa < theta_proposed.omega:
                 break
@@ -108,7 +103,6 @@ class Population(object):
         theta.n = max(theta.n, 0)
         theta.f = max(theta.f, 0)
         theta.c = max(theta.c, nextafter(0, 1))  # Dr. Reed gave a strict bound > 0 here, but I forget why...
-        theta.u = max(theta.u, 1.0)
         theta.d = max(theta.d, 0)
         theta.kappa = max(theta.kappa, 0)
         theta.omega = max(theta.omega, theta.kappa)
@@ -134,16 +128,15 @@ class Population(object):
 
     @staticmethod
     @jit(nopython=True, nogil=True, target='cpu')
-    def _mutate(ell: int, c: float, u: float, d: float, kappa: int, omega: int) -> int:
+    def _mutate(ell: int, c: float, d: float, kappa: int, omega: int) -> int:
         """ Given a repeat length 'ell', we mutate this repeat length up or down dependent on our parameters
-        c (upward constant bias), u (upward linear bias), and d (downward linear bias). If we reach our lower bound
-        kappa, we do not mutate further. Optimized by Numba. The mutation model gives us the following focal bias:
+        c (upward constant bias) and d (downward linear bias). If we reach our lower bound kappa, we do not mutate
+        further. Optimized by Numba. The mutation model gives us the following focal bias:
 
-        \hat{L} = \frac{-c}{\frac{d}{u} - d}.
+        \hat{L} = \frac{-c}{-d}.
 
         :param ell: The current repeat length to mutate.
         :param c: Constant bias for the upward mutation rate.
-        :param u: Linear bias for the upward mutation rate.
         :param d: Linear bias for the downward mutation rate.
         :param kappa: Lower bound of our repeat length space. If 'ell = kappa', we do not mutate.
         :param omega: Upper bound of our repeat length space.
@@ -154,7 +147,7 @@ class Population(object):
             return ell
 
         # Compute our upward mutation rate. We are bounded by omega.
-        ell = min(omega, ell + 1) if uniform(0, 1) < c + ell * (d / u) else ell
+        ell = min(omega, ell + 1) if uniform(0, 1) < c else ell
 
         # Compute our downward mutation rate. We are bounded by kappa.
         return max(kappa, ell - 1) if uniform(0, 1) < ell * d else ell
@@ -184,12 +177,12 @@ class Population(object):
 
         :param coalescent_tree: A 1D array containing the tree. We output the lengths to the next generation here.
         :param tau: The numbered coalescent event to perform repeat length determination for.
-        :param theta: Our parameters, in the order of: n, f, c, u, d, kappa, omega.
+        :param theta: Our parameters, in the order of: n, f, c, d, kappa, omega.
         :param triangle: The triangle (binomial of two) function to use.
         :param mutate: The mutation function to use.
         :return: None.
         """
-        n, f, c, u, d, kappa, omega = theta  # Unpack our parameters.
+        n, f, c, d, kappa, omega = theta  # Unpack our parameters.
 
         # We define our descendants for the tau'th coalescent.
         descendants = coalescent_tree[triangle(tau + 1):triangle(tau + 2)]
@@ -203,7 +196,7 @@ class Population(object):
 
             # Evolve each ancestor according to the average time to coalescence and the scaling factor f.
             for _ in range(t_coalescence):
-                descendant_to_evolve = mutate(descendant_to_evolve, c, u, d, kappa, omega)
+                descendant_to_evolve = mutate(descendant_to_evolve, c, d, kappa, omega)
 
             # Save our descendant state.
             descendants[k] = descendant_to_evolve
@@ -233,14 +226,14 @@ class Population(object):
         using this function. Optimized by Numba.
 
         :param coalescent_tree: A 1D array containing the tree we save our repeat lengths to.
-        :param theta: Our parameters, in the order of: n, f, c, u, d, kappa, omega.
+        :param theta: Our parameters, in the order of: n, f, c, d, kappa, omega.
         :param offset: The number of common ancestors located in our tree. Determines where to start.
         :param evolve: Function to determine the repeat lengths of the tau'th coalescent event.
         :param triangle: The triangle (binomial of two) function to use.
         :param mutate: The mutation function to use.
         :return: None.
         """
-        n, f, c, u, d, kappa, omega = theta  # Unpack our parameters.
+        n, f, c, d, kappa, omega = theta  # Unpack our parameters.
 
         for tau in range(offset, int(2 * n - 1)):
             evolve(coalescent_tree, tau, theta, triangle, mutate)
@@ -281,7 +274,6 @@ if __name__ == '__main__':
     paa('-n', 'Starting population size.', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
     paa('-c', 'Constant bias for the upward mutation rate.', float)
-    paa('-u', 'Linear bias for the upward mutation rate.', float)
     paa('-d', 'Linear bias for the downward mutation rate.', float)
     paa('-kappa', 'Lower bound of repeat lengths.', int)
     paa('-omega', 'Upper bound of repeat lengths.', int)
