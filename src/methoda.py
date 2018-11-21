@@ -23,7 +23,6 @@ def create_tables(cursor: Cursor) -> None:
             N INT,
             F FLOAT,
             C FLOAT,
-            U FLOAT,
             D FLOAT,
             KAPPA INT,
             OMEGA INT,
@@ -71,7 +70,7 @@ def retrieve_last(cursor: Cursor) -> BaseParameters:
     :return:
     """
     a = cursor.execute("""
-        SELECT N, F, C, U, D, KAPPA, OMEGA
+        SELECT N, F, C, D, KAPPA, OMEGA
         FROM WAIT_MODEL
         ORDER BY TIME_R, PROPOSED_TIME DESC
         LIMIT 1
@@ -152,7 +151,6 @@ if __name__ == '__main__':
     paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
     paa('-c', 'Constant bias for the upward mutation rate.', float)
-    paa('-u', 'Linear bias for the upward mutation rate.', float)
     paa('-d', 'Linear bias for the downward mutation rate.', float)
     paa('-kappa', 'Lower bound of repeat lengths.', int)
     paa('-omega', 'Upper bound of repeat lengths.', int)
@@ -160,7 +158,6 @@ if __name__ == '__main__':
     paa('-n_sigma', 'Step size of n when changing parameters.', float)
     paa('-f_sigma', 'Step size of f when changing parameters.', float)
     paa('-c_sigma', 'Step size of c when changing parameters.', float)
-    paa('-u_sigma', 'Step size of u when changing parameters.', float)
     paa('-d_sigma', 'Step size of d when changing parameters.', float)
     paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
     paa('-omega_sigma', 'Step size of omega when changing parameters.', float)

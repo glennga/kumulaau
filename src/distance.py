@@ -267,7 +267,7 @@ if __name__ == '__main__':
     """, (main_arguments.uid_observed, main_arguments.locus_observed,)).fetchall()
 
     # Create our parameter sets.
-    main_theta = {'n': 100, 'f': 100.0, 'c': 0.01, 'u': 1.2, 'd': 0.001, 'kappa': 3, 'omega': 30}
+    main_theta = {'n': 100, 'f': 100.0, 'c': 0.01, 'd': 0.001, 'kappa': 3, 'omega': 30}
     main_accumulator_parameters = [[main_observed_frequency], 3, 30, 500]
     main_accumulator = Cosine(*main_accumulator_parameters) if main_arguments.function == 'COSINE' \
         else Euclidean(*main_accumulator_parameters)

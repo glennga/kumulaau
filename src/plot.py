@@ -28,9 +28,9 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
 
     set_style(), plt.suptitle(r'Parameter Waiting Times (Frequency) for Mutation Model MCMC')
 
-    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$u$', r'$d$', r'$\kappa$', r'$\Omega$']
-    for j, dimension in enumerate(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA']):
-        plt.subplot(2, 4, j + 1)
+    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$d$', r'$\kappa$', r'$\Omega$']
+    for j, dimension in enumerate(['N', 'F', 'C', 'D', 'KAPPA', 'OMEGA']):
+        plt.subplot(2, 3, j + 1)
 
         # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cursor.execute(f"""
@@ -73,9 +73,9 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
 
     set_style(), plt.suptitle(r'Parameter Frequency for Mutation Model MCMC')
 
-    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$u$', r'$d$', r'$\kappa$', r'$\Omega$']
-    for j, dimension in enumerate(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA']):
-        plt.subplot(2, 4, j + 1)
+    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$d$', r'$\kappa$', r'$\Omega$']
+    for j, dimension in enumerate(['N', 'F', 'C', 'D', 'KAPPA', 'OMEGA']):
+        plt.subplot(2, 3, j + 1)
 
         # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cursor.execute(f"""
@@ -104,12 +104,15 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
 
             ab, bb, cb, db = beta.fit(axis)  # Beta distribution plot (red).
             plt.plot(spc, beta.pdf(spc, ab, bb, cb, db), '#A60628')
+            print(f'\tBeta [{dimension}]: {ab}, {bb}, {cb}, {db}')
 
-            an, bn= norm.fit(axis)  # Gaussian distribution plot (purple).
+            an, bn = norm.fit(axis)  # Gaussian distribution plot (purple).
             plt.plot(spc, norm.pdf(spc, an, bn), '#7A68A6')
+            print(f'\tGaussian [{dimension}]: {an}, {bn}')
 
             ag, bg, cg = gamma.fit(axis)  # Gamma distribution plot (green).
             plt.plot(spc, gamma.pdf(spc, ag, bg, cg), '#467821')
+            print(f'\tGamma [{dimension}]: {ag}, {bg}, {cg}')
 
             plt.ylim(c_ylim)  # Focus is our histogram, not our line of fits.
 
@@ -125,9 +128,9 @@ def trace_1(cursor: Cursor, burn_in: int) -> None:
     """
     set_style(), plt.suptitle(r'Trace Plot for Mutation Model MCMC')
 
-    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$u$', r'$d$', r'$\kappa$', r'$\Omega$']
-    for j, dimension in enumerate(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA']):
-        plt.subplot(2, 4, j + 1)
+    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$d$', r'$\kappa$', r'$\Omega$']
+    for j, dimension in enumerate(['N', 'F', 'C', 'D', 'KAPPA', 'OMEGA']):
+        plt.subplot(2, 3, j + 1)
 
         # Obtain the data to plot. The acceptance time indicates how we sort our data.
         axis_accept = list(map(lambda a: [int(a[0]), float(a[1])], cursor.execute(f"""
@@ -155,9 +158,9 @@ def likelihood_1(cursor: Cursor, burn_in: int) -> None:
 
     set_style(), plt.suptitle(r'Parameter Log-Likelihood for Mutation Model MCMC')
 
-    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$u$', r'$d$', r'$\kappa$', r'$\Omega$']
-    for j, dimension in enumerate(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA']):
-        plt.subplot(2, 4, j + 1)
+    dimension_labels = [r'$N$', r'$f$', r'$c$', r'$d$', r'$\kappa$', r'$\Omega$']
+    for j, dimension in enumerate(['N', 'F', 'C', 'D', 'KAPPA', 'OMEGA']):
+        plt.subplot(2, 3, j + 1)
 
         # Obtain the data to plot. We only take every other value.
         axis_accept = list(map(lambda a: [float(a[0]), float(a[1])], cursor.execute(f"""
@@ -188,8 +191,8 @@ if __name__ == '__main__':
         [4 <- Log-likelihood curves of our parameters for the mutation model MCMC.]
     """
     plot_parmeters_help = """ Parameters associated with function of use:
-        [1 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.]         
-        [2 <- Step sizes of histogram in following order: N, F, C, U, D, KAPPA, OMEGA.] 
+        [1 <- Step sizes of histogram in following order: N, F, C, D, KAPPA, OMEGA.]         
+        [2 <- Step sizes of histogram in following order: N, F, C, D, KAPPA, OMEGA.] 
         [3 <- None.]
         [4 <- None.]
     """
@@ -210,8 +213,8 @@ if __name__ == '__main__':
     use('Agg') if main_arguments.image_file is not None else None
     from matplotlib import pyplot as plt
 
-    # Perform the appropriate function. Do you like this makeshift switch statement? :)
-    dict_arg = lambda: dict(zip(['N', 'F', 'C', 'U', 'D', 'KAPPA', 'OMEGA'], main_arguments.params))
+    # Perform the appropriate function. Do you like this makeshift switch statement? :-)
+    dict_arg = lambda: dict(zip(['N', 'F', 'C', 'D', 'KAPPA', 'OMEGA'], main_arguments.params))
     {
         1: lambda: histogram_1(cursor_r, dict_arg(), main_arguments.burn_in),
         2: lambda: histogram_2(cursor_r, dict_arg(), main_arguments.burn_in),
