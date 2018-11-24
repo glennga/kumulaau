@@ -2,7 +2,7 @@
 
 # Parameters for all functions.
 BURN_IN=15000
-PARAMS="0 0 0.0001 0.01 0.00005 0 0"
+PARAMS="0 0 0.001 0.0001 0 0"
 
 # Visualize all instances of our mutation model MCMC.
 for f in data/methoda-*.db; do
