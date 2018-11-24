@@ -8,29 +8,10 @@ fi
 
 # Build everything in the doc directory.
 cd ${MICRO_SAT_PATH}/doc
-
-# If "paper" is passed, then we have to build the bibliography as well.
-if [[ "$1" = *"paper" ]] || [[ "$1" = *"present" ]]; then
-    pdflatex $1.tex >> $1-build.log
-    sleep 0.1
-
-    bibtex $1 >> $1-build.log 2>&1
-    sleep 0.1
-
-    pdflatex $1.tex >> $1-build.log 2>&1
-    sleep 0.1
-
-    pdflatex $1.tex >> $1-build.log 2>&1
-    sleep 0.1
-
-else
-    # Otherwise, just run pdflatex on the file passed.
-    pdflatex $1 >> $1-build.log 2>&1
-    sleep 0.1
-
-    pdflatex $1 >> $1-build.log 2>&1
-    sleep 0.1
-fi
+pdflatex $1; sleep 0.1
+bibtex $(expr $1 : "\(.*\).tex").aux; sleep 0.1
+pdflatex $1; sleep 0.1
+pdflatex $1; sleep 0.1
 
 # Move everything but the LaTeX files and the PDF to some directory in build.
 mkdir ${MICRO_SAT_PATH}/doc/build ${MICRO_SAT_PATH}/doc/pdf 2>/dev/null
