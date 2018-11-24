@@ -23,7 +23,6 @@ doc/build/*
 *.aux
 *.log
 *.db
-*.png
 
 # Ignore the old folder, where we store all the old stuff.
 old/*
