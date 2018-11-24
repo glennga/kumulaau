@@ -23,7 +23,6 @@ python3 src/methoda.py \
     -n 50 -n_sigma 0.0 \
     -f 100 -f_sigma 0.0 \
     -c 0.01067 -c_sigma 0.01003 \
-    -u 1.23414 -u_sigma 0.02062 \
     -d 0.00255 -d_sigma 0.00108 \
     -kappa 3 -kappa_sigma 0.0 \
     -omega 30 -omega_sigma 0.0
@@ -43,7 +42,6 @@ for i in {2..10}; do
         -n_sigma 0.0 \
         -f_sigma 0.0 \
         -c_sigma 0.01003 \
-        -u_sigma 0.02062 \
         -d_sigma 0.00108 \
         -kappa_sigma 0.0 \
         -omega_sigma 0.0
