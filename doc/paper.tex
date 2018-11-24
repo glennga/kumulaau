@@ -1,7 +1,8 @@
 \documentclass[11pt]{article}
-\usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled]{algorithm2e}
-\usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage{hyperref} \usepackage{float} \usepackage{amssymb}
-\usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig} \usepackage{multicol}
+\usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled,algosection]{algorithm2e}
+\usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage[hidelinks]{hyperref} \usepackage{float}
+\usepackage{amssymb} \usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig}
+\usepackage{multicol} \usepackage{chngcntr}
 
 \setcounter{secnumdepth}{3}
 \title{\huge Efficient Parameter Estimation for Human Microsatellite Mutation}
@@ -12,6 +13,8 @@
 
 % Has to be in the preamble...
 \usetikzlibrary{calligraphy}
+\numberwithin{equation}{section}
+\counterwithin{figure}{section}
 
 \begin{document}
     \maketitle
@@ -26,12 +29,12 @@
     \input{include/snps-vs-str.tex}
     \input{include/evolution.tex}
     \input{include/mutation.tex}
-    \input{include/simulation.tex}
     \input{include/data.tex}
     \input{include/parameter.tex}
     \input{include/discussion.tex}
     \input{include/future-work.tex}
 
+    \nocite{*}
     \bibliographystyle{abbrv}
 	\bibliography{include/references}
 

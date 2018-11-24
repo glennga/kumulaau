@@ -1,2 +1,16 @@
+% Special macros.
 \newcommand\bp{\mathit{bp}}
+\newcommand{\overbar}[1]{\mkern 1.5mu\overline{\mkern-1.5mu#1\mkern-1.5mu}\mkern 1.5mu}
+
+% For Algorithm2e.
+\SetKwComment{Comment}{$\triangleright$\ }{}
 \SetKwProg{Fn}{Function:}{}{}
+
+% For math color.
+\def\mathcolor#1#{\@mathcolor{#1}}
+\def\@mathcolor#1#2#3{%
+  \protect\leavevmode
+  \begingroup
+    \color#1{#2}#3%
+  \endgroup
+}

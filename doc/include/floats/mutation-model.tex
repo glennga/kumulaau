@@ -8,12 +8,12 @@
     samples=100, no markers, legend pos=outer north east, enlargelimits=false,
     domain=0:25
     ]
-        \addplot {(0.0025/1.2)*x + 0.005};
-        \addlegendentry{$\mu_u = \frac{d}{u}\ell + c$};
+        \addplot+[very thick]{0.03};
+        \addlegendentry{$\mu_u = c$};
 
-        \addplot {0.0025*x};
+        \addplot+[very thick]{0.0025*x};
         \addlegendentry{$\mu_d = d\ell$};
 
-        \addplot+[mark=very thick, black, dotted, forget plot] coordinates {(12, 0) (12, 0.05)};
+        \addplot+[very thick, black, dotted, forget plot] coordinates {(12, 0) (12, 0.05)};
     \end{axis}
 \end{tikzpicture}

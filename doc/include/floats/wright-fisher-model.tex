@@ -21,6 +21,12 @@
         \node[draw=red] (B_6) at (10, 3) {$\ell^{t}_6$};
     \end{scope}
 
+    \begin{scope}
+        \node (C_1) at (-0.5, 1.5) {\Huge$f$};
+        \node (C_2) at (14.5, 1.5) {};
+        \draw[thick, dashed] (C_1) -- (C_2);
+    \end{scope}
+
     \begin{scope}[every edge/.style={draw=black}]
         \path[->] (B_1) edge (A_2);
         \path[->] (B_1) edge (A_1);

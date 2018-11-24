@@ -1,13 +1,18 @@
 \section{Modeling Mutation}\label{sec:mm}
-In this section, we describe our proposed 3-parameter $\theta = \{ d, u, c\}$ mutation model.
+In this section, we discuss mutation and describe our proposed 2-parameter $\theta = \{ d, c\}$ mutation model.
+
+Mutation refers to a change in DNA sequence.
+For this paper, we refer to mutation as a change in the repeat length of some locus for a microsatellite variant.
+We are also only discussing mutations that are passed on to the next generation, under the neutral (Wright-Fisher)
+assumptions.
 
 \subsection{Repeat Unit Change Per Generation}\label{subsec:rucpg}
 The simplest model of microsatellite mutation and evolution is the stepwise mutation
 model of Ohta and Kimura~\cite{ohtaModelMutationAppropriate2007}.
-Let $\lambda : \mathbb{Z}^+ \rightarrow \mathbb{Z}^+$ represent some function that accepts some repeat length and outputs some
+Let $f : \mathbb{M} \rightarrow \mathbb{M}$ represent some function that accepts some repeat length and outputs some
 repeat length.
 Given a population $\pi_t$ at generation $t$ and some repeat length $\ell_t \in \pi_t$, the mutated repeat length
-in the next generation $\lambda(\ell_{t}) = \ell_{t+1}$ takes three different states:
+in the next generation $f(\ell_{t}) = \ell_{t+1}$ takes three different states:
 \begin{equation}
     \lambda(\ell_t) \in \{ \ell_t + 1 , \ell_t, \ell_t - 1\}
 \end{equation}
@@ -15,15 +20,15 @@ Per generation, each microsatellite variant mutates up one repeat length (expans
 (contraction), or stays the same -- all with equal probability.
 
 Let $\mu_u$ represent the probability of upward mutation and $\mu_d$ represent the probability of downward mutation.
-We can construct our function $\lambda$ as such:
+We can construct our function $f$ as such:
 \begin{enumerate}
     \item We are given some repeat length $\ell_t$, an upward mutation rate $\mu_u$, and a
         downward mutation rate $\mu_d$.
     \item Sample two numbers from a uniform random distribution: $x_u, x_d \sim U(0, 1)$.
-    \item If $\mu_u > x_u$, then $\lambda(\ell_{t}) = \ell_t + 1$.
+    \item If $\mu_u > x_u$, then $f(\ell_{t}) = \ell_t + 1$.
         This is the inverse transform sampling method. \label{enum:um}
-    \item If $\mu_d > x_d$ but $\mu_u \leq x_u$, then $\lambda(\ell_{t}) = \ell_t - 1$. \label{enum:dm}
-        If $\mu_d > x_d \ \land \ \mu_u > x_u$, then $\lambda(\ell_{t)} = \ell_{t}$.
+    \item If $\mu_d > x_d$ but $\mu_u \leq x_u$, then $f(\ell_{t}) = \ell_t - 1$. \label{enum:dm}
+        If $\mu_d > x_d \ \land \ \mu_u > x_u$, then $f(\ell_{t)} = \ell_{t}$.
 \end{enumerate}
 
 There does exist evidence that mutations occur at steps greater than one repeat length.
@@ -37,11 +42,11 @@ This is modeled by the procedure below:
         for the geometric distribution $m$.
     \item Sample three numbers from a uniform random distribution: $x_u, x_d, x_p \sim U(0, 1)$.
     \item If $p > x_p$, then we set the changes in repeat length $\Delta_u = 1, \Delta_d = 1$.
-        Otherwise, we sample our changse in repeat length from a geometric distribution:
+        Otherwise, we sample our changes in repeat length from a geometric distribution:
         $\Delta_u, \Delta_d \sim \mathit{Geom}(m)$.
-    \item If $\mu_u > x_u$, then $\lambda(\ell_{t}) = \ell_t + \Delta_u$.
-    \item If $\mu_d > x_d$ but $\mu_u \leq x_u$, then $\lambda(\ell_{t}) = \ell_t - \Delta_d$.
-        If $\mu_d > x_d \ \land \ \mu_u > x_u$, then $\lambda(\ell_{t)} = \ell_{t} + \Delta_u - \Delta_d$.
+    \item If $\mu_u > x_u$, then $f(\ell_{t}) = \ell_t + \Delta_u$.
+    \item If $\mu_d > x_d$ but $\mu_u \leq x_u$, then $f(\ell_{t}) = \ell_t - \Delta_d$.
+        If $\mu_d > x_d \ \land \ \mu_u > x_u$, then $f(\ell_{t)} = \ell_{t} + \Delta_u - \Delta_d$.
 \end{enumerate}
 
 The two-phase model is more flexible here, but this introduces two new parameters to estimate: $p$ and $m$.
@@ -50,31 +55,87 @@ not significantly different than their two phase counterparts~\cite{sainudiinMic
 For this reason, our model restricts repeat lengths to mutate by at most one per generation.
 
 \subsection{Mutation Rate Dependence on Repeat Unit}\label{subsec:mrdonru}
-An assumption made with stepwise mutation model is that the probability of mutation is equal for all repeat lengths.
-
-~\cite{kornbergEnzymaticSynthesisDeoxyribonucleic1964}.
-
-
-TODO: (1) Mention the rate equality, (2) Mention the repeat length dependence on repeat unit,
-(3) We are going with the repeat length dependence.
-
-\subsection{Presence of Mutational Bias}\label{subsec:pomb}
-TODO: (1) Mention the requirement of repeat length dependence, (2) Mention the constant bias parameter,
-(3) Mention the linear bias, (4) Mention the focal bias
-
-Our focal bias $\hat{\ell} $is defined as the point where $\mu_u$ and $\mu_d$ intersect:
-\begin{equation}
-    \hat{\ell} = \frac{-c}{\frac{d}{u} - d}
-%    \begin{aligned}
-%        \mu_u &= \mu_d \\
-%        \frac{d}{u}\ell + c &= d\ell \\
-%        (\frac{d}{u} - d)\ell &= -c \\
-%        \ell &= \frac{-c}{\frac{d}{u} - d}
-%    \end{aligned}
-\end{equation}
-
-\begin{figure}
+\begin{figure}[t]
     \centering{\input{include/floats/mutation-model.tex}}
-    \caption{Our mutation model for $d=0.0025, u=1.2, c=0.005$.
+    \caption{Our mutation model for $d=0.0025, c=0.03$.
     Our focal bias with these parameters is $\hat{\ell}=12$.}\label{fig:mutationModel}
 \end{figure}
+
+Before building a more complex model, we must first ask, ``When does mutation occur?''.
+Does it occur per generation?
+Per every odd generation?
+The answer to this lies with a quantity known as $\mu \in [0, 1]$, or the \emph{mutation rate}.
+From generation to generation we generate a uniformly distributed random variable between 0 and 1, and ask if this draw
+is below our mutation rate.
+If the answer is yes, we mutate up or down one repeat length.
+Otherwise, our repeat length remains unchanged.
+\begin{equation}
+    \begin{cases}
+        \text{mutate} & \mu > \ \sim U(0, 1) \\
+        \text{do not mutate} & \mu \leq \ \sim U(0, 1)
+    \end{cases}
+\end{equation}
+
+An assumption made with stepwise mutation model is that the probability of mutation is equal for all repeat lengths.
+Ellegren showed that allele length plays a role in how often mutations
+occur~\cite{ellegrenHeterogeneousMutationProcesses2000}.
+More specifically, longer repeat lengths mutate more often than shorter repeat lengths.
+
+To introduce this repeat length dependence, we use the following equation:
+\begin{equation}
+    \mu = s \cdot \ell
+\end{equation}
+where $s$ represents the strength of this dependence.
+Again there exists evidence for more complex models such as the exponentially increasing mutation rate of Xu et.\ al.\
+~\cite{xuDirectionMicrosatelliteMutations2000}.
+Following Sainudiin's general model (which included only linear dependence), we made the decision to use the equation
+above.
+
+\subsection{Presence of Mutational Bias}\label{subsec:pomb}
+There now exists a mutation rate dependence on repeat length, but the probability of mutating up or down is still
+equally likely.
+Garza's proposed that microsatellites mutate toward a \emph{focal
+length}~\cite{garzaMicrosatelliteAlleleFrequencies1995}.
+If the repeat length of interest $\ell$ is below the focal length at some generation $t$, $\ell$ will have a higher
+probability of mutating upward than downward in the following generations.
+Conversely, if $\ell$ is above the focal length at some generation $t$, $\ell$ will have a higher probability of
+mutating downward than upward in the following generations.
+
+This now brings us to our complete mutation model.
+To introduce a bias toward some focal length, we define two mutation rates: the upward mutation rate $\mu_u$ and the
+downward mutation rate $\mu_d$.
+The total mutation rate is the sum of the two $\mu = \mu_u + \mu_d$.
+We define $\mu_d$ to be dependent on repeat length, and $\mu_u$ to be constant:
+\begin{align}
+    \mu_u &= c \\
+    \mu_d &= d\ell
+\end{align}
+where $c$ represents a constant bias for the upward mutation (or, the upward mutation rate itself) and $d$ represents a
+linear bias for the downward mutation rate.
+The focal length $\hat{\ell}$ is defined as the intersection between the upward and downward mutation rate:
+\begin{equation}
+    \hat{\ell} = \frac{c}{d}
+\end{equation}
+Graphically, this is represented in~\autoref{fig:mutationModel}.
+We describe the entire mutation function $f$ in~\autoref{alg:mutateFunction}.
+
+\begin{algorithm}[t]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \Fn{MutateFunction \ {$(c, d, \ell_t)$}} {
+        \KwIn{an upward constant mutation bias $c$, downward linear mutation bias $d$, current repeat length $\ell$}
+        \KwOut{a repeat length from the next generation $\ell_{t+1}$}
+        $\ell_{t+1} \gets \ell_t$ \;
+        \If{$c < \ \sim U(0, 1)$}{
+            $\ell_{t+1} \gets \ell_{t+1} + 1$ \;
+        }
+        \If{$d\ell < \ \sim U(0, 1)$}{
+            $\ell_{t+1} \gets \ell_{t+1} - 1$ \;
+        }
+        \Return $\ell_{t+1}$ \;
+    }
+    \textbf{end} \;
+    \caption{The algorithmic description for $f: \mathcal{M} \rightarrow \mathcal{M}$.
+    To stay consistent with the definition of $f$ we denote $c$ and $d$ as parameters of the model itself.}
+    \label{alg:mutateFunction}
+\end{algorithm}

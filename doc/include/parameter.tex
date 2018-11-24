@@ -34,9 +34,16 @@ The two problems this section aims to address are given below:
 \end{enumerate}
 
 \subsection{Approximate Bayesian Computation}\label{subsec:abc}
-In this section, we discuss an approximate method to compute the likelihood $\mathcal{L}$ for some parameter set
-$\theta$.
+In this section, we discuss an approximate method to compute the likelihood $\mathcal{L}$ for some parameter set $\theta$.
 
+Let us start with a simple weighted coin model.
+Let $\mathcal{M} : \mathbb{R} \mapsto \{ 0, 1 \}$
+
+
+
+Let us start with a simple simulator based model $\mathcal{M}$ that accepts some parameter $\theta_1$ and outputs some
+result $\mathcal{D}'_1$.
+$\mathcal{D}'_1$
 
 TODO: Mention how finding an exact match is near to impossible, briefly mention the use of summary statistics,
 go over the approximate matches.
@@ -44,6 +51,8 @@ go over the approximate matches.
 \subsubsection{Approximate Matches: $\epsilon$}
 
 \subsection{Likelihood Estimation}\label{subsec:le}
+We now know how to determine the likelihood of a single point in our parameter space.
+
 
 \subsection{Markov Chain Monte Carlo}\label{subsec:mcmc}
 In this section, we discuss the Markov Chain Monte Carlo (MCMC) approach to approximating a likelihood function.
@@ -59,3 +68,26 @@ where $p(\theta)$ represents our prior beliefs our the parameters~\cite{liepeABC
 \subsubsection{Markov Chain}
 
 \subsubsection{Metropolis Algorithm}
+In this section, we describe the Metropolis algorithm-- an algorithm that can draw samples from \emph{any} probability
+distribution.
+
+\begin{algorithm}[t]
+    \SetAlgoLined
+    \DontPrintSemicolon
+    \Fn{MetropolisSampler \ {$(T)$}} {
+        \KwIn{an upward constant mutation bias $c$, downward linear mutation bias $d$, current repeat length $\ell$}
+        \KwOut{a repeat length from the next generation $\ell_{t+1}$}
+        $\ell_{t+1} \gets \ell_t$ \;
+        \If{$c < \ \sim U(0, 1)$}{
+            $\ell_{t+1} \gets \ell_{t+1} + 1$ \;
+        }
+        \If{$d\ell < \ \sim U(0, 1)$}{
+            $\ell_{t+1} \gets \ell_{t+1} - 1$ \;
+        }
+        \Return $\ell_{t+1}$ \;
+    }
+    \textbf{end} \;
+    \caption{The algorithmic description for $f: \mathcal{M} \rightarrow \mathcal{M}$.
+    To stay consistent with the definition of $f$ we denote $c$ and $d$ as parameters of the model itself.}
+    \label{alg:mutateFunction}
+\end{algorithm}
