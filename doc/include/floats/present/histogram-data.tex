@@ -1,0 +1,21 @@
+\pgfplotsset{compat=1.5}
+
+\begin{tikzpicture}
+    \begin{groupplot}[
+        group style={
+        group name=my plots,
+        group size=2 by 1,
+        vertical sep=0pt,
+        horizontal sep=0.02\linewidth,
+        ylabels at=edge left,
+        xlabels at=edge bottom,
+    },
+    try min ticks=3, yticklabels={,,}, ymin=0, ymax=10000,width=0.6\linewidth, height=5cm,
+    scaled x ticks=false, log ticks with fixed point, ymode=log, max space between ticks=15pt]
+        \nextgroupplot[ylabel=$\propto$ Likelihood,xlabel=$c$,xtick={0, 0.025, 0.05},title={Estimation for $\mu_u = c$}]
+        \input{include/floats/present/c-histogram.tex};
+        \nextgroupplot[xlabel=$d$,xtick={0,0.0025, 0.005},title={Estimation for $\mu_d = d\ell$}]
+        \input{include/floats/present/d-histogram.tex};
+    \end{groupplot}
+\end{tikzpicture}
+

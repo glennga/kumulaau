@@ -4,30 +4,31 @@
 \usecolortheme{rose}
 
 \usepackage{tikz} \usepackage{graphicx} \usepackage{algorithm} \usepackage[noend]{algpseudocode} \usepackage{caption}
-\usepackage{amsmath} \usepackage{pgfplots} \usepackage{float}
-
-\usetikzlibrary{shapes.geometric, arrows}
+\usepackage{amsmath} \usepackage{pgfplots} \usepackage{float} \usepackage{xcolor} \usepackage{bm}
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamerfont{page number in head/foot}{size=\fontsize{9}{11}}
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{section in toc}{\inserttocsectionnumber.~\inserttocsection}
 \setbeameroption{show notes}  % Comment this out to not show the notes.
+%\setbeameroption{show only notes}  % Uncomment this to only show notes.
 
 \author{Glenn Galvizo, under Dr. Floyd Reed}
 \title{Efficient Parameter Estimation for Human Microsatellite Mutation}
 \institute{University of Hawaii at Manoa}
 
 % Has to be in the preamble...
+\usetikzlibrary{shapes.geometric, arrows}
 \usetikzlibrary{calligraphy}
+\usetikzlibrary{pgfplots.groupplots}
 
 \begin{document}
-    \begin{frame}
+    \begin{frame}[noframenumbering,plain]
         \titlepage
     \end{frame}
 
 	\section{Introduction}\label{sec:i}
-	\begin{frame}
+	\begin{frame}[noframenumbering,plain]
 		\frametitle{Overview}
         \tableofcontents
 
@@ -43,29 +44,39 @@
 	\end{frame}
 
 	\begin{frame}
-		\frametitle{A brief overview of modern human history:}
-        \centering{\includegraphics[scale=0.9]{images/modern-human-history.png}}
+		\frametitle{Brief overview of modern human history:}
+        \centering{\includegraphics[scale=0.89]{images/modern-human-history.png}}
+        \begin{columns}
+            \begin{column}{0.6\textwidth}
+            \end{column}
+            \begin{column}{0.4\textwidth}
+                {\tiny
+                    \emph{*Image from Campbell \& Tishkoff~\cite{campbellEvolutionHumanGenetic2010}.}
+                }
+            \end{column}
+        \end{columns}
 
         \note{
             \footnotesize
             \begin{enumerate}
                 \item Start with the origin of modern humans.
                 \item What do we know about human history?
-                \item We have some common ancestor in Africa.
                 \item Graph, x axis is geographical location, y axis is time.
+                \item We have some common ancestor in Africa.
                 \item Modern humans emerged 200,000 years ago.
-                \item We migrated out of Africa 100,000 years ago to Europe and Middle East, then
-                    Asia / America / Australia.
+                \item We migrated out of Africa 80,000 years ago to Europe and Middle East, then
+                    to the rest of the world about 30,000 years after that.
                 \item How do we know this?- Variations in DNA!
                 \item Basis of research: Explore different evolutionary models using highly variable genetic marker.
             \end{enumerate}
+            % Note: Lines in diagram are migration between generations.
         }
 	\end{frame}
 
 	\subsection{Problem Statement}\label{subsec:ps}
 	\begin{frame}
 		\frametitle{What is the goal of this research?}
-        \begin{block}{Problem Statement}
+        \begin{block}{Research Question}
             \emph{Which microsatellite mutation model parameters most likely produce our observed data?}
         \end{block} \medskip
 
@@ -83,7 +94,7 @@
         \note{
             \footnotesize
             \begin{enumerate}
-                \item Verbatim, my problem statement is: \ldots
+                \item Verbatim, my research question is: \ldots
                 \item Dissecting this, we get the following essential questions: \ldots
             \end{enumerate}
         }
@@ -102,7 +113,8 @@
                 \begin{itemize}
                     \item Interested in number of repeats.
                     \item Represent variation in humans.
-                    \item More variable than SNP marker~\cite{gemayelJunkVariableTandemRepeats2012}.
+                    \item Infer human history by tracking changes.
+%                    \item More variable than SNP marker~\cite{gemayelJunkVariableTandemRepeats2012}.
                 \end{itemize}
             \end{column}
             \begin{column}{0.6\textwidth}
@@ -128,9 +140,9 @@
                 \item One individual in a population can have the variant on top, with 5 repeats of AT.
                     Another individual can have the variant on the bottom, with 2 repeats of AT.
                 \item Infer human history by tracking the changes in repeat length over generations.
-                \item A more popular marker for genetic variation is the SNP, but we use microsatellites because they
-                    mutate more often.
-                    More mutations means that we can potentially infer more in a shorter time period.
+%                \item A more popular marker for genetic variation is the SNP, but we use microsatellites because they
+%                    mutate more often.
+%                    More mutations means that we can potentially infer more in a shorter time period.
             \end{enumerate}
         }
     \end{frame}
@@ -138,20 +150,31 @@
     \subsection{Microsatellite Data}\label{subsec:md}
     \begin{frame}
         \frametitle{What data are we working with?} \bigskip
-        \centering{\input{include/floats/present/frequency-graphs.tex}}
-        \bigskip
-        \newline
-        \centering{\emph{Populations of \text{GATA} microsatellite variations, interested in frequency of a
-        repeat length.}}
+        \begin{columns}
+            \begin{column}{0.5\textwidth}
+                \begin{itemize}
+                    \item Working with Columbian GATA samples. \bigskip
+                    \item Samples collected from ALFRED (ALlele FREquency Database). \bigskip
+                    \item Interested in frequency of repeat length.
+                \end{itemize}
+            \end{column}
+            \begin{column}{0.5\textwidth}
+                \centering{\input{include/floats/present/columbian-data.tex}}
+            \end{column}
+        \end{columns}
+%        \bigskip
+%        \newline
+%        \centering{\emph{Samples of Columbian \text{GATA} microsatellite variations, interested in frequency of a
+%        repeat length.}}
 
         \note{
             \footnotesize
             \begin{enumerate}
                 \item Next essential question, \ldots
-                \item The data we are working with = observed populations of microsatellites variants.
-                \item These variants have GATA as their repeat sequence.
-                \item Interested in frequency of repeat length in each population.
-                \item We know what a microsatellite is and what data we are working with, how do we get populations?
+                \item We are working with observed samples of microsatellites variants.
+                \item More specifically, GATA repeat samples from the Columbian population.
+                \item Interested in frequency of repeat length in each samples.
+                \item We know what a microsatellite is and what data we are working with, how do we get samples?
             \end{enumerate}
         }
     \end{frame}
@@ -165,7 +188,7 @@
                     \item \emph{Single Step}: Mutate up one, down one, or not at all
                         ~\cite{ohtaModelMutationAppropriate2007}. \medskip
                     \item \emph{Proportional:} Mutation rate dependent on
-                        length~\cite{calabreseDynamicsMicrosatelliteDivergence2001} \medskip
+                        length~\cite{ellegrenHeterogeneousMutationProcesses2000} \medskip
                     \item \emph{Focal Bias}: Mutate toward some length~\cite{garzaMicrosatelliteAlleleFrequencies1995}.
                         \medskip
                     \item $\mu_u = $ upward mutation rate \newline
@@ -181,17 +204,18 @@
             \footnotesize
             \begin{enumerate}
                 \item Third essential question: \ldots
-                \item There exists a lot of research toward accurately characterizing microsatellite mutation in
-                    humans, but the focus of my project lies with the methodology.
-                \item To prove my methods, we want a flexible model with a small number of parameters.
-                \item Our first point comes from Ohta and Kimura: Microsatellites mutate up one, down one, or
-                    stay the same per generation.
-                \item Our second point comes from Kruglyak: Microsatellites mutate differently at different repeat
-                    lengths.
-                \item The third point comes from Garza: Microsatellites mutate toward some focal length.
-                \item This brings us to our model: we have two lines that always intersect each other, using three
-                    parameters: $c, u, d$.
+                \item We are going to introduce one mutation model with the following points:
+                \item Our first point comes from Ohta and Kimura: \ldots
+                    Our second point comes from Ellegren: \ldots
+                    The third point comes from Garza: \ldots
+                \item This brings us to our model: in a graph of mutation rate vs.\ repeat length we have two positively
+                    sloped lines that always intersect each other, using three parameters: $c, u, d$\ldots
+                \item $c$ is a constant bias for the upward mutation rate and $d$ is the linear bias for the downward
+                    mutation rate.
+                \item This model allows us to move from one generation to the next, how we do simulate lineages and
+                    entire populations using this?
             \end{enumerate}
+            % Note: We are using a neutral model.
         }
     \end{frame}
 
@@ -201,12 +225,11 @@
         \frametitle{How do we simulate evolution?}
         \begin{columns}
             \begin{column}{0.6\textwidth}
-                \emph{Answer:} We construct a evolutionary tree! \medskip
+                \emph{Answer:} We construct a evolutionary tree (coalescent)! \medskip
                 \begin{enumerate}
                     \item Given sample size $n$, parameters $c, u, d$. \medskip
                     \item Construct random tree with $n$ leaves and common ancestor. \medskip
-                    \item Randomly choose repeat unit of common ancestor. \medskip
-                    \item Mutate children from ancestors until leaves are reached.
+                    \item Mutate children from an ancestor length until leaves are reached.
                 \end{enumerate}
             \end{column}
             \begin{column}{0.4\textwidth}
@@ -217,7 +240,16 @@
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item Fourth essential question: \ldots
+                \item The answer here is to construct an evolutionary tree!
+                \item We know how many individuals we have sampled $n$, all we have to do is generate  a random
+                    tree that follows the general structure on the right, with $n$ leaves and a common ancestor.
+                \item We then randomly define the repeat length of our common ancestor, and mutate down each generation
+                    until we reach the bottom.
+                    This gives us $n$ repeat lengths, with varying frequencies.
+                \item Voila!
+                    We have a process to generate data in the same format as our observed data using $c, u, d$.
+                    This leads us to the last question, which $c, u, d$ are the best?
             \end{enumerate}
         }
     \end{frame}
@@ -247,7 +279,10 @@
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item Last essential question: \ldots
+                \item More specifically, our question is \ldots
+                \item There are two subquestions here: \ldots
+                \item The solution I'm presenting today is ABC-MCMC \ldots
             \end{enumerate}
         }
     \end{frame}
@@ -257,12 +292,14 @@
         \begin{columns}
             \begin{column}{0.6\textwidth}
                 \begin{itemize}
-                    \item \emph{Problem}: Frequency of exact matches is low. \bigskip
+                    \item \emph{Naive Approach}: Count number of exact matches. \medskip
+                    \item \emph{Problem}: Frequency of exact matches is low. \medskip
                     \item \emph{Solution}: Count approximate matches instead!
                         \begin{enumerate}
-                            \item Quantify difference $\delta$ between observed and generated.
-                            \item Run simulation several times.
-                            \item Count number of generated samples where $\delta$ is below some threshold.
+                            \item Compute distance between generated and observed samples.
+                            \item Count number of generated samples where distance is below some threshold.
+                            \item Results in wider and flatter
+                                distribution~\cite{lintusaariFundamentalsRecentDevelopments2017}.
                         \end{enumerate}
                 \end{itemize}
             \end{column}
@@ -276,7 +313,18 @@
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item Our first part: \ldots
+                \item How do we find likelihood in general: find the probability of data given a model, repeat for all
+                    datum, multiply them together.
+                \item We could simulate a population several times, and find out how frequently we generate an exact
+                    match to get this probability\ldots
+                \item But the frequency of exact matches is small.
+                    We have a dimension for each repeat length, all of which can vary from 0 to 1.
+                \item The solution here, is to count approximate matches!
+                \item On graph of likelihood vs.\ parameter, blue line represents our true likelihood -- small but more
+                    defined.
+                    Red line represents approximate likelihood, flatter but taller distribution.
+                \item This method slightly distorts our likelihood, but makes the problem tractable.
             \end{enumerate}
         }
     \end{frame}
@@ -291,7 +339,8 @@
                         \begin{itemize}
                             \item Randomly samples from likelihood distribution (walks).
                             \item Spends longer time in regions of high likelihood.
-                            \item Frequency of samples is proportional to likelihood.
+                            \item Frequency of samples is proportional to
+                                likelihood~\cite{lintusaariFundamentalsRecentDevelopments2017}.
                             \item Fit frequency to curve, maximize this curve.
                         \end{itemize}
                 \end{itemize}
@@ -306,73 +355,174 @@
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item The second portion of this problem: \ldots
+                \item We can determine the likelihood of a single point, but there are an infinite number of points to
+                    explore.
+                    We can maximize an equation, but don't have that here.
+                    In better words, how can we get an equation?
+                \item Our solution to maximizing the likelihood is a technique known as MCMC.
+                \item All MCMC does is randomly walk around our distribution, but waits longer in areas of higher
+                    likelihood.
+                    In our example here, we move up and up, but may jump back down a small amount.
+                \item If we record where we have been, we can generate a histogram of our samples.
+                \item This is proportional to our likelihood.
+                    From here, we fit a curve to this histogram and maximize the curve.
             \end{enumerate}
         }
     \end{frame}
 
-    \section{Results}\label{sec:r}
-    \subsection{Posterior Distribution}\label{subsec:pd}
+    \section{Results / Discussion}\label{sec:rad}
+    \subsection{Likelihood Distribution}\label{subsec:ld}
     \begin{frame}
         \frametitle{What are our results?}
 
-        \scriptsize{
-            \begin{align*}
-                \text{Hyperparameters}: \mathit{I} &= 50000, \mathit{SPP} = 100, \tau = 0.5, f = 100, n = 50, \\
-                g_d &= N(1.65, 0.1), g_c = N(0.002, 0.0002), g_u = N(0.01, 0.002) \\
-                \mathcal{D} &= \text{Columbian Populace}
-            \end{align*}
+        \centering{
+%            Mutation Rate Equations: $\mu_u = c$, $\mu_d = d\ell$
+            \input{include/floats/present/histogram-data.tex}
+            \textbf{Focal length $\bm{\hat{\ell} \approx 14}$, \ Effective population size
+            $\bm{N \approx 10,000}$}
         }
+%        \begin{align*}
+%            \left( \mu_u = c \right) &\rightarrow \left( \hat{\mu_u} = 0.017 \pm 2.0\text{e-}7 \right) \\
+%            \left( \mu_d = d\ell \right) &\rightarrow \left( \hat{\mu_d} = (0.0013 \pm 8.0\text{e-}9) \ell \right)
+%        \end{align*}
+        \begin{columns}
+            \begin{column}{0.6\textwidth}
+            \end{column}
+            \begin{column}{0.4\textwidth}
+                {\scriptsize
+                    \emph{*Preliminary results given above.}
+                }
+            \end{column}
+        \end{columns}
 
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item To finally answer our research question\ldots
+                \item Here, a graph of our frequency, proportional to our likelihood, is plotted on the y axis in
+                    log scale.
+                    The x axis represents our parameter values.
+                \item The optimal values are\ldots
+                \item We started by talking about demographic models, and ended with mutation models.
+                    To close the loop, we can actually % TODO: ...
             \end{enumerate}
         }
     \end{frame}
 
-    \subsection{Trace Plot}\label{subsec:tp}
+    \subsection{Future Work}\label{subsec:fw}
     \begin{frame}
-        \frametitle{How do we know if this is correct?}
+        \frametitle{What do we do with this?}
+        \begin{block}{Mutation Model:}
+            \begin{itemize}
+                \item Use more samples from different locations.
+                \item Verify and test our parameters against different data.
+                \item Run more and longer MCMCs.
+            \end{itemize}
+        \end{block} \medskip
+
+        \begin{block}{Demographic Models:}
+            \begin{itemize}
+                \item Estimate time, admixture, population size of Africa split.
+                \item Integrate Neanderthal, Denisovan populations.
+                \item Answer, ``Who did we come from?''
+            \end{itemize}
+        \end{block}
 
         \note{
             \footnotesize
             \begin{enumerate}
-                \item
+                \item Where do we go from here?
+                \item For this specific research question, we need to use samples from different locations\ldots
+                \item We need to verify and test the accuracy of these parameters.
+                \item We need to run longer simulations.
+                \item After we are confident in our model, we can explore different demographic models to\ldots
+                \item And %TODO ...
             \end{enumerate}
         }
     \end{frame}
+
+%    \subsection{Interpretation}\label{subsec:i}
+%    \begin{frame}
+%        \frametitle{What does this mean?}
+%
+%        \centering{
+%            \bigskip
+%            {\large
+%                \begin{equation*}
+%                    \hat{c} = 0.017 \pm 2.0\text{e-}7, \hat{u} = 17 \pm 3.1\text{e-}3,
+%                    \hat{d} = 0.0013 \pm 8.0\text{e-}9
+%                \end{equation*}
+%            }
+%            {\footnotesize
+%                \begin{align*}
+%                    \text{Hyperparameters}: \mathit{I} &= 50000, \mathit{SPP} = 100, \tau = 0.5, f = 100, n = 50, \\
+%                    g_d &= N(1.65, 0.1), g_c = N(0.002, 0.0002), \\
+%                    g_u &= N(0.01, 0.002), \mathcal{D} = \text{Columbian Populace}
+%                \end{align*}
+%            }
+%        }
+%        \begin{enumerate}
+%            \item Focal bias $\hat{\ell} \approx 14$ repeat units for Columbian sample.
+%            \item 100,000
+%        \end{enumerate}
+%
+%        \note{
+%            \footnotesize
+%            \begin{enumerate}
+%                \item
+%            \end{enumerate}
+%        }
+%    \end{frame}
 
     \section{Conclusion}\label{sec:c}
     \begin{frame}
         \frametitle{Conclusion}
+        \begin{itemize}
+            \item Microsatellite = a short sequence in DNA repeated in tandem.\medskip
+            \item Microsatellites mutate $\pm 1,0$ repeat lengths, toward focal bias.\medskip
+            \item Likely parameters ($c, d$) were found with ABC-MCMC.\medskip
+            \item Future work = more samples \& MCMC, different demographics models.
+        \end{itemize}
 
-        \begin{enumerate}
-            \item
-        \end{enumerate}
+        \note{
+            \footnotesize
+            \begin{enumerate}
+                \item To conclude, a microsatellite\ldots
+                \item Microsatellites mutate\ldots
+                \item We found the parameters of model by\ldots
+                \item Future work includes verifying the parameters we found, and exploring different\ldots
+            \end{enumerate}
+        }
     \end{frame}
 
     \begin{frame}
         \frametitle{Acknowledgments}
-        \begin{itemize}
-            \item Dr. Floyd Reed \bigskip
-            \item Reed Lab \bigskip
-            \item Undergraduate Showcase \bigskip
-            \item UHM Mathematical Biology Committee \bigskip
-            \item The Audience
-        \end{itemize}
+        \begin{block}{Amazing People:}
+            \begin{itemize}
+                \item Dr. Floyd Reed \smallskip
+                \item Reed Lab \smallskip
+                \item Undergraduate Showcase \smallskip
+                \item UHM Mathematical Biology Committee \smallskip
+                \item The Audience
+            \end{itemize}
+        \end{block}
     \end{frame}
 
     \begin{frame}
-        \frametitle{References}
+        \frametitle{References \& Questions :-)}
         \tiny
-        \bibliographystyle{abbrv}
+        \bibliographystyle{plain}
         \bibliography{include/references}
     \end{frame}
 
-    \begin{frame}
-        \centering{\huge{Questions? :-)}}
-    \end{frame}
+    % Bringing it all together: estimate effective population size, want to
+    % "Mutations are scaled by N, we can use this to estimate to the effective population size"
+    % Got 10,000, the number we started with
+    % Get the variance fro
+
+%    \begin{frame}[noframenumbering, plain]
+%        \centering{\huge{Questions? :-)}}
+%    \end{frame}
 
 \end{document}
