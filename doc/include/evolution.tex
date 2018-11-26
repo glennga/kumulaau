@@ -1,13 +1,13 @@
-\section{Simulating Evolution}\label{sec:se}
-In this section we cover how we represent microsatellites in this paper, the major different variations for simulation,
+\chapter{Simulating Evolution}\label{ch:simulatingEvolution}
+In this chapter we cover how we represent microsatellites in this paper, the major different variations for simulation,
 and the approach we take.
 
-\subsection{Microsatellite Representation}\label{subsec:mr}
+\section{Microsatellite Representation}\label{sec:microsatelliteRepresentation}
 Let $\ell$ represent an integer associated with number of repeat units of a single microsatellite variation.
 For example if we define our nucleotide sequence as $GATA$, the microsatellite variation below would represented
 as $\ell=4$.
 \begin{equation*}
-    \ldots \mathit{GATAGATAGATAGATA} \ldots
+    \ldots \text{GATAGATAGATAGATA} \ldots
 \end{equation*}
 
 In addition to $\ell$ being an integer, we also constrain $\ell$ to exist between some lower bound on repeat units
@@ -29,7 +29,7 @@ each individual is associated with two sequences in $\pi_t$ for brevity.
 The unit of interest here is the microsatellite variation itself, which moves through generations while collecting or
 losing repeats until we are able to compare this to observed data.
 
-\subsection{Forward Simulation}\label{subsec:fs}
+\section{Forward Simulation}\label{sec:forwardSimulation}
 There exists two main approaches toward which direction we should simulate toward: from the past to the present
 (forward) or from the present to the past (backward).
 In both cases, the goal is to create some evolutionary tree of $n$ (distinct from $N$) microsatellites that trace back
@@ -45,7 +45,7 @@ In order to simplify this problem, we assume the Wright-Fisher population model:
         chosen to exist in the next.
 \end{enumerate}
 
-\subsubsection{$\pi_t$ To $\pi_{t+1}$ Evolution}
+\subsection{$\pi_t$ To $\pi_{t+1}$ Evolution}\label{subsec:piTopiEvolution}
 Let $\pi_t$ represent an effective microsatellite population at generation $t$, of size $\left|\pi_t \right| = N$.
 A forward simulation starts with population $\pi_1$, and evolves this population until all members of the current
 population $\pi_{\overbar{t}}$ shares a sole common ancestor.
@@ -74,7 +74,8 @@ As we evolve for more instances, we eventually end up our entire population shar
     \label{fig:wrightFisherEvolution}
 \end{figure}
 
-\subsubsection{Average Time Until $n$ Individuals Coalesce: $\overbar{t}$}
+\subsection{Average Time Until $n$ Individuals Coalesce: $\overbar{t}$}
+\label{subsec:averageTimeUntilNIndividualsCoalesce}
 The next question that follows is, ``What is $\overbar{t}$?''.
 The naive approach (but most correct) is to keep track of the evolutionary history for all populations.
 This however requires (a) storage for the evolutionary tree formed and (b) an expensive search as we move forward for
@@ -147,7 +148,7 @@ For all $n$ individuals, this average time must be greater than:
     \end{aligned}
 \end{equation}
 
-\subsubsection{Effective Population $\pi_N$ Sampling}
+\subsection{Effective Population $\pi_N$ Sampling}\label{subsec:effectivePopulationPiSampling}
 To circumvent the inefficient space strategy of tracking all lineages formed, we instead simulated to a fixed number
 of generations $\overbar{t} = 2N$.
 Given an effective population $\pi_N$, we have to choose a select few individuals, or \emph{sample} from $\pi_N$ to
@@ -165,7 +166,7 @@ This makes our minimum running time:
 \end{equation}
 Once we have run the evolution process for $\overbar{t}$ generations, we sample randomly $n$ individuals.
 
-\subsubsection{Forward Evolution Algorithm}
+\subsection{Forward Evolution Algorithm}\label{subsec:forwardEvolutionAlgorithm}
 \begin{algorithm}[t]
     \SetAlgoLined
     \DontPrintSemicolon
@@ -196,7 +197,7 @@ The function for forward evolution is presented in~\autoref{alg:forwardEvolution
         All individuals in the output $\pi$ are expected to share one member from $\pi_1$, meaning that all other
         individuals in $\pi_1$ get thrown away.
         With this approach, we only need to worry about one parameter.
-    \item Mutation is discussed in detail in~\autoref{sec:mm}.
+    \item Mutation is discussed in detail in~\autoref{ch:modelingMutation}.
         For now, we define $f(\ell)$ to be some function $f : \mathbb{M} \rightarrow \mathbb{M}$ which
         takes some repeat unit and returns another repeat unit.
     \item We start by defining our storage vectors, $\pi_{t-1}$ and $\pi_t$.
@@ -217,14 +218,14 @@ The function for forward evolution is presented in~\autoref{alg:forwardEvolution
 %    S_\text{forward}(N) &\in \Theta(N)
 %\end{align}
 
-\subsection{Backward Simulation}\label{subsec:bs}
+\section{Backward Simulation}\label{sec:backwardSimulation}
 Forward simulation has the advantage of being incredibly straightforward to implement and apply complex generation to
 generation models to.
 The biggest disadvantages with this type of simulation though, are that (1) $2N^2$ individuals must
 be generated per simulation and (2) several returned populations from the forward simulator will not coalesce.
 In this section, we will go over backward simulation -- an approach that addresses both of these problems.
 
-\subsubsection{Kingman's Coalescent Construction}
+\subsection{Kingman's Coalescent Construction}\label{subsec:kingmanCoalescentConstruction}
 As previously mentioned, the first drawback to forward simulation is the retention of individuals that do not exist in
 the evolutionary tree of the latest generation.
 Let $\mathcal{N}$ represent the total number of individuals we must simulate in order to produce a population sample of
@@ -297,7 +298,7 @@ Using all of these constraints, a Kingman's coalescent can now be generated:
 
 \end{enumerate}
 
-\subsubsection{Coalescent Repeat Length Resolution}
+\subsection{Coalescent Repeat Length Resolution}\label{subsec:coalescentRepeatLengthResolution}
 Constructing the tree is the first step associated with obtaining a sample of $n$ individuals.
 The next step is to determine the repeat units associated with some node $v_i \in V$.
 We define the function $\lambda : E \rightarrow \mathbb{M}$ which resolves the repeat length of some
@@ -306,8 +307,8 @@ For all edges $(v_i, v_j) \in E$, the repeat length $\ell_i$ associated with nod
 $\ell_i$ through $f$ for a set number of generations to $v_j$.
 The next question of interest is, ``How many generations do we apply $f$ for?''.
 
-In~\autoref{subsec:fs}, we determined that the expected time between coalescent events for $n$ individuals in a
-population of size $N$ (~\autoref{eq:expectedMeanCoa}).
+In~\autoref{sec:forwardSimulation}, we determined that the expected time between coalescent events for $n$ individuals
+in a population of size $N$ (~\autoref{eq:expectedMeanCoa}).
 This number naturally emerged as a result of the Wright-Fisher evolution process, but we must manually define this time
 with the coalescent abstraction.
 Let $\tau_N(e)$ represent a function $\tau_N : E \rightarrow \mathbb{Z}^+$ that takes some edge $e$ as input and returns
@@ -328,7 +329,7 @@ This means that we perform our simulation per coalescent event, rather than line
 Once we have visited each node, we return the repeat lengths associated with our leaves: $\{ \lambda (v) \mid v
 \text{ is a leaf }\}$.
 
-\subsubsection{Backward Evolution Algorithm}
+\subsection{Backward Evolution Algorithm}\label{subsec:backwardEvolutionAlgorithm}
 \begin{algorithm}[t]
     \SetAlgoLined
     \DontPrintSemicolon
@@ -373,7 +374,8 @@ The function for backward evolution is presented in~\autoref{alg:twoStageBackwar
 \begin{enumerate}
     \item There exist two stages here: the tree construction phase and the repeat length determination phase.
         For the scope of this project it makes more sense to combine these phases and reduce our running time, however
-        separating the two allows us to build more complex demographic models in the future (see~\autoref{sec:fw}).
+        separating the two allows us to build more complex demographic models in the future
+        (see~\autoref{ch:conclusion}).
     \item We use vector and index notation to represent our node and edge sets $V, E$.
         This is a more natural notation, and avoids having to explicitly specify $\lambda$.
         To specify connective sections of a vector the $[a:b]$ notation is used, where $a$ specifies the starting
