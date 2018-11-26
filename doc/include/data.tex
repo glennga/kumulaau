@@ -1,5 +1,5 @@
-\section{Data for Parameter Estimation}\label{sec:dfpe}
-In this section, we discuss the observed data we are working with.
+\chapter{Data for Parameter Estimation}\label{ch:dataForParameterEstimation}
+In this chapter, we discuss the observed data we are working with.
 In the past several sections, we have worked on artificially generating a population of repeat lengths given several
 parameters.
 The data that we collect through observation must be in a similar format to this population of repeat lengths.
@@ -10,165 +10,168 @@ The steps to extract the data from the ALFRED website are as follows:
 \begin{enumerate}
     \item Navigate to https://alfred.med.yale.edu/alfred/index.asp.
     \item Type ``GATA'' into the search box to search for GATA repeats.
-        We are using GATA instead of other microsatellites because... % TODO: Ask Dr. Reed about this.
+        We are using tetranucleotide repeats instead of other microsatellites because tetranucleotide repeats mutate
+        more often than dinucleotide repeats.
     \item For each result, we saved the data if it was packaged as frequency against repeat length.
         Given a sample size, this data can easily be transformed into a population of repeat lengths.
+        The inverse is also true (and is closer to what was performed): given a population of repeat lengths,
+        a collection of frequency against repeat length is easy to obtain as well.
 \end{enumerate}
-This gave us $\sim 14$ year old observations from the following populations:
-{\scriptsize
-    \begin{multicols}{4}
-        \begin{enumerate}
-            \item Ami
-            \item Atayal
-            \item Batak
-            \item Cambodians, Khmer
-            \item Filipino
-            \item Han
-            \item Japanese
-            \item Javanese
-            \item Kachari
-            \item Malaysians
-            \item Orang Asli
-            \item Papuan New Guinean
-            \item Samoans
-            \item So
-            \item Thai
-            \item Yadava
-            \item Argentine
-            \item Andalusian
-            \item Austrian
-            \item Catalans
-            \item Croatian
-            \item Germans
-            \item Maghrib
-            \item Mozambican
-            \item Portuguese
-            \item Spaniards
-            \item Galician
-            \item Afghan
-            \item African Americans
-            \item Agharia
-            \item Albanian
-            \item Apache
-            \item Arabs
-            \item Arrernte
-            \item Asian Australian
-            \item Athabaskan
-            \item Australian Aborigines
-            \item Australian, Caucasian
-            \item Azorian
-            \item Bahamian
-            \item Balinese
-            \item Bangladeshi
-            \item Basque
-            \item Bauri
-            \item Belarusian
-            \item Belgian
-            \item Berber
-            \item Bhumihar
-            \item Bosnian
-            \item Brahmin
-            \item Brazilian
-            \item Chamar
-            \item Chenchu
-            \item Chilean
-            \item Colombian
-            \item Costa Rican
-            \item Czech
-            \item Dhangars
-            \item Ecuadorian
-            \item Egyptians
-            \item Emirati
-            \item Equatorial Guinean
-            \item European Americans
-            \item Fang
-            \item Gabonese
-            \item Gond
-            \item Gope
-            \item Gowda
-            \item Guinean
-            \item Hispanic American
-            \item Honduran
-            \item Huastec
-            \item Hui
-            \item Hungarian
-            \item Hutu
-            \item Indian, Mixed
-            \item Indonesian
-            \item Inupiat
-            \item Iranian
-            \item Israeli
-            \item Italians
-            \item Jamaican
-            \item Jats
-            \item Jews, Ashkenazi
-            \item Jordanian
-            \item Kamma
-            \item Kapu
-            \item Karnataka
-            \item Kayastha
-            \item Khatris
-            \item Koreans
-            \item Kshatriya
-            \item Kurmis
-            \item Lambadi
-            \item Lhoba
-            \item Lingayat
-            \item Lithuanian
-            \item Mahishya
-            \item Maonan
-            \item Mapuche
-            \item Marathas
-            \item Mexican
-            \item Moroccans
-            \item Mulao
-            \item Munda
-            \item Naga
-            \item Namasudra
-            \item Navajo
-            \item Omani
-            \item Oraon
-            \item Otomi
-            \item Pakistani
-            \item Poles
-            \item Polynesians
-            \item Quechua
-            \item Rajput
-            \item Reddy
-            \item Roma
-            \item Sakunapakshollu
-            \item Salvadoran
-            \item Santal
-            \item Saudi
-            \item Scot
-            \item Serb
-            \item Sicilian
-            \item Sikh
-            \item Slovenes
-            \item Sri Lankan
-            \item Swiss
-            \item Tamil
-            \item Tatar
-            \item Tehuelche
-            \item Teli
-            \item Tibetan
-            \item Timorese
-            \item Trinidadian
-            \item Tunisian
-            \item Turks
-            \item Uyghur
-            \item Venezuelan
-            \item Vietnamese
-            \item Wichi
-            \item Yemeni
-            \item Yerukula
-            \item Yugoslav
-            \item Yupik
-            \item Fleming
-        \end{enumerate}
-    \end{multicols}
-}
-
+%This gave us $\sim 14$ year old observations from the following populations:
+%{\scriptsize
+%    \begin{multicols}{4}
+%        \begin{enumerate}
+%            \item Ami
+%            \item Atayal
+%            \item Batak
+%            \item Cambodians, Khmer
+%            \item Filipino
+%            \item Han
+%            \item Japanese
+%            \item Javanese
+%            \item Kachari
+%            \item Malaysians
+%            \item Orang Asli
+%            \item Papuan New Guinean
+%            \item Samoans
+%            \item So
+%            \item Thai
+%            \item Yadava
+%            \item Argentine
+%            \item Andalusian
+%            \item Austrian
+%            \item Catalans
+%            \item Croatian
+%            \item Germans
+%            \item Maghrib
+%            \item Mozambican
+%            \item Portuguese
+%            \item Spaniards
+%            \item Galician
+%            \item Afghan
+%            \item African Americans
+%            \item Agharia
+%            \item Albanian
+%            \item Apache
+%            \item Arabs
+%            \item Arrernte
+%            \item Asian Australian
+%            \item Athabaskan
+%            \item Australian Aborigines
+%            \item Australian, Caucasian
+%            \item Azorian
+%            \item Bahamian
+%            \item Balinese
+%            \item Bangladeshi
+%            \item Basque
+%            \item Bauri
+%            \item Belarusian
+%            \item Belgian
+%            \item Berber
+%            \item Bhumihar
+%            \item Bosnian
+%            \item Brahmin
+%            \item Brazilian
+%            \item Chamar
+%            \item Chenchu
+%            \item Chilean
+%            \item Colombian
+%            \item Costa Rican
+%            \item Czech
+%            \item Dhangars
+%            \item Ecuadorian
+%            \item Egyptians
+%            \item Emirati
+%            \item Equatorial Guinean
+%            \item European Americans
+%            \item Fang
+%            \item Gabonese
+%            \item Gond
+%            \item Gope
+%            \item Gowda
+%            \item Guinean
+%            \item Hispanic American
+%            \item Honduran
+%            \item Huastec
+%            \item Hui
+%            \item Hungarian
+%            \item Hutu
+%            \item Indian, Mixed
+%            \item Indonesian
+%            \item Inupiat
+%            \item Iranian
+%            \item Israeli
+%            \item Italians
+%            \item Jamaican
+%            \item Jats
+%            \item Jews, Ashkenazi
+%            \item Jordanian
+%            \item Kamma
+%            \item Kapu
+%            \item Karnataka
+%            \item Kayastha
+%            \item Khatris
+%            \item Koreans
+%            \item Kshatriya
+%            \item Kurmis
+%            \item Lambadi
+%            \item Lhoba
+%            \item Lingayat
+%            \item Lithuanian
+%            \item Mahishya
+%            \item Maonan
+%            \item Mapuche
+%            \item Marathas
+%            \item Mexican
+%            \item Moroccans
+%            \item Mulao
+%            \item Munda
+%            \item Naga
+%            \item Namasudra
+%            \item Navajo
+%            \item Omani
+%            \item Oraon
+%            \item Otomi
+%            \item Pakistani
+%            \item Poles
+%            \item Polynesians
+%            \item Quechua
+%            \item Rajput
+%            \item Reddy
+%            \item Roma
+%            \item Sakunapakshollu
+%            \item Salvadoran
+%            \item Santal
+%            \item Saudi
+%            \item Scot
+%            \item Serb
+%            \item Sicilian
+%            \item Sikh
+%            \item Slovenes
+%            \item Sri Lankan
+%            \item Swiss
+%            \item Tamil
+%            \item Tatar
+%            \item Tehuelche
+%            \item Teli
+%            \item Tibetan
+%            \item Timorese
+%            \item Trinidadian
+%            \item Tunisian
+%            \item Turks
+%            \item Uyghur
+%            \item Venezuelan
+%            \item Vietnamese
+%            \item Wichi
+%            \item Yemeni
+%            \item Yerukula
+%            \item Yugoslav
+%            \item Yupik
+%            \item Fleming
+%        \end{enumerate}
+%    \end{multicols}
+%}
+This gave us over samples from over 147 distinct populations.
 For this research, we are only using one of these 147 populations: the Columbians.
 The Columbian populace was used as training data to determine the $c, d$ parameters.
 There exists plans to utilize more of the data we have collected from ALFRED for verificiation and training.
