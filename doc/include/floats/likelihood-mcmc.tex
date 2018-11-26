@@ -5,7 +5,7 @@
 
 \begin{tikzpicture}
     \begin{axis}[
-    width=1.15\linewidth, height=6.4cm,
+    width=\linewidth, height=6.4cm,
     ylabel={Likelihood}, ymax=0.3,
     xlabel={Parameter Value}, xmin=0, xmax=10,
     samples=100, no markers, enlargelimits=false, legend style={at={(0.5,-0.35)},anchor=north},
@@ -15,6 +15,5 @@
     \addplot+[very thick, black, dashed] coordinates {(2.5, 0.06631809) (2.5, 0.16131382) (3.5, 0.16131382)};
     \addplot+[very thick, black, dashed] coordinates {(3.5, 0.16131382) (3.5, 0.25158882) (4.5, 0.25158882)};
     \addplot+[very thick, red, dashed] coordinates {(4.5, 0.25158882) (4.0, 0.25158882) (4.0, 0.21296534)};
-
     \end{axis}
 \end{tikzpicture}
