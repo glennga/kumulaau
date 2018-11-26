@@ -1,11 +1,11 @@
-\documentclass[11pt]{article}
+\documentclass[12pt]{report}
 \usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled,algosection]{algorithm2e}
 \usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage[hidelinks]{hyperref} \usepackage{float}
 \usepackage{amssymb} \usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig}
 \usepackage{multicol} \usepackage{chngcntr}
 
 \setcounter{secnumdepth}{3}
-\title{\huge Efficient Parameter Estimation for Human Microsatellite Mutation}
+\title{\textbf{\huge Efficient Parameter Estimation for Human Microsatellite Mutation}}
 
 % TODO: Replace all instances of 'we' and 'our'?
 \author{Glenn Galvizo, under Dr. Floyd Reed}
@@ -13,8 +13,8 @@
 
 % Has to be in the preamble...
 \usetikzlibrary{calligraphy}
-\numberwithin{equation}{section}
-\counterwithin{figure}{section}
+\numberwithin{equation}{chapter}
+\counterwithin{figure}{chapter}
 
 \begin{document}
     \maketitle
@@ -32,9 +32,9 @@
     \input{include/data.tex}
     \input{include/parameter.tex}
     \input{include/discussion.tex}
-    \input{include/future-work.tex}
+    \input{include/conclusion.tex}
 
-    \nocite{*}
+%    \nocite{*}
     \bibliographystyle{abbrv}
 	\bibliography{include/references}
 
