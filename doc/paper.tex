@@ -2,7 +2,8 @@
 \usepackage[nottoc,numbib]{tocbibind} \usepackage{amsmath} \usepackage[linesnumbered,ruled,algosection]{algorithm2e}
 \usepackage{caption} \usepackage[margin=1in]{geometry} \usepackage[hidelinks]{hyperref} \usepackage{float}
 \usepackage{amssymb} \usepackage{graphicx} \usepackage{pgfplots} \usepackage{tikz} \usepackage{subfig}
-\usepackage{multicol} \usepackage{chngcntr}
+\usepackage{multicol} \usepackage{chngcntr} \usepackage{tabu} \usepackage{booktabs} \usepackage{xfrac}
+\usepackage{bold-extra}
 
 \setcounter{secnumdepth}{3}
 \title{\textbf{\huge Efficient Parameter Estimation for Human Microsatellite Mutation}}
@@ -15,6 +16,8 @@
 \usetikzlibrary{calligraphy}
 \numberwithin{equation}{chapter}
 \counterwithin{figure}{chapter}
+\usepgfplotslibrary{external}
+\tikzexternalize
 
 \begin{document}
     \maketitle
@@ -32,7 +35,7 @@
     \input{include/data.tex}
     \input{include/parameter.tex}
     \input{include/discussion.tex}
-    \input{include/conclusion.tex}
+    \input{include/future-work.tex}
 
 %    \nocite{*}
     \bibliographystyle{abbrv}

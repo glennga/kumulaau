@@ -1,0 +1,9 @@
+\begin{tikzpicture}
+    \begin{axis}[ymin=0,width=\linewidth, height=5cm]
+
+        \addplot+[very thick,green!50!black, mark=none] table[x=p, y=d] {trace1.dat};
+        \addplot+[very thick,blue!50!black, mark=none] table[x=p, y=d] {trace2.dat};
+        \addplot+[very thick,orange!50!black, mark=none] table[x=p, y=d] {trace3.dat};
+
+    \end{axis}
+\end{tikzpicture}

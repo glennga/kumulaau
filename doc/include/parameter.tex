@@ -10,71 +10,70 @@ Specifically, we aim to address the problem of maximum likelihood.
     }\label{fig:likelihoodGeneral}
 \end{figure}
 
-The \emph{likelihood} of some parameter set $\theta$ is the joint probability that $\theta$ produces some observed data
-$\mathcal{D}$.
-Let $\mathcal{M} : \theta, V \mapsto \mathcal{D}'$ define a function that maps a parameter set $\theta$ and some
-random variables $V$ to generated data $\mathcal{D}'$.
-Given that $V$ is randomly distributed, $\mathcal{M}(\theta, V)$ may produce different $\mathcal{D}'$ for the same
-parameter set $\theta$.
-In other words, $\mathcal{M}$ represents some stochastic simulator model which produces some random data.
-Given observations $\mathcal{D}$, the likelihood of parameters $\theta$ is the probability that our generated data
-equals our observed data~\cite{lintusaariFundamentalsRecentDevelopments2017}.
+We denote $\theta$ to be a set of parameters values, $\Theta$ to be the space all of our parameters values reside in,
+$\mathcal{D}$ to be a collection of observed data, and $\mathcal{D}'$ to
+be a collection of generated data.
+The \emph{likelihood} of some parameter values $\theta \in \Theta$ is the joint probability that $\theta$ produces
+some observed data $\mathcal{D}$.
+Let $\mathcal{M} : \theta \mapsto \mathcal{D}'$ define a random function that maps a parameter values $\theta$ to
+generated data $\mathcal{D}'$.
+Given that $\mathcal{M}(\theta)$ is random, different $\mathcal{D}'$ may be returned for the same parameter values
+$\theta$.
+%In other words, $\mathcal{M}$ represents some stochastic simulator model which produces some random data.
+Given \emph{discrete and countable} observations $\mathcal{D}$, the likelihood of parameter values $\theta \in \Theta$
+is the probability that our generated data equals our observed data~\cite{lintusaariFundamentalsRecentDevelopments2017}.
 \begin{equation}\label{eq:likelihood1}
-    \mathcal{L}(\theta) = \Pr(\mathcal{D} = \mathcal{M}(\theta, V))
+    \mathcal{L}(\theta) = \Pr(\mathcal{D} = \mathcal{M}(\theta))
 \end{equation}
 
-If $\mathcal{L}$ is continuous, one technique to calculate a maximum likelihood for our parameters $\hat{\theta}$
-involves finding the critical points of $\mathcal{L}$ (where $\frac{d\mathcal{L}}{d\theta} = 0$) and choosing the point
-$\hat{\theta}$ with the largest value of $\mathcal{L}$.
+One technique to calculate a maximum likelihood for our parameter values involves finding the critical points of
+$\mathcal{L}$ (where $\frac{d\mathcal{L}}{d\theta} = 0$) and choosing the point $\hat{\theta}$ with the largest value
+of $\mathcal{L}$.
 In~\autoref{fig:likelihoodGeneral}, the maximum of such a likelihood is displayed at the intersection of the blue and
 black dashed lines.
 There are however, several problems with this approach:
 \begin{enumerate}
+    \item A large range $\mathcal{D}'$ for simulator $\mathcal{M}$ indicates that the frequency of exact observed --
+        generated matches will be too low to make inferences.
     \item This assumes that we can explicitly express $\mathcal{L}$.
         For simulator based $\mathcal{M}$ like ours, this is not trivial to do.
-    \item $\theta$ may represent multiple parameters to differentiate over.
-        Even if we could express our likelihood, calculating this multi-dimensional derivative analytically may be
-        not feasible.
-    \item With high dimensional data $\mathcal{D}$ and $\mathcal{D}'$, an exact match
-        $\mathcal{D} = \mathcal{D}'$ may not occur within a reasonable amount of time.
 \end{enumerate}
 Consequently, we must look into other approaches to \textit{infer} $\mathcal{L}$.
-The two problems this section aims to address are (a) how to efficiently compute $\mathcal{L}$ for a single $\theta$
+The two problems this chapter aims to address are (a) how to efficiently compute $\mathcal{L}$ for a single $\theta$
 and (b) how to infer $\mathcal{L}$ for all $\theta$.
 
 \section{Approximate Bayesian Computation}\label{sec:approximateBayesianComputation}
-In this section, we discuss an approximate method to compute the likelihood $\mathcal{L}$ for some parameter set
+In this section, we discuss an approximate method to compute the likelihood $\mathcal{L}$ for some parameter values
 $\theta$.
 
 As previously mentioned, to find $\mathcal{L}$ is to find the joint probability that our model and parameters produce
 the observed data.
-We expand~\autoref{eq:likelihood1} to make this explicit for $n$ sets of observed data.
-$\theta$ remains the same, however the randomness in $V$ may result in different probabilites.
+We expand~\autoref{eq:likelihood1} to make this explicit for $r$ sets of observed data.
+$\theta$ remains the same, however the randomness in $\mathcal{M}$ may result in different probabilities.
 \begin{equation}
-    \mathcal{L}(\theta) = \Pr\left(\mathcal{M}(\theta, V) = \mathcal{D}_1 \right)
-    \Pr\left(\mathcal{M}(\theta, V) = \mathcal{D}_2 \right) \ldots
-    \Pr\left(\mathcal{M}(\theta, V) = \mathcal{D}_n \right)
+    \mathcal{L}(\theta) = \prod_{i=1}^{r} \Pr\left(\mathcal{M}(\theta) = \mathcal{D}_i \right)
 \end{equation}
 
 Let $\mathcal{D}$ represent the set of observed samples from the Columbian populace.
-How do we determine the probability of our model generating some $\mathcal{D}_i \in \mathcal{D}$?
+How do we determine the probability of our model generating some $\mathcal{D}_i \in \mathcal{D}$ to
+determine $\mathcal{L}(\theta)$?
 Here, we take a frequentist approach and perform the following steps:
 \begin{enumerate}
     \item Run our simulator once to get $\mathcal{D}'_1$.
     \item Check if $\mathcal{D}'_1$ matches $\mathcal{D}_1$.
     \item Repeat steps 1 and 2 some arbitrary number of times $T_1$, for different simulated samples but the same
         observed sample.
-        We define $\Pr\left( \mathcal{M}(\theta, V) = \mathcal{D}_1 \right)$ as the frequency of exact matches.
-    \item Repeat step 3 for all observed samples to get $\Pr\left( \mathcal{M}(\theta, V) = \mathcal{D}_2 \right)$,
-        \ldots, $\Pr\left( \mathcal{M}(\theta, V) = \mathcal{D}_n \right)$.
+        We define $\Pr\left( \mathcal{M}(\theta) = \mathcal{D}_1 \right)$ as the frequency of exact matches.
+    \item Repeat step 3 for all observed samples to get $\Pr\left( \mathcal{M}(\theta) = \mathcal{D}_2 \right)$,
+        \ldots, $\Pr\left( \mathcal{M}(\theta) = \mathcal{D}_r \right)$.
+    \item To find the $\mathcal{L}$ is to multiply all $r$ probabilities together.
 \end{enumerate}
-To find the $\mathcal{L}$ is to multiply all probabilities together.
 
 This approach seems simple enough, but there exists one caveat: the frequency of exact matches is too low to interpret
 anything meaningful.
 The microsatellite repeat length set $\mathbb{M}$ consists of roughly 30 elements, meaning that roughly 30 dimensions
 must exactly match.
-In addition to this, each frequency resides as a real number in $[0, 1]$.
+In addition to this, each frequency resides in some large set whose elements are between $[0, 1]$.
 The solution here is a technique known as \emph{Approximate Bayesian Computation}, or ABC for short.
 ABC has two parts: the use of \emph{approximate} matches and the use of summary
 statistics~\cite{lintusaariFundamentalsRecentDevelopments2017}.
@@ -84,8 +83,8 @@ them for this problem.
 \begin{figure}[t]
     \centering{\input{include/floats/approximate-likelihood.tex}}
     \caption{General figure depicting a true likelihood surface (blue) and an approximate surface (red).
-    The true likelihood may not be found in a reasonable amount, where as the approximate likelihood is wider but
-    taller (making it more tractable).
+    The true likelihood may not be found in a reasonable amount time, whereas the approximate likelihood is wider but
+    taller (making it more tractable, but less defined).
     }\label{fig:approximateLikelihood}
 \end{figure}
 
@@ -93,8 +92,8 @@ them for this problem.
 Let us dissect $\mathcal{D}$ and $\mathcal{D}'$ further.
 A given $\mathcal{D}_i \in \mathcal{D}$ and $\mathcal{D}'_i \in \mathcal{D}'$ define $| \mathbb{M} |$-sized tuples,
 whose values exist in $[0, 1]$.
-To compare a given $\mathcal{D}_i$ and $\mathcal{D}'_i$ is to iterate through each element in both tuples and verify
-their equality.
+To compare a given $\mathcal{D}_i$ and $\mathcal{D}'_i$ is to iterate through each element in both tuples and measure
+their proximity to each other.
 Let $\delta : \mathcal{D}_i,\mathcal{D}'_i \mapsto [0, 1]$ represent some function that accepts the observed and
 generated sample, and outputs some distance between 0 and 1.
 The comparison between our observed and generated samples is given by $\delta(\mathcal{D}_i, \mathcal{D}'_i)$.
@@ -125,7 +124,7 @@ some threshold $\epsilon \in [0, 1]$~\cite{marjoramMarkovChainMonte2003}:
     \text{ are approximate matches } \right)
 \end{equation}
 By increasing $\epsilon$, the frequency of exact observed -- generated matches increases as well.
-By making this problem more tractable though, we increase the noise associated with drawing from $\mathcal{L}$.
+%By making this problem more tractable though, we increase the noise associated with drawing from $\mathcal{L}$.
 This results in a flatter curve, as seen in~\autoref{fig:approximateLikelihood}.
 
 The next question that follows is ``How do we know which $\epsilon$ to use?''
@@ -133,14 +132,14 @@ If $\epsilon$ is too small, the problem becomes intractable.
 If $\epsilon$ is too large, we draw values that are not representative of the original distribution.
 There is no clear answer to this question, and Lintusaari et.\ al.\ states this choice is typically made by
 experimenting with different $(\mathcal{D}, \theta)$ pairs~\cite{lintusaariFundamentalsRecentDevelopments2017}.
-We define our threshold $\epsilon$ as a \emph{hyperparameter}, a parameter we must specify to find the parameters of
-interest $\theta$.
+We define our threshold $\epsilon$ as a \emph{hyperparameter}, a parameter we must specify and often experiment with)
+to find the parameters of interest $\theta$.
 
 \subsection{Dimension Reduction: Summary Statistics}\label{subsec:dimensionReductionSummaryStatistics}
 An alternative to using a distance function $\delta$ that deals with $| \mathbb{M} |$-dimensional points is to use a
 function that reduces, or \emph{summarizes} the data into two points $\bar{\mathcal{D}}, \bar{\mathcal{D}'}$ of lower
 dimensionality and finds a distance between both summarized points.
-We specify a distance function $\delta_S$ that performs a transformation using functions
+We specify a distance function $\delta_S$ that performs this transformation using functions
 $h : \mathcal{D}_i \mapsto \bar{\mathcal{D}_i}$ and $h' : \mathcal{D}'_i \mapsto \bar{\mathcal{D}'_i}$ as such:
 \begin{equation}
     \bar{\delta_S}(\mathcal{D}_i, \mathcal{D}'_i)  = \bar{\delta}(h(\mathcal{D}_i), h'(\mathcal{D}'_i))
@@ -161,23 +160,21 @@ In this section, we discuss the Markov Chain Monte Carlo (MCMC) approach to appr
 \begin{figure}[t]
     \centering{\input{include/floats/likelihood-mcmc.tex}}
     \caption{General figure depicting the random walk of Metropolis sampler around some likelihood surface.
+    We start at initial state $\theta^{(1)}$.
+    We accept $\theta^{(2)}$ and $\theta^{(3)}$ which leads to regions of higher likelihood but later accept
+    $\theta^{(4)}$, a less likely point due to the randomness of $\mathcal{M}$.
     }\label{fig:metropolisAlgorithm}
 \end{figure}
 
 \subsection{Monte Carlo}\label{subsec:monteCarlo}
-In~\autoref{sec:approximateBayesianComputation}, we learned how to determine the likelihood of a single point $\theta$.
-We are now interested in most likely $\theta$, out of all possible parameter values $\Theta$.
-If $\Theta$ was discrete and countable, one approach we could take is to perform an exhaustive search and select
-$\hat{\theta}$ such that it holds the highest possible likelihood:
-\begin{equation}
-    \mathcal{L}(\hat{\theta}) = \text{max}\left( \{ \mathcal{L}(\theta \mid \theta \in \Theta \} \right)
-\end{equation}
-Our $\Theta$ however is neither discrete nor countable.
-As mentioned in~\autoref{sec:intractableLikelihoodFunctions}, we are also unable to solve this problem analytically
-because we cannot explicitly express $\mathcal{L}(\theta)$.
+In~\autoref{sec:approximateBayesianComputation}, we explored how to determine the likelihood of a single point $\theta$.
+We are now interested in the most likely $\theta$ out of all possible parameter values $\Theta$.
+We considered a naive approach to determining the most likely point $\hat{\theta}$
+in~\autoref{sec:intractableLikelihoodFunctions}, which involved determining the derivative of some function we can
+explicitly express.
+Given that we cannot express our function as such, this is not an option.
 The solution Monte Carlo algorithms propose is choosing $\theta$ randomly.
 
-Knowing that we must choose $\theta$ randomly, we must now decide how to draw $\theta$.
 Let $p : \Theta \rightarrow [0, 1]$ define a probability distribution that determines how we draw $\theta$.
 $p$ is more commonly known as a \emph{prior distribution}, and allows us to insert any prior beliefs we have about our
 likelihood before finding $\mathcal{L}(\theta)$ itself.
@@ -187,7 +184,7 @@ given by another distribution known as the
 \begin{equation}
     \Pr(\theta \mid \mathcal{D}) \propto \mathcal{L}(\theta) p(\theta)
 \end{equation}
-The posterior is proportional to likelihood function we are trying to find.
+According to Baye's law, the posterior is proportional to likelihood function we are trying to find.
 If we can explicitly express our posterior, then the $\hat{\theta}$ that maximizes $\Pr(\theta \mid \mathcal{D})$ also
 maximizes $\mathcal{L}(\theta)$.
 
@@ -207,40 +204,39 @@ nonexistent posterior.
 
 Markov Chain Monte Carlo methods work by constructing a Markov chain such that the posterior distribution is its
 equilibrium distribution.
-For simplicity, we assume $\Theta$ is discrete in the following explanations.
 We start by defining a $\Theta$-sized vector $Y$, indexed by all distinct $\theta \in \Theta$ and whose values represent
 probabilities associated with each $\theta$.
 $Y$ is said to be a distribution here.
 Next we define a matrix $G$ of size $\Theta \times \Theta$, whose entries describe the probability of transitioning
 from one $\theta$ (row) to another $\theta$ (column).
 $G$ is known as a \emph{transition matrix}.
-We are able to move from distribution $Y^{(i)}$ to $Y^{(i + 1)}$ using this transition matrix:
+We are able to move from distribution $Y^{(i)}$ to $Y^{(i + 1)}$ using $G$:
 \begin{equation}
     Y^{(i + 1)} = Y^{(i)} G
 \end{equation}
-$Y$ is said to be at \emph{equilibrium} if applying our transition matrix does not change the distribution:
+$Y$ is said to be at \emph{equilibrium} if the following holds true for some transition matrix $G$:
 \begin{equation}
     Y^{(i)} = Y^{(i)} G
 \end{equation}
 The goal of MCMC is to draw samples $X$ from $Y$ such that $Y$ represents $\mathcal{L}(\theta)$.
-Let $X$ represent this \emph{chain} of states, or parameters $\theta$, that satisfy the following
+Let $X$ represent this \emph{chain} of states, or parameter values $\theta$, that satisfy the following
 conditions to draw from such a distribution~\cite{hanadaMarkovChainMonte2018}:
 \begin{enumerate}
     \item \emph{$X$ is a Markov chain}.
-        The probability of obtaining $X_i \in X$ from $X_{i - 1} \in X$ does not depend on any other configuration
-        $X_{i - 2}, X_{i - 3}, \ldots, X_0$ other than $X_{i - 1}$ itself.
+        The probability of obtaining $X^{(i)} \in X$ from $X^{(i - 1)} \in X$ does not depend on any other configuration
+        $X^{(i - 2)}, X^{(i - 3)}, \ldots, X^{(1)}$ other than $X^{(i - 1)}$ itself.
     \item \emph{$X$ is irreducible}.
         This states that we are able to travel to all of $\Theta$ from any given $\theta$ in a finite number of
         transitions.
     \item \emph{$X$ is aperiodic for all configurations}.
         A state $\theta$ is aperiodic if there exists a $i$ such that for all $j \geq i$:
         \begin{equation}
-            \Pr \left( X_{j} = \theta \mid X_0 = \theta \right) > 0
+            \Pr \left( X^{(j)} = \theta \mid X^{(1)} = \theta \right) > 0
         \end{equation}
     \item \emph{$X$ is positive recurrent}.
         The states that the expected number of transitions to move to back to the same state is finite.
 \end{enumerate}
-MCMC comprises a class of algorithms that are able to produce $X$ satifying these conditions.
+MCMC comprises a class of algorithms that are able to produce $X$ that satisfy these conditions.
 
 \subsection{Metropolis Algorithm}\label{subsec:metropolisAlgorithm}
 As per our last section, we want to generate some chain of states $X$ such that the given conditions are satisfied.
@@ -254,7 +250,7 @@ There are three main steps to the Metropolis algorithm:
         $G$ for different values of $\theta_i$.
         The Metropolis algorithm is a special case of the \emph{Metropolis-Hastings algorithm} in which this proposal is
         symmetric.
-    \item \emph{Calculate}: We determine the acceptance ratio $\alpha$, which is a ratio of the proposed $\theta_i$ to
+    \item \emph{Calculate}: We determine the acceptance ratio $\alpha$, which is a ratio of the proposed $\theta^{(i)}$
         to the old $\theta'$.
     \begin{equation}
         \alpha = \frac{\mathcal{L}(\theta_i)}{\mathcal{L}(\theta)}
@@ -268,52 +264,88 @@ There are three main steps to the Metropolis algorithm:
 \begin{algorithm}[t]
     \SetAlgoLined
     \DontPrintSemicolon
-    \Fn{MetropolisSampler \ {$(T_2, \mathcal{L}, \theta_1, g)$}} {
+    \Fn{MetropolisSampler \ {$(T_2, \mathcal{L}, \theta^{(1)}, g)$}} {
         \KwIn{number of algorithm iterations $T_2$, likelihood function $\mathcal{L}$, initial state $\theta_1$,
         proposal function $g$}
         \KwOut{samples from our posterior distribution $\Pr(\theta \mid \mathcal{D})$}
-        $X \gets \emptyset$, $\theta' \gets \theta_1$ \;
+        $X \gets \emptyset$, $\theta' \gets \theta^{(1)}$ \;
         \For{$i \gets 1$ \KwTo $T_2$}{
-            $\theta_i \gets g(\theta')$ \;
+            $\theta^{(i)} \gets g(\theta')$ \;
 
-            \If{$\mathcal{L}(\theta_i) \cdot \mathcal{L}(\theta')^{-1} \leq \ \sim U(0, 1)$}{
-                $\theta' \gets \theta_i$ \;
-                $X \gets X \cup \{ \theta_i \}$ \;
+            \If{$\mathcal{L}(\theta^{(i)}) \cdot \mathcal{L}(\theta')^{-1} \leq \ \sim U(0, 1)$}{
+                $\theta' \gets \theta_i$, $X \gets X \cup \{ \theta^{(i)} \}$ \;
             }
         }
 
         \Return $X$ \;
     }
-    \textbf{end} \;
+%    \textbf{end} \;
     \caption{The Metropolis algorithm, used to produce samples from a posterior distribution proportional to our
     likelihood.}
     \label{alg:metropolis}
 \end{algorithm}
 
+Note that we have introduced three new hyperparameters here: our initial Markov chain position $\theta^{(1)}$,
+our proposal function $g$, and the number of Metropolis sampler iterations $T_2$.
+If $\theta^{(1)}$ is nowhere near the regions of high likelihood, if $g$ is too tightly or loosely distributed, or if we
+do not run our sampler for enough iterations, we say that our Markov chain has not \emph{converged}.
+Nonconvergence means that we cannot interpret anything meaningful from $X$, making the selection of these
+hyperparameters \emph{and} some convergence verification process critical.
+
 \section{Maximum Likelihood Estimation}\label{sec:maximumLikelihoodEstimation}
-In this section, we describe a high level view of our approach to maximum likelihood estimation.
+In this section, we explore a high level view of our approach to maximum likelihood estimation.
 Using the Metropolis sampler, we are able to get a collection of states from a distribution proportional to our
 likelihood $X$.
-We now want to tie this back into our original question: ``Which parameter $\theta \in \Theta$ is the most likely to
-produce our observations $\mathcal{D}$? ''
-Given states $X$ from our posterior, how can we determine the most likely point $\theta$?
+We now want to tie this back into our original question: ``Which parameter values $\theta \in \Theta$ are the most
+likely to produce our observations $\mathcal{D}$?''.
+Given states $X$ from our posterior, we determine this most likely point $\theta$ by (a) constructing histograms, (b)
+fitting the histograms to the equation of some distribution, and (c) determining the mean of this distribution.
 
+We start by constructing our histogram.
 For this project, each $\theta$ represents a 2-tuple of $c$ and $d$.
-We first construct two sets $C$ and $D$, which consist of each $c$ element and the corresponding $\mathcal{L}(\theta)$
-for all $x \in X$:
+Let us look at the case for $c$: we start by constructing sets $C, D$ which consists of each $c$ and $d$ element for
+all $\theta \in X$:
+\begin{align}
+    C &= \{c \mid c \in \theta \land \theta \in X \} \\
+    D &= \{d \mid d \in \theta \land \theta \in X \}
+\end{align}
+We now want to partitioning each set $C$ and $D$ sets into consecutive, non-overlapping intervals or \emph{bins}
+$C^\star$ and $D^\star$ respectively.
+The partitioning itself is governed by the boundaries of our results $[\min(C), \max(C)]$,
+$[\min(D),\max(D)]$, and the \emph{bin widths} $b_c$ and $b_d$ for the $c$ and $d$ parameters respectively.
+This gives us the number of bins:
 \begin{equation}
     \begin{aligned}
-        C &= \left(\mathcal{L}(\theta\right), c) \mid c \in \theta \land \theta \in X \\
-        D &= \left(\mathcal{L}(\theta\right), d) \mid d \in \theta \land \theta \in X
+        | C^\star | &= \lceil \frac{\max(C) - \min(C)}{b_c} \rceil \\
+        | D^\star | &= \lceil \frac{\max(D) - \min(D)}{b_d} \rceil
     \end{aligned}
 \end{equation}
-If we assume our posterior for $c$ is normally distributed, we can assume the following function:
-\begin{equation}
-    \Pr(\theta \mid \mathcal{D}) = \frac{1}{\sigma\sqrt{2\pi}}\exp\left( -\frac{(c - \hat{c})^2}{2\sigma^2} \right)
+We build our histogram for $c$ by constructing the function $w_c : [0, |C^\star |] \rightarrow [0, 1]$ that accepts
+an integer that enumerates our bins and outputs the frequency of associated with that bin.
+The end result must follow the property in~\autoref{eq:densityFunction} to ensure that the resulting histogram
+represents some probability density function.
+\begin{equation} \label{eq:densityFunction}
+    \int_{C^\star} w(i) di = 1
 \end{equation}
-From here, a technique known as \emph{least squares regression} is used to find $\hat{c}, \sigma$.
-This works by finding a $\hat{c}, \sigma$ such that the resulting curve minimizes the square of the errors to each
-$c \in C$.
-The mean of this normal distribution $\hat{c}$ represents the most likely point, given that our posterior is
-proportional to our likelihood.
-This is repeated for $d$ to get our most likely $\hat{d}$.
+
+The next step is to fit our histogram $w_c$ to some known distribution.
+We explored two distributions here: the normal distribution and the gamma distribution.
+If we assume that our posterior for some $C$ is normally distributed, we can use the function below:
+\begin{equation}\label{eq:normalDistribution}
+    w_{cN}(c) = \frac{\exp(\frac{\left( \sfrac{(c - \mathit{loc})}{\mathit{scale}} \right)^2}{2} )}
+    {\mathit{scale} \cdot \sqrt{2\pi}}
+\end{equation}
+To get the point of maximum likelihood point $\hat{c}$ using $w_{N}(c)$ is to obtain its mean.
+For the distribution in~\autoref{eq:normalDistribution}, this is the $\mathit{loc}$ parameter with variance
+$\mathit{scale}$.
+If we instead assume our posterior for some $C$ is gamma distributed, we can use the function below:
+\begin{equation}
+    w_{c\Gamma}(c) = \frac{(x-\mathit{loc})^{a-1}\exp(-\frac{c-\mathit{loc}}{\mathit{scale}})}{\mathit{scale}^a
+    \cdot \Gamma(a)}
+\end{equation}
+where $\mathit{loc}$ represents a horizontal shifting parameter, $\mathit{scale}$ represents the scaling parameter of
+our distribution, and $a$ represents the gamma distribution \emph{shape} or skew parameter.
+To get the point of maximum likelihood $\hat{c}$ using this $w_\Gamma(c)$ is to obtain its mean.
+For the distribution given above, this is equal to $a \cdot \mathit{scale} + \mathit{loc}$ with variance
+$a \cdot \mathit{scale}^2$.
+For both cases, these steps are then repeated for $D$ to obtain $\hat{d}$.

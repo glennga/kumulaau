@@ -1,21 +1,208 @@
 \chapter{Discussion}\label{ch:discussion}
 In this chapter, we discuss our results after running the ABC-MCMC for our mutation model.
 
-\section{Methodology}\label{sec:methodology}
-All functions
+\section{Implementation}\label{sec:implementation}
+All algorithms mentioned in this paper were implemented in Python 3.7.
+To optimize the coalescent tree generation, repeat length determination, and likelihood determination processes, the
+Numba package was used to compile and parallelize each function before running.
+Simulations were run on the Cray supercomputer at the University of Hawaii at Manoa with $\texttt{cpus-per-task} = 20$
+and $\texttt{mem}=10,000\texttt{MB}$.
+All code (and this paper) can be found at the following Git repository:
+\begin{equation*}
+    \text{\href{https://github.com/glennga/micro-coa}{https://github.com/glennga/micro-coa}}
+\end{equation*}
 
-\section{Upward Constant Bias: $c$}\label{sec:upwardConstantBias}
+In this implementation, the following details differ from the descriptions laid in the previous chapters:
+\begin{enumerate}
+    \item The BFS we perform in~\autoref{subsec:coalescentRepeatLengthResolution} is not guaranteed to explore nodes
+        of the same depth in a deterministic manner, but still performs a BFS nonetheless.
+        Numba parallelizes this process, which leads to this randomness.
+    \item In order to use~\autoref{alg:twoStageBackwardEvolution}, a common ancestor repeat length $\ell_1$ must be
+        specified.
+        \emph{We assume $\ell_1$ to be a nuisance parameter.}
+        Given the variance associated with this process, we feel it is safe to assume this parameter does not need to be
+        as precise as our other hyperparameters.
+        We randomly select a repeat length from our observed data, and reduce the number of free parameters from
+        four to three.
+    \item In an effort to save space, two independent vectors $V$ and $E$ are not allocated for use at the same time
+        in~\autoref{alg:twoStageBackwardEvolution}.
+        Instead we define vector $V$ to hold the indices associated with each parent node to construct the edge set,
+        and replace this with repeat lengths in the determination stage.
+    \item The order with which the probabilities of some likelihood $\mathcal{\theta}$ are not guaranteed to be
+        deterministic.
+        Numba also parallelizes this process.
+    \item In addition to recording the states required for Markov chain $X$ in~\autoref{alg:metropolis}, we also record
+        the time between acceptances (known as the \emph{waiting time}), the likelihood of that point
+        $\mathcal{L}(\theta^{(i)})$ (to avoid computing this later), the average distance associated with the generated
+        data of the accepted parameter set and our observations, the time of acceptance in terms of iterations.
+\end{enumerate}
+
+\section{Hyperparameters}\label{sec:hyperparameters}
+\begin{table}
+    \begin{tabu} to \textwidth {|c|c|X|}
+       \toprule
+        Symbol & Value / Type & Detail / Explanation \\
+        \hline
+        $\kappa$ & 3 & Lower bound of our repeat length space $\mathbb{M}$. \\
+        $\Omega$ & 30 & Upper bound of our repeat length space $\mathbb{M}$. \\
+        $n$ & $100$ & Sample size, number of end individuals to simulate. \\
+        $\tau_N(e)$ & $\exp\left(\sfrac{N}{\binom{\rho(e)}{2}}\right)$ & Generation determination function\\
+        $N$ & $10,000$ & Effective population size. \\
+        $\delta(e)$ & $\delta_A(e)$ & The distance function between two populations. \\
+        $\epsilon$ & 0.55 & ABC cutoff to define approximate. \\
+        $T_1$ & 100 & Number of simulations to run to determine $\Pr(\mathcal{M}(\theta) \approx \mathcal{D}_i)$. \\
+        $\theta^{(1)}_c$ & 0.01 & Starting $c$ value for initial state of Markov chain $\theta^{(1)}$. \\
+        $\theta^{(1)}_d$ & 0.001 & Starting $d$ value for initial state of Markov chain $\theta^{(1)}$ . \\
+        $g_c(c)$ & $N(c, \sigma_c)$ & Proposal function to generate new $c$ values. \\
+        $g_d(d)$ & $N(d, \sigma_d)$ & Proposal function to generate new $d$ values. \\
+        $\sigma_c$ & 0.001 & Deviation associated with proposal function $g_c(c)$. \\
+        $\sigma_d$ & 0.001 & Deviation associated with proposal function $g_d(d)$. \\
+        $T_2$ & $55,000$ & Running time of Metropolis sampler. \\
+        $b_c$ & $0.001$ & Bin size for $c$ histogram. \\
+        $b_d$ & $0.0001$ & Bin size for $d$ histogram. \\
+        $w_c(c)$ & $\Gamma(\ldots)$ & The assumed posterior distribution for $c$. \\
+        $w_d(d)$ & $\Gamma(\ldots)$ & The assumed posterior distribution for $d$. \\
+       \bottomrule
+    \end{tabu}
+    \caption{Table of our hyperparameters: their symbol, the value we chose, and a description of parameter itself.
+    }\label{tab:hyperparameters}
+\end{table}
+
 \begin{figure}[t]
     \centering{\input{include/floats/c-histogram.tex}}
     \caption{Frequency surface of $c$ parameter.
+    Our histogram was constructed using a bin size of $b_c = 0.001$
+    In blue the least-squares estimate of a $\Gamma$ distribution for this histogram is displayed,
+    with $a=3.740, \mathit{loc}=0.0009042, \mathit{scale}=0.003572$.
     }\label{fig:cData}
 \end{figure}
+\begin{figure}[t]
+    \centering{\input{include/floats/c-trace.tex}}
+    \caption{Trace plot of $c$ for all three runs of the Metropolis sampler.
+    }\label{fig:cTrace}
+\end{figure}
 
-\section{Downward Linear Bias: $d$}\label{sec:downwardLinearBias}
 \begin{figure}[t]
     \centering{\input{include/floats/d-histogram.tex}}
     \caption{Frequency surface of $d$ parameter.
+    Our histogram was constructed using a bin size of $b_d = 0.0001$.
+    In blue the least-squares estimate of a $\Gamma$ distribution for this histogram is displayed,
+    with $a=4.000, \mathit{loc}=7.203-05, \mathit{scale}=0.0002524$.
     }\label{fig:dData}
 \end{figure}
+\begin{figure}[t]
+    \centering{\input{include/floats/d-trace.tex}}
+    \caption{Trace plot of $d$ for all three runs of the Metropolis sampler.
+    }\label{fig:dTrace}
+\end{figure}
 
-\section{Interpretation}\label{sec:interpretation}
+Recall that we must specify hyperparameters in order to determine our parameters of interest: $c, d$.
+Each is listed in~\autoref{tab:hyperparameters} with their symbol name, the value we chose, and a brief description of 
+hyperparameter itself.
+Below we give our reasoning for selecting each parameter:
+\begin{enumerate}
+    \item For all of the microsatellites we collected in~\autoref{ch:dataForParameterEstimation} from ALFRED, the
+        lowest observed repeat length we found was $\ell=3$.
+        We set $\kappa = 3$ for this reason.
+    \item For all of the microsatellites we collected in~\autoref{ch:dataForParameterEstimation} from ALFRED, the
+        highest observed repeat length we found was $\ell=30$.
+        We set $\Omega = 30$ for this reason.
+    \item The sample size $n$ chosen heavily influences the computation time of our simulator.
+        Per Metropolis sampler iteration, we generate $n \cdot T_1 \cdot | \mathcal{D} |$ lineages.
+        We found that $n=100$ was on the lower end of sample sizes found in ALFRED observations, but this allowed for us
+        to simulate samples within a reasonable amount of time.
+    \item We chose to follow Hudson's approach and drew our edge lengths from an exponential distribution with the mean
+        $\sfrac{N}{\binom{\rho(e)}{2}}$.
+        We defined $\tau_N$ as a function which accepts an edge as input, determines the expected time to coalescence
+        based on the working node's depth from the common ancestor node, and outputs a draw from this exponential
+        distribution with this expected time as the mean.
+    \item We use a human effective population size of $N=10,000$ individuals, taken from
+        Takahata~\cite{takahataAllelicGenealogyHuman1993}.
+    \item The decision to use the angular distance $\delta_A$ as our $\delta$ function was made arbitrarily.
+        Future work includes looking into other such distance functions.
+    \item To determine $\epsilon$, our starting parameter values $\theta^{(1)}_c, \theta^{(1)}_d$, and our proposal
+        deviations $\sigma_c, \sigma_d$, we started with some guess and refined these parameters as we went.
+        $\epsilon$ itself depends on the other two parameters.
+        We started at a high threshold $\epsilon \approx 0.9$, and decreased this number as we became more confident in
+        our starting parameters over several instances of our Markov chains $\mathcal{X} = \{ X_1, X_2, \ldots \}$.
+        We found $\epsilon=0.55$ to be a good compromise between accuracy and computation time.
+    \item As mentioned in the point for sample size, $T_1$ is another major factor in computation time.
+        If $T_1$ is too small, we end up with probabilities that are not representative of our posterior.
+        If $T_2$ is too large, our computation time becomes too long.
+        We found that $T_1 = 100$ was able to reasonably account for our simulator variance.
+    \item The starting $c$ parameter $\theta^{(1)}_c$ was tuned by running our sampler to obtain various Markov chains
+        $\mathcal{X}$ and selecting the average of the most likely $c$ values $\hat{c}$ for each chain.
+        We rounded to the nearest $0.001$, and obtained $\theta^{(1)}_c = 0.010$.
+    \item The starting $d$ parameter was found in a similar fashion to the starting $c$ parameter.
+        We rounded to the nearest $0.0001$, and obtained $\theta^{(1)}_d = 0.001$.
+    \item We chose to sample from a normal distribution $g_c(c) = N(c, \sigma_c)$ centered at a given $c$ for our
+        proposal function $c$.
+        This was the first symmetric distribution to come to mind, which is a requirement of the Metropolis sampler.
+    \item We also chose to sample from a normal distribution for parameter $d$: $g_d(d) = N(d, \sigma_d)$.
+    \item Associated with the proposal functions we defined in the previous two points are normal distribution
+        deviations.
+        A larger $\sigma_c$ means that our sampler will on average generate proposals at greater distances from our
+        current point than a sampler with a smaller $\sigma_c$.
+        These were found in the same manner as our $\epsilon$ term: running several instances of sampler to obtain
+        $\mathcal{X}$ and decreasing $\sigma_c$ as we become more and more confident in our starting parameters.
+        We found $\sigma_c = 0.0010$ after running this procedure.
+    \item Running a similar procedure for the proposal deviation associated with $d$, we found $\sigma_d = 0.0001$.
+    \item Our Metropolis sampler is able to generate a Markov chain with $\Pr(\theta \mid \mathcal{D})$ as its
+        equilibrium distribution \emph{given an infinite amount of time}.
+        Given that this is not the case, we must choose some $T_2$ such that our target distribution converged
+        at some Metropolis iteration before $T_2$.
+        We have selected $T_2 = 55,000$ for this run.
+    \item The histogram bin size is associated with the proposal function step size.
+        A larger $\sigma_c, \sigma_d$ will result in wider distributions, leading to an increase in $b_c, b_d$ to
+        ensure that our bin frequencies correctly resolve our posterior.
+        This was found after creating several different histograms with different $b_c$ until some density appeared.
+        We found $b_c = 0.001$ to resolve our posterior well given our current $\sigma_c$.
+    \item Using the same procedure for $b_c$, we found $b_d = 0.0001$ to resolve our posterior well given our
+        current $\sigma_d$.
+    \item While creating several histograms for $c$, we observed that our density was positively skewed.
+        Visually, we found that fitting our histogram to a gamma distribution aligned better than fitting our histogram
+        to a normal distribution.
+    \item Again, while creating several histograms for $d$, we observed that our density was positively skewed.
+        We went with a gamma distribution here as well.
+\end{enumerate}
+
+\section{Upward Constant Bias: $c$}\label{sec:upwardConstantBias}
+In~\autoref{fig:cData}, we describe the frequency of the $c$ parameter.
+The data for the histogram comes from three independent runs of the Metropolis sampler, all with identical
+hyperparameters.
+The distribution below represents the curve of this frequency, with a bin size of $b_c = 0.001$ to construct the
+underlying histogram.
+\begin{equation}
+    w_c(c) = \Gamma(a = 3.740, \mathit{loc} = 0.0009042, \mathit{scale} = 0.003572)
+\end{equation}
+The most likely parameter $\hat{c}$ is given below:
+\begin{equation}
+    \hat{c} = 0.01426 \pm 4.773 \cdot 10^{-5}
+\end{equation}
+
+The trace plot for $c$, a plot of $c$ vs.\ Metropolis sampler iterations is shown in~\autoref{fig:cTrace}.
+A visual approach to assessing Markov chain convergence is to look at how our Markov chain moves as a function of
+time.
+All three are shown to move in the same neighborhood, although the ideal plot here would be a set of straight, thick,
+and tightly distributed lines.
+This indicates that we need to run our MCMC for longer to strengthen our confidence that we are sampling from the
+correct distribution.
+
+\section{Downward Linear Bias: $d$}\label{sec:downwardLinearBias}
+
+In~\autoref{fig:dData}, we describe the frequency of the $d$ parameter.
+The data for the histogram comes from three independent runs of the Metropolis sampler, all with identical
+hyperparameters.
+The distribution below represents the curve of this frequency, with a bin size of $b_d = 0.0001$ to construct the
+underlying histogram.
+\begin{equation}
+    w_d(d) = \Gamma(a = 4.000, \mathit{loc} = 7.203-05, \mathit{scale} = 0.0002524)
+\end{equation}
+The most likely parameter $\hat{d}$ is given below:
+\begin{equation}
+    \hat{d} = 0.001082 \pm 2.549 \cdot 10^{-7}
+\end{equation}
+
+The trace plot for $d$ is shown in~\autoref{fig:dTrace}.
+Same with $c$, all three are shown to move in the same neighborhood, but we would need to run our MCMC for longer
+to strengthen our confidence that our chain has converged.

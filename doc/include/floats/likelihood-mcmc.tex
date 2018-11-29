@@ -13,7 +13,15 @@
     ]
     \addplot [very thick,blue!50!black] {gauss(5,1.5)};
     \addplot+[very thick, black, dashed] coordinates {(2.5, 0.06631809) (2.5, 0.16131382) (3.5, 0.16131382)};
+    \node[black, below] at (axis cs:2.5,0.065){\small{$\theta^{(1)}$}};
+    \node[black, below] at (axis cs:3.5,0.155){\small{$\theta^{(2)}$}};
+
     \addplot+[very thick, black, dashed] coordinates {(3.5, 0.16131382) (3.5, 0.25158882) (4.5, 0.25158882)};
+    \node[black, below] at (axis cs:4.5,0.245){\small{$\theta^{(2)}$}};
+
     \addplot+[very thick, red, dashed] coordinates {(4.5, 0.25158882) (4.0, 0.25158882) (4.0, 0.21296534)};
+    \node[red, below] at (axis cs:4.0,0.210){\small{$\theta^{(3)}$}};
+
     \end{axis}
+
 \end{tikzpicture}

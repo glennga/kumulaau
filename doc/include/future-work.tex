@@ -1,0 +1,67 @@
+\chapter{Future Work}\label{ch:futureWork}
+In this chapter, we discuss the next steps associated with our research.
+
+\section{Evolutionary Simulator}\label{sec:evolutionarySimulator}
+The focus of this project was to find an appropriate evolutionary simulator and model for a single population.
+We believe that we have constructed a fast evolutionary simulator, but it could be more efficient.
+As of now, the running time of our evolutionary simulator is dependent on $n$ and $N$.
+$n$ must be large enough to account for the variance in this problem, but we can remove our reliance on $N$ by
+drawing our mutations from some distribution instead of iterating from generation to generation.
+This increases the noise associated with our mutation model, but may make simulator much faster.
+
+\section{Implementation Updates}\label{sec:implementationUpdates}
+All code for this project is current written in Python 3.7.
+We were able to get reasonable speedup with using Numba to compile certain sections of our code (as opposed to
+interpreting it), but it might be of interest to move to a compiled language like C++ altogether.
+It might also be of interest to start moving certain sections of the sampler (simulator, $\delta$, etc\ldots) to the
+GPU.
+This problem is highly parallelizable, but we are only running at most 20 tasks in parallel on the CPU.
+The GPU would allow us to run thousands of tasks in parallel, (ideally) resulting in less runtime.
+
+\section{Mutation Model}\label{sec:mutationModel}
+We were able to obtain estimates for our mutation model, but there exists more work to done in confirming that these
+parameters are reasonably correct.
+There exists three main areas of future work:
+\begin{enumerate}
+    \item Verifying the model using more populations.
+        We were only able to use the Columbian populace here, but using the same methodology with other groups would
+        give us different $\hat{c}$ and $\hat{d}$ values to compare to.
+    \item Comparing the total mutation rate to that of other \texttt{GATA} microsatellites.
+    \item Running our MCMC longer.
+        As seen in the previous section, our trace was not the ideal shape but it showed hints toward convergence.
+        The easiest way to increase our number of iterations $T_2$, which would show a straighter and thicker line if
+        we have truly converged.
+    \item Retrieving more statistics about our Metropolis sampler.
+        We visually assessed Markov chain convergence by looking at the trace plot, but there exist other metrics
+        that could be explored (see~\cite{cowlesMarkovChainMonte1996}).
+        This would allow us to tune our sampler with more precision, and possibly find better estimates for $\hat{c}$
+        and $\hat{d}$.
+\end{enumerate}
+
+\section{Demographic Models}\label{sec:demographicModels}
+Once we are confident in our mutation model, we can extend our work toward using the same methodology with
+\emph{multiple} populations.
+The mutation model parameters then become hyperparameters to these demographic models as we try to estimate
+additional parameters such as population size, admixture, and divergence times.
+Below, we present three multi-population models that can be used to make various inferences.
+\begin{enumerate}
+    \item Three population models: (Ancestors, African vs.\ Non African), (Ancestors, Modern Humans vs.\ Neanderthals),
+        (Ancestors, Modern Humans vs.\ Denisovans).
+        We can determine the population sizes of all populations and the time of each split.
+    \item A five population model: Ancestors, African One, African Two, Non African One, Non African Two.
+        We can determine the admixture between the African and Non African populations, as well as the time associated
+        with each split.
+    \item A seven population model: Ancestors, Modern Humans One, Modern Humans Two, Neanderthals One, Neanderthals Two,
+        Denisovan One, Denisovan Two.
+        Again, we can determine the admixture between each population as well as the time associated with each split.
+\end{enumerate}
+%
+%\section{Summary}\label{sec:summary}
+%Human inferences can be made by tracking variations in DNA.
+%In this paper we went over how we can use microsatellite DNA, a form of genetic variation in humans, to infer
+%human evolution.
+%Our first approach was to use a forward simulator model to simulate generation to generation transitions, but we
+%ended up using a backward simulator model because it required less individuals to simulate.
+%Our two parameter $c, d$ mutation model was selected for its simplicity and flexibility.
+%To estimate the most likely parameter values $\hat{c},\hat{d}$, we used an ABC-MCMC approach.
+%Future work includes verifying these parameters further and extending our methodology to more demographic models.
