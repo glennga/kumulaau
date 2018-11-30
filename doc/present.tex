@@ -21,6 +21,8 @@
 \usetikzlibrary{shapes.geometric, arrows}
 \usetikzlibrary{calligraphy}
 \usetikzlibrary{pgfplots.groupplots}
+\usepgfplotslibrary{external}
+\tikzexternalize
 
 \begin{document}
     \begin{frame}[noframenumbering,plain]
@@ -227,7 +229,7 @@
             \begin{column}{0.6\textwidth}
                 \emph{Answer:} We construct a evolutionary tree (coalescent)! \medskip
                 \begin{enumerate}
-                    \item Given sample size $n$, parameters $c, u, d$. \medskip
+                    \item Given sample size $n$, mutation parameters $c, d$. \medskip
                     \item Construct random tree with $n$ leaves and common ancestor. \medskip
                     \item Mutate children from an ancestor length until leaves are reached.
                 \end{enumerate}
@@ -248,8 +250,8 @@
                     until we reach the bottom.
                     This gives us $n$ repeat lengths, with varying frequencies.
                 \item Voila!
-                    We have a process to generate data in the same format as our observed data using $c, u, d$.
-                    This leads us to the last question, which $c, u, d$ are the best?
+                    We have a process to generate data in the same format as our observed data using $c, d$.
+                    This leads us to the last question, which $c, d$ are the best?
             \end{enumerate}
         }
     \end{frame}
@@ -319,7 +321,7 @@
                 \item We could simulate a population several times, and find out how frequently we generate an exact
                     match to get this probability\ldots
                 \item But the frequency of exact matches is small.
-                    We have a dimension for each repeat length, all of which can vary from 0 to 1.
+                    We have a dimension for each repeat length, all of which can take certain values from 0 to 1.
                 \item The solution here, is to count approximate matches!
                 \item On graph of likelihood vs.\ parameter, blue line represents our true likelihood -- small but more
                     defined.
@@ -334,13 +336,12 @@
         \begin{columns}
             \begin{column}{0.6\textwidth}
                 \begin{itemize}
-                    \item \emph{Problem}: Cannot write likelihood function for simulator model. \bigskip
+                    \item \emph{Problem}: Cannot iterate through all possible likelihoods. \bigskip
                     \item \emph{Solution}: Use MCMC!
                         \begin{itemize}
-                            \item Randomly samples from likelihood distribution (walks).
+                            \item Randomly samples from $\propto$ likelihood
+                                distribution~\cite{lintusaariFundamentalsRecentDevelopments2017}
                             \item Spends longer time in regions of high likelihood.
-                            \item Frequency of samples is proportional to
-                                likelihood~\cite{lintusaariFundamentalsRecentDevelopments2017}.
                             \item Fit frequency to curve, maximize this curve.
                         \end{itemize}
                 \end{itemize}
@@ -379,7 +380,7 @@
         \centering{
 %            Mutation Rate Equations: $\mu_u = c$, $\mu_d = d\ell$
             \input{include/floats/present/histogram-data.tex}
-            \textbf{Focal length $\bm{\hat{\ell} \approx 14}$, \ Effective population size
+            \textbf{Focal length $\bm{\hat{\ell} \approx 13}$, \ Effective population size
             $\bm{N \approx 10,000}$}
         }
 %        \begin{align*}
