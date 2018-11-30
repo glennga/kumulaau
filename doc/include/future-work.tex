@@ -7,11 +7,11 @@ We believe that we have constructed a fast evolutionary simulator, but it could 
 As of now, the running time of our evolutionary simulator is dependent on $n$ and $N$.
 $n$ must be large enough to account for the variance in this problem, but we can remove our reliance on $N$ by
 drawing our mutations from some distribution instead of iterating from generation to generation.
-This increases the noise associated with our mutation model, but may make simulator much faster.
+This increases the noise associated with our mutation model, but may make our simulator much faster.
 
 \section{Implementation Updates}\label{sec:implementationUpdates}
 All code for this project is current written in Python 3.7.
-We were able to get reasonable speedup with using Numba to compile certain sections of our code (as opposed to
+We were able to get reasonable speedup using Numba to compile certain sections of our code (as opposed to only
 interpreting it), but it might be of interest to move to a compiled language like C++ altogether.
 It might also be of interest to start moving certain sections of the sampler (simulator, $\delta$, etc\ldots) to the
 GPU.
@@ -19,14 +19,13 @@ This problem is highly parallelizable, but we are only running at most 20 tasks 
 The GPU would allow us to run thousands of tasks in parallel, (ideally) resulting in less runtime.
 
 \section{Mutation Model}\label{sec:mutationModel}
-We were able to obtain estimates for our mutation model, but there exists more work to done in confirming that these
-parameters are reasonably correct.
+We were able to obtain estimates for our mutation model, we need to further verify that these parameters are correct.
 There exists three main areas of future work:
 \begin{enumerate}
     \item Verifying the model using more populations.
         We were only able to use the Columbian populace here, but using the same methodology with other groups would
         give us different $\hat{c}$ and $\hat{d}$ values to compare to.
-    \item Comparing the total mutation rate to that of other \texttt{GATA} microsatellites.
+    \item Comparing the total mutation rate to that of other \texttt{GATA} microsatellites in different literature.
     \item Running our MCMC longer.
         As seen in the previous section, our trace was not the ideal shape but it showed hints toward convergence.
         The easiest way to increase our number of iterations $T_2$, which would show a straighter and thicker line if
@@ -43,7 +42,8 @@ Once we are confident in our mutation model, we can extend our work toward using
 \emph{multiple} populations.
 The mutation model parameters then become hyperparameters to these demographic models as we try to estimate
 additional parameters such as population size, admixture, and divergence times.
-Below, we present three multi-population models that can be used to make various inferences.
+Below, we present several multi-population models from Stoneking and Krause that can be used to make various
+inferences~\cite{stonekingLearningHumanPopulation2011}.
 \begin{enumerate}
     \item Three population models: (Ancestors, African vs.\ Non African), (Ancestors, Modern Humans vs.\ Neanderthals),
         (Ancestors, Modern Humans vs.\ Denisovans).

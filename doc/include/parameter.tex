@@ -159,7 +159,8 @@ In this section, we discuss the Markov Chain Monte Carlo (MCMC) approach to appr
 
 \begin{figure}[t]
     \centering{\input{include/floats/likelihood-mcmc.tex}}
-    \caption{General figure depicting the random walk of Metropolis sampler around some likelihood surface.
+    \caption{General figure depicting the random walk of Metropolis sampler around some surface poportional to our
+    likelihood (the posterior).
     We start at initial state $\theta^{(1)}$.
     We accept $\theta^{(2)}$ and $\theta^{(3)}$ which leads to regions of higher likelihood but later accept
     $\theta^{(4)}$, a less likely point due to the randomness of $\mathcal{M}$.
@@ -303,8 +304,7 @@ fitting the histograms to the equation of some distribution, and (c) determining
 
 We start by constructing our histogram.
 For this project, each $\theta$ represents a 2-tuple of $c$ and $d$.
-Let us look at the case for $c$: we start by constructing sets $C, D$ which consists of each $c$ and $d$ element for
-all $\theta \in X$:
+We start by constructing sets $C, D$ which consists of each $c$ and $d$ element for all $\theta \in X$:
 \begin{align}
     C &= \{c \mid c \in \theta \land \theta \in X \} \\
     D &= \{d \mid d \in \theta \land \theta \in X \}
@@ -316,8 +316,8 @@ $[\min(D),\max(D)]$, and the \emph{bin widths} $b_c$ and $b_d$ for the $c$ and $
 This gives us the number of bins:
 \begin{equation}
     \begin{aligned}
-        | C^\star | &= \lceil \frac{\max(C) - \min(C)}{b_c} \rceil \\
-        | D^\star | &= \lceil \frac{\max(D) - \min(D)}{b_d} \rceil
+        | C^\star | &= \left\lceil \frac{\max(C) - \min(C)}{b_c} \right\rceil \\
+        | D^\star | &= \left\lceil \frac{\max(D) - \min(D)}{b_d} \right\rceil
     \end{aligned}
 \end{equation}
 We build our histogram for $c$ by constructing the function $w_c : [0, |C^\star |] \rightarrow [0, 1]$ that accepts
@@ -345,7 +345,7 @@ If we instead assume our posterior for some $C$ is gamma distributed, we can use
 \end{equation}
 where $\mathit{loc}$ represents a horizontal shifting parameter, $\mathit{scale}$ represents the scaling parameter of
 our distribution, and $a$ represents the gamma distribution \emph{shape} or skew parameter.
-To get the point of maximum likelihood $\hat{c}$ using this $w_\Gamma(c)$ is to obtain its mean.
+Again, the maximum likelihood $\hat{c}$ using this $w_\Gamma(c)$ is the mean.
 For the distribution given above, this is equal to $a \cdot \mathit{scale} + \mathit{loc}$ with variance
 $a \cdot \mathit{scale}^2$.
 For both cases, these steps are then repeated for $D$ to obtain $\hat{d}$.

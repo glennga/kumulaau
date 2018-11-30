@@ -5,8 +5,8 @@ In this chapter, we discuss our results after running the ABC-MCMC for our mutat
 All algorithms mentioned in this paper were implemented in Python 3.7.
 To optimize the coalescent tree generation, repeat length determination, and likelihood determination processes, the
 Numba package was used to compile and parallelize each function before running.
-Simulations were run on the Cray supercomputer at the University of Hawaii at Manoa with $\texttt{cpus-per-task} = 20$
-and $\texttt{mem}=10,000\texttt{MB}$.
+Simulations were run on the Cray CS300 supercomputer at the University of Hawaii at Manoa with
+$\texttt{cpus-per-task} = 20$ and $\texttt{mem}=10,000\texttt{MB}$.
 All code (and this paper) can be found at the following Git repository:
 \begin{equation*}
     \text{\href{https://github.com/glennga/micro-coa}{https://github.com/glennga/micro-coa}}
@@ -17,9 +17,9 @@ In this implementation, the following details differ from the descriptions laid 
     \item The BFS we perform in~\autoref{subsec:coalescentRepeatLengthResolution} is not guaranteed to explore nodes
         of the same depth in a deterministic manner, but still performs a BFS nonetheless.
         Numba parallelizes this process, which leads to this randomness.
-    \item In order to use~\autoref{alg:twoStageBackwardEvolution}, a common ancestor repeat length $\ell_1$ must be
+    \item In order to use~\autoref{alg:twoStageBackwardEvolution}, a common ancestor repeat length $\ell^{(1)}$ must be
         specified.
-        \emph{We assume $\ell_1$ to be a nuisance parameter.}
+        \emph{We assume $\ell^{(1)}$ to be a nuisance parameter.}
         Given the variance associated with this process, we feel it is safe to assume this parameter does not need to be
         as precise as our other hyperparameters.
         We randomly select a repeat length from our observed data, and reduce the number of free parameters from
@@ -28,8 +28,8 @@ In this implementation, the following details differ from the descriptions laid 
         in~\autoref{alg:twoStageBackwardEvolution}.
         Instead we define vector $V$ to hold the indices associated with each parent node to construct the edge set,
         and replace this with repeat lengths in the determination stage.
-    \item The order with which the probabilities of some likelihood $\mathcal{\theta}$ are not guaranteed to be
-        deterministic.
+    \item The order with which the probabilities of some likelihood $\mathcal{\theta}$ are calculated are
+        not guaranteed to be deterministic.
         Numba also parallelizes this process.
     \item In addition to recording the states required for Markov chain $X$ in~\autoref{alg:metropolis}, we also record
         the time between acceptances (known as the \emph{waiting time}), the likelihood of that point
@@ -107,7 +107,7 @@ Below we give our reasoning for selecting each parameter:
     \item For all of the microsatellites we collected in~\autoref{ch:dataForParameterEstimation} from ALFRED, the
         highest observed repeat length we found was $\ell=30$.
         We set $\Omega = 30$ for this reason.
-    \item The sample size $n$ chosen heavily influences the computation time of our simulator.
+    \item The sample size $n$ heavily influences the computation time of our simulator.
         Per Metropolis sampler iteration, we generate $n \cdot T_1 \cdot | \mathcal{D} |$ lineages.
         We found that $n=100$ was on the lower end of sample sizes found in ALFRED observations, but this allowed for us
         to simulate samples within a reasonable amount of time.
