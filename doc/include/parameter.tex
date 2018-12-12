@@ -15,9 +15,9 @@ $\mathcal{D}$ to be a collection of observed data, and $\mathcal{D}'$ to
 be a collection of generated data.
 The \emph{likelihood} of some parameter values $\theta \in \Theta$ is the joint probability that $\theta$ produces
 some observed data $\mathcal{D}$.
-Let $\mathcal{M} : \theta \mapsto \mathcal{D}'$ define a random function that maps a parameter values $\theta$ to
-generated data $\mathcal{D}'$.
-Given that $\mathcal{M}(\theta)$ is random, different $\mathcal{D}'$ may be returned for the same parameter values
+Let $\mathcal{M},\mathcal{V} : \theta \mapsto \mathcal{D}'$ define a function that maps parameter values $\theta$ and random variables
+$\mathcal{V}$ to generated data $\mathcal{D}'$.
+Given that $\mathcal{V}$ is random, different $\mathcal{D}'$ may be returned for the same parameter values
 $\theta$.
 %In other words, $\mathcal{M}$ represents some stochastic simulator model which produces some random data.
 Given \emph{discrete and countable} observations $\mathcal{D}$, the likelihood of parameter values $\theta \in \Theta$
@@ -48,9 +48,11 @@ $\theta$.
 
 As previously mentioned, to find $\mathcal{L}$ is to find the joint probability that our model and parameters produce
 the observed data.
-We expand~\autoref{eq:likelihood1} to make this explicit for $r$ sets of observed data.
-$\theta$ remains the same, however the randomness in $\mathcal{M}$ may result in different probabilities.
-\begin{equation}
+We expand~\autoref{eq:likelihood1} to make this explicit for $r$ sets of observed data
+in~\autoref{eq:jointProbabilityLikelihood}.
+$\theta$ remains the same, however the randomness of $\mathcal{V}$ may result in different probabilities.
+For brevity, $\mathcal{V}$ is implicit in $\mathcal{M}$ from this point forward.
+\begin{equation}\label{eq:jointProbabilityLikelihood}
     \mathcal{L}(\theta) = \prod_{i=1}^{r} \Pr\left(\mathcal{M}(\theta) = \mathcal{D}_i \right)
 \end{equation}
 
@@ -61,7 +63,7 @@ Here, we take a frequentist approach and perform the following steps:
 \begin{enumerate}
     \item Run our simulator once to get $\mathcal{D}'_1$.
     \item Check if $\mathcal{D}'_1$ matches $\mathcal{D}_1$.
-    \item Repeat steps 1 and 2 some arbitrary number of times $T_1$, for different simulated samples but the same
+    \item Repeat steps 1 and 2 some number of times $T_1$, for different simulated samples but the same
         observed sample.
         We define $\Pr\left( \mathcal{M}(\theta) = \mathcal{D}_1 \right)$ as the frequency of exact matches.
     \item Repeat step 3 for all observed samples to get $\Pr\left( \mathcal{M}(\theta) = \mathcal{D}_2 \right)$,
@@ -74,7 +76,7 @@ anything meaningful.
 The microsatellite repeat length set $\mathbb{M}$ consists of roughly 30 elements, meaning that roughly 30 dimensions
 must exactly match.
 In addition to this, each frequency resides in some large set whose elements are between $[0, 1]$.
-The solution here is a technique known as \emph{Approximate Bayesian Computation}, or ABC for short.
+The solution we propose here is a technique known as \emph{Approximate Bayesian Computation}, or ABC for short.
 ABC has two parts: the use of \emph{approximate} matches and the use of summary
 statistics~\cite{lintusaariFundamentalsRecentDevelopments2017}.
 In the following sections, I discuss how we define approximate, what summary statistics are, and why we are not using
@@ -92,8 +94,8 @@ them for this problem.
 Let us dissect $\mathcal{D}$ and $\mathcal{D}'$ further.
 A given $\mathcal{D}_i \in \mathcal{D}$ and $\mathcal{D}'_i \in \mathcal{D}'$ define $| \mathbb{M} |$-sized tuples,
 whose values exist in $[0, 1]$.
-To compare a given $\mathcal{D}_i$ and $\mathcal{D}'_i$ is to iterate through each element in both tuples and measure
-their proximity to each other.
+To compare a given $\mathcal{D}_i$ and $\mathcal{D}'_i$ is to iterate through each element (repeat unit) in both
+tuples and measure their proximity to each other.
 Let $\delta : \mathcal{D}_i,\mathcal{D}'_i \mapsto [0, 1]$ represent some function that accepts the observed and
 generated sample, and outputs some distance between 0 and 1.
 The comparison between our observed and generated samples is given by $\delta(\mathcal{D}_i, \mathcal{D}'_i)$.
@@ -103,8 +105,7 @@ The angular distance treats $\mathcal{D}_i$ and $\mathcal{D}'_i$ as $| \mathbb{M
 and aims to quantify some difference between the two.
 An output of 0 indicates that both samples are completely similar, while an output of 1 indicates that two vectors
 are maximally dissimilar (orthogonal).
-The angular distance $\delta_A$ is defined as such (normalized to make $\delta_A$ a proper distance
-metric)~\cite{chaComprehensiveSurveyDistance2007a} for two samples $\mathcal{D}_i, \mathcal{D}'_i$:
+The angular distance $\delta_A$ is defined below~\cite{chaComprehensiveSurveyDistance2007a}:
 \begin{equation}
     \delta_A(\mathcal{D}_i, \mathcal{D}'_i) = \frac{2}{\pi} \arccos \left(
     \frac{\sum_{\ell=\kappa}^{\Omega} \mathcal{D}_i[\ell] \cdot \mathcal{D}'_i[\ell]}{
@@ -121,7 +122,7 @@ some threshold $\epsilon \in [0, 1]$~\cite{marjoramMarkovChainMonte2003}:
 \begin{equation}
     \left(\delta(\mathcal{D}_i, \mathcal{D}'_i) < \epsilon \right) \Leftrightarrow
     \left(\mathcal{D}_i \text { and } \mathcal{D}'_i
-    \text{ are approximate matches } \right)
+    \text{ are approximate matches} \right)
 \end{equation}
 By increasing $\epsilon$, the frequency of exact observed -- generated matches increases as well.
 %By making this problem more tractable though, we increase the noise associated with drawing from $\mathcal{L}$.
@@ -136,16 +137,16 @@ We define our threshold $\epsilon$ as a \emph{hyperparameter}, a parameter we mu
 to find the parameters of interest $\theta$.
 
 \subsection{Dimension Reduction: Summary Statistics}\label{subsec:dimensionReductionSummaryStatistics}
-An alternative to using a distance function $\delta$ that deals with $| \mathbb{M} |$-dimensional points is to use a
+An alternative to using a distance function $\delta$ that deals with $| \mathbb{M} |$-dimensional tuples is to use a
 function that reduces, or \emph{summarizes} the data into two points $\bar{\mathcal{D}}, \bar{\mathcal{D}'}$ of lower
-dimensionality and finds a distance between both summarized points.
+dimensionality and finds a distance between both $\bar{\mathcal{D}}, \bar{\mathcal{D}'}$.
 We specify a distance function $\delta_S$ that performs this transformation using functions
 $h : \mathcal{D}_i \mapsto \bar{\mathcal{D}_i}$ and $h' : \mathcal{D}'_i \mapsto \bar{\mathcal{D}'_i}$ as such:
 \begin{equation}
     \bar{\delta_S}(\mathcal{D}_i, \mathcal{D}'_i)  = \bar{\delta}(h(\mathcal{D}_i), h'(\mathcal{D}'_i))
 \end{equation}
 A common choice for $h, h'$ is the mean or median.
-For us, it may make sense to use the focal length computation $\hat{\ell}$ as our summary statistic.
+For us, it may make sense to use the focal unit computation $\hat{\ell}$ as our summary statistic.
 
 Using summary statistics avoids the curse of dimensionality (see~\cite{bellmanDynamicProgramming2013}) for high
 dimension distance functions, but this adds yet another item we must specify: ``Which summary statistic is the best?''.
@@ -163,7 +164,7 @@ In this section, we discuss the Markov Chain Monte Carlo (MCMC) approach to appr
     likelihood (the posterior).
     We start at initial state $\theta^{(1)}$.
     We accept $\theta^{(2)}$ and $\theta^{(3)}$ which leads to regions of higher likelihood but later accept
-    $\theta^{(4)}$, a less likely point due to the randomness of $\mathcal{M}$.
+    $\theta^{(4)}$, a less likely point due to the randomness of $\mathcal{V}$.
     }\label{fig:metropolisAlgorithm}
 \end{figure}
 
@@ -174,9 +175,10 @@ We considered a naive approach to determining the most likely point $\hat{\theta
 in~\autoref{sec:intractableLikelihoodFunctions}, which involved determining the derivative of some function we can
 explicitly express.
 Given that we cannot express our function as such, this is not an option.
-The solution Monte Carlo algorithms propose is choosing $\theta$ randomly.
+The solution Monte Carlo algorithms propose is choosing $\theta$ randomly and select the most likely $\theta$ out of
+all runs.
 
-Let $p : \Theta \rightarrow [0, 1]$ define a probability distribution that determines how we draw $\theta$.
+Let $p$ define a probability distribution that determines how we draw $\theta$.
 $p$ is more commonly known as a \emph{prior distribution}, and allows us to insert any prior beliefs we have about our
 likelihood before finding $\mathcal{L}(\theta)$ itself.
 In Bayesian inference, the characterization of the uncertainty of some $\theta$ given observations $\mathcal{D}$ is
@@ -189,7 +191,7 @@ According to Baye's law, the posterior is proportional to likelihood function we
 If we can explicitly express our posterior, then the $\hat{\theta}$ that maximizes $\Pr(\theta \mid \mathcal{D})$ also
 maximizes $\mathcal{L}(\theta)$.
 
-\subsection{Markov Chain Monte Carlo}\label{subsec:markovChainMonteCarlo}
+\subsection{Markov Chains}\label{subsec:markovChainMonteCarlo}
 With the Monte Carlo strategy, our general procedure now becomes:
 \begin{enumerate}
     \item Draw $\theta_i$ from our prior $p(\theta)$.
@@ -197,7 +199,7 @@ With the Monte Carlo strategy, our general procedure now becomes:
     \item Repeat until we have a representative set of samples.
     \item Fit our samples to a curve, and return the $\hat{\theta}$ that maximizes $\mathcal{L}(\theta)$.
 \end{enumerate}
-The one problem we encounter here though, is our reliance on the prior.
+The main problem with this approach is our reliance on the prior.
 A misinformed prior will produce samples that are not representative of the posterior.
 As an example if $E(p(\theta)) = 500$ but our posterior is centered around $\theta = 1$, we will end up with a small or
 nonexistent posterior.
@@ -219,9 +221,9 @@ $Y$ is said to be at \emph{equilibrium} if the following holds true for some tra
 \begin{equation}
     Y^{(i)} = Y^{(i)} G
 \end{equation}
-The goal of MCMC is to draw samples $X$ from $Y$ such that $Y$ represents $\mathcal{L}(\theta)$.
-Let $X$ represent this \emph{chain} of states, or parameter values $\theta$, that satisfy the following
-conditions to draw from such a distribution~\cite{hanadaMarkovChainMonte2018}:
+The goal of MCMC is to draw samples $X$ from $Y$ such that $Y$ represents our posterior $\Pr (\theta \mid \mathcal{D})$.
+Let $X$ represent this \emph{chain} of states, or parameter values $\theta$, that satisfy the
+conditions below to draw from such a distribution~\cite{hanadaMarkovChainMonte2018}:
 \begin{enumerate}
     \item \emph{$X$ is a Markov chain}.
         The probability of obtaining $X^{(i)} \in X$ from $X^{(i - 1)} \in X$ does not depend on any other configuration
@@ -242,15 +244,17 @@ MCMC comprises a class of algorithms that are able to produce $X$ that satisfy t
 \subsection{Metropolis Algorithm}\label{subsec:metropolisAlgorithm}
 As per our last section, we want to generate some chain of states $X$ such that the given conditions are satisfied.
 In this section, we describe the Metropolis algorithm-- a procedure that is able to generate a chain of states such that
-these conditions are met.
+these conditions above are met.
 There are three main steps to the Metropolis algorithm:
 \begin{enumerate}
-    \item \emph{Proposal}: We define some function $g : \Theta \rightarrow \Theta$ which generates a new $\theta_i$
-        given an old $\theta'$.
+    \item \emph{Proposal}: We define some function $g : \Theta,\mathbb{V} \rightarrow \Theta$ which generates a
+        new and random $\theta_i$ given an old $\theta'$.
         This relates to the transition matrix $G$ from~\autoref{subsec:markovChainMonteCarlo}, and constructs different
         $G$ for different values of $\theta_i$.
         The Metropolis algorithm is a special case of the \emph{Metropolis-Hastings algorithm} in which this proposal is
-        symmetric.
+        \emph{symmetric}.
+        A symmetric proposal indicates that the probability of drawing our new value given our current value is equal to
+        the probability of drawing our current value given our new value.
     \item \emph{Calculate}: We determine the acceptance ratio $\alpha$, which is a ratio of the proposed $\theta^{(i)}$
         to the old $\theta'$.
     \begin{equation}
@@ -295,8 +299,8 @@ hyperparameters \emph{and} some convergence verification process critical.
 
 \section{Maximum Likelihood Estimation}\label{sec:maximumLikelihoodEstimation}
 In this section, we explore a high level view of our approach to maximum likelihood estimation.
-Using the Metropolis sampler, we are able to get a collection of states from a distribution proportional to our
-likelihood $X$.
+Using the Metropolis sampler, we are able to get a collection of states $X$ from a distribution proportional to our
+likelihood.
 We now want to tie this back into our original question: ``Which parameter values $\theta \in \Theta$ are the most
 likely to produce our observations $\mathcal{D}$?''.
 Given states $X$ from our posterior, we determine this most likely point $\theta$ by (a) constructing histograms, (b)
@@ -304,12 +308,12 @@ fitting the histograms to the equation of some distribution, and (c) determining
 
 We start by constructing our histogram.
 For this project, each $\theta$ represents a 2-tuple of $c$ and $d$.
-We start by constructing sets $C, D$ which consists of each $c$ and $d$ element for all $\theta \in X$:
+We construct sets $C, D$ which consist of each $c$ and $d$ element for all $\theta \in X$:
 \begin{align}
     C &= \{c \mid c \in \theta \land \theta \in X \} \\
     D &= \{d \mid d \in \theta \land \theta \in X \}
 \end{align}
-We now want to partitioning each set $C$ and $D$ sets into consecutive, non-overlapping intervals or \emph{bins}
+We now want to partition each set $C$ and $D$ sets into consecutive, non-overlapping intervals or \emph{bins}
 $C^\star$ and $D^\star$ respectively.
 The partitioning itself is governed by the boundaries of our results $[\min(C), \max(C)]$,
 $[\min(D),\max(D)]$, and the \emph{bin widths} $b_c$ and $b_d$ for the $c$ and $d$ parameters respectively.
@@ -322,10 +326,10 @@ This gives us the number of bins:
 \end{equation}
 We build our histogram for $c$ by constructing the function $w_c : [0, |C^\star |] \rightarrow [0, 1]$ that accepts
 an integer that enumerates our bins and outputs the frequency of associated with that bin.
-The end result must follow the property in~\autoref{eq:densityFunction} to ensure that the resulting histogram
+The end result must follow the property in~\autoref{eq:densityFunction} to ensure our histogram
 represents some probability density function.
 \begin{equation} \label{eq:densityFunction}
-    \int_{C^\star} w(i) di = 1
+    \int_{i=C^\star} w(i) di = 1
 \end{equation}
 
 The next step is to fit our histogram $w_c$ to some known distribution.

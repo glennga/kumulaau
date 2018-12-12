@@ -1,5 +1,5 @@
 \chapter{Discussion}\label{ch:discussion}
-In this chapter, we discuss our results after running the ABC-MCMC for our mutation model.
+In this chapter, we discuss our implementation of our ABC-MCMC approach and our results.
 
 \section{Implementation}\label{sec:implementation}
 All algorithms mentioned in this paper were implemented in Python 3.7.
@@ -21,7 +21,7 @@ In this implementation, the following details differ from the descriptions laid 
         specified.
         \emph{We assume $\ell^{(1)}$ to be a nuisance parameter.}
         Given the variance associated with this process, we feel it is safe to assume this parameter does not need to be
-        as precise as our other hyperparameters.
+        as precisely defined as our other hyperparameters.
         We randomly select a repeat length from our observed data, and reduce the number of free parameters from
         four to three.
     \item In an effort to save space, two independent vectors $V$ and $E$ are not allocated for use at the same time
@@ -34,7 +34,7 @@ In this implementation, the following details differ from the descriptions laid 
     \item In addition to recording the states required for Markov chain $X$ in~\autoref{alg:metropolis}, we also record
         the time between acceptances (known as the \emph{waiting time}), the likelihood of that point
         $\mathcal{L}(\theta^{(i)})$ (to avoid computing this later), the average distance associated with the generated
-        data of the accepted parameter set and our observations, the time of acceptance in terms of iterations.
+        data of the accepted parameter set and our observations, and the time of acceptance in terms of iterations.
 \end{enumerate}
 
 \section{Hyperparameters}\label{sec:hyperparameters}
@@ -97,9 +97,9 @@ In this implementation, the following details differ from the descriptions laid 
 \end{figure}
 
 Recall that we must specify hyperparameters in order to determine our parameters of interest: $c, d$.
-Each is listed in~\autoref{tab:hyperparameters} with their symbol name, the value we chose, and a brief description of 
+Each is listed in~\autoref{tab:hyperparameters} with their symbol, the value we chose, and a brief description of
 hyperparameter itself.
-Below we give our reasoning for selecting each parameter:
+Below we give our reasoning for selecting each~\autoref{tab:hyperparameters} value:
 \begin{enumerate}
     \item For all of the microsatellites we collected in~\autoref{ch:dataForParameterEstimation} from ALFRED, the
         lowest observed repeat length we found was $\ell=3$.
@@ -109,7 +109,7 @@ Below we give our reasoning for selecting each parameter:
         We set $\Omega = 30$ for this reason.
     \item The sample size $n$ heavily influences the computation time of our simulator.
         Per Metropolis sampler iteration, we generate $n \cdot T_1 \cdot | \mathcal{D} |$ lineages.
-        We found that $n=100$ was on the lower end of sample sizes found in ALFRED observations, but this allowed for us
+        We found that $n=100$ was on the lower end of sample sizes found in ALFRED observations, but this allowed us
         to simulate samples within a reasonable amount of time.
     \item We chose to follow Hudson's approach and drew our edge lengths from an exponential distribution with the mean
         $\sfrac{N}{\binom{\rho(e)}{2}}$.
@@ -128,7 +128,7 @@ Below we give our reasoning for selecting each parameter:
         We found $\epsilon=0.55$ to be a good compromise between accuracy and computation time.
     \item As mentioned in the point for sample size, $T_1$ is another major factor in computation time.
         If $T_1$ is too small, we end up with probabilities that are not representative of our posterior.
-        If $T_2$ is too large, our computation time becomes too long.
+        If $T_1$ is too large, our computation time becomes too long.
         We found that $T_1 = 100$ was able to reasonably account for our simulator variance.
     \item The starting $c$ parameter $\theta^{(1)}_c$ was tuned by running our sampler to obtain various Markov chains
         $\mathcal{X}$ and selecting the average of the most likely $c$ values $\hat{c}$ for each chain.
@@ -146,16 +146,18 @@ Below we give our reasoning for selecting each parameter:
         These were found in the same manner as our $\epsilon$ term: running several instances of sampler to obtain
         $\mathcal{X}$ and decreasing $\sigma_c$ as we become more and more confident in our starting parameters.
         We found $\sigma_c = 0.0010$ after running this procedure.
-    \item Running a similar procedure for the proposal deviation associated with $d$, we found $\sigma_d = 0.0001$.
+    \item Running a similar procedure for the proposal normal distribution deviation associated with $d$, we found
+        $\sigma_d = 0.0001$.
     \item Our Metropolis sampler is able to generate a Markov chain with $\Pr(\theta \mid \mathcal{D})$ as its
         equilibrium distribution \emph{given an infinite amount of time}.
-        Given that this is not the case, we must choose some $T_2$ such that our target distribution converged
+        To make this problem tractable, we must choose some $T_2$ such that our target distribution converged
         at some Metropolis iteration before $T_2$.
         We have selected $T_2 = 55,000$ for this run.
     \item The histogram bin size is associated with the proposal function step size.
         A larger $\sigma_c, \sigma_d$ will result in wider distributions, leading to an increase in $b_c, b_d$ to
         ensure that our bin frequencies correctly resolve our posterior.
-        This was found after creating several different histograms with different $b_c$ until some density appeared.
+        This parameter was found after creating several different histograms with different $b_c$ until some density
+        appeared.
         We found $b_c = 0.001$ to resolve our posterior well given our current $\sigma_c$.
     \item Using the same procedure for $b_c$, we found $b_d = 0.0001$ to resolve our posterior well given our
         current $\sigma_d$.
@@ -185,7 +187,7 @@ A visual approach to assessing Markov chain convergence is to look at how our Ma
 time.
 All three are shown to move in the same neighborhood, although the ideal plot here would be a set of straight, thick,
 and tightly distributed lines.
-This indicates that we need to run our MCMC for longer to strengthen our confidence that we are sampling from the
+This indicates that we need to run our MCMC longer to strengthen our confidence that we are sampling from the
 correct distribution.
 
 \section{Downward Linear Bias: $d$}\label{sec:downwardLinearBias}
@@ -202,7 +204,13 @@ The most likely parameter $\hat{d}$ is given below:
 \begin{equation}
     \hat{d} = 0.001082 \pm 2.549 \cdot 10^{-7}
 \end{equation}
+Using both $\hat{c}$ and $\hat{d}$, we get the following focal unit for the Columbian populace:
+\begin{equation}
+    \hat{\ell} \sim 13
+\end{equation}
 
 The trace plot for $d$ is shown in~\autoref{fig:dTrace}.
-Same with $c$, all three are shown to move in the same neighborhood, but we would need to run our MCMC for longer
+Same with $c$, all three are shown to move in the same neighborhood, but we would need to run our MCMC longer
 to strengthen our confidence that our chain has converged.
+
+

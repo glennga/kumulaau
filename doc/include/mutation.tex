@@ -9,8 +9,8 @@ assumptions.
 
 The simplest model of microsatellite mutation and evolution is the stepwise mutation
 model of Ohta and Kimura~\cite{ohtaModelMutationAppropriate2007}.
-Let $f : \mathbb{M} \rightarrow \mathbb{M}$ represent some function that accepts some repeat unit and outputs some
-repeat unit.
+Let $f : \mathbb{M},\mathbb{V} \rightarrow \mathbb{M}$ represent some function that accepts some repeat unit and random
+variables $\mathcal{V} \in \mathbb{V}$, and outputs some repeat unit.
 Given a population $\pi^{(t)}$ at generation $t$ and some repeat unit $\ell^{(t)} \in \pi^{(t)}$, there are three
 possibilites for the mutated repeat unit in the next generation $f(\ell^{(t)}) = \ell^{(t+1)}$:
 \begin{equation}
@@ -43,7 +43,7 @@ This is modeled by the procedure below:
         for the geometric distribution $m$.
     \item Sample three numbers from a uniform random distribution: $x_u, x_d, x_p \sim U(0, 1)$.
     \item If $p > x_p$, then we set the changes in repeat unit $\Delta_u = 1, \Delta_d = 1$.
-        Otherwise, we sample our changes in repeat unit from a geometric distribution:
+        Otherwise, we sample our changes from a geometric distribution:
         $\Delta_u, \Delta_d \sim \mathit{Geom}(m)$.
     \item If $\mu_u > x_u$, then $f(\ell^{(t)}) = \ell^{(t)} + \Delta_u$.
     \item If $\mu_d > x_d \land \mu_u \leq x_u$, then $f(\ell^{(t)}) = \ell^{(t)} - \Delta_d$.
@@ -97,7 +97,7 @@ For this reason, our model restricts repeat units to mutate by at most one per g
         \Return $\ell^{(t+1)}$ \;
     }
 %    \textbf{end} \;
-    \caption{The algorithmic description for $f: \mathcal{M} \rightarrow \mathcal{M}$.
+    \caption{The algorithmic description for $f: \mathbb{M},\mathbb{V} \rightarrow \mathbb{M}$.
     To stay consistent with the definition of $f$ we denote $c$ and $d$ as parameters of the model itself.}
     \label{alg:mutateFunction}
 \end{algorithm}
@@ -118,16 +118,16 @@ In this case, our repeat unit dependence would be represented by:
     \mu = s \cdot \exp (\ell)
 \end{equation}
 Following Sainudiin's general model which included only linear dependence, we made the decision to use the first
-equation(\autoref{eq:linearRepeatUnitDependence}).
+equation (\autoref{eq:linearRepeatUnitDependence}).
 
 \section{Presence of Mutational Bias}\label{sec:presenceOfMutationalBias}
 There now exists a mutation rate dependence on repeat unit, but the probability of mutating up or down is still
 equally likely.
-Garza's proposed that microsatellites mutate toward a \emph{focal
+Garza's observed that microsatellites tend to mutate toward a \emph{focal
 unit}~\cite{garzaMicrosatelliteAlleleFrequencies1995}.
 If the repeat unit of interest $\ell$ is below the focal length at some generation $t$, $\ell$ will have a higher
 probability of mutating upward than downward in the following generations.
-Conversely, if $\ell$ is above the focal length at some generation $t$, $\ell$ will have a higher probability of
+Conversely if $\ell$ is above the focal length at some generation $t$, $\ell$ will have a higher probability of
 mutating downward than upward in the following generations.
 
 Sainudiin's general model uses the functions $\beta : \ell, s \mapsto [0, 1]$ and $\alpha : u, v, \ell \mapsto [0, 1]$
@@ -138,16 +138,16 @@ to establish these biases:
 \end{align}
 where $\beta$ is the rate of mutation and $\alpha$ is probability that our repeat unit is incremented (expanded).
 Here $u$ represents some constant bias applied toward expansion and $v$ represents the linear bias toward expansion.
-A focal length $\hat{\ell} = ((u - 0.5) / v)$ is specified if we have a greater tendency toward
+A focal unit $\hat{\ell} = ((u - 0.5) / v)$ is specified if we have a greater tendency toward
 expansion at lower repeat units ($0.5 < u < 1$) and if the following holds:
 $(u - 0.5) / (\Omega - \kappa) < v < \infty$~\cite{sainudiinMicrosatelliteMutationModels2004}.
-In other words, a focal length is defined where the probability of expansion equals the probability of contraction.
+In other words, a focal unit is defined where the probability of expansion equals the probability of contraction.
 
 \section{Proposed Mutation Model}\label{sec:proposedMutationModel}
 This now brings us to our complete mutation model.
-To introduce a bias toward some focal length, we define two mutation rates: the upward mutation rate $\mu_u$ and the
+To introduce a bias toward some focal unit, we define two mutation rates: the upward mutation rate $\mu_u$ and the
 downward mutation rate $\mu_d$.
-The total mutation rate is the sum of the two $\mu = \mu_u + \mu_d$.
+The total mutation rate is the sum of the two: $\mu = \mu_u + \mu_d$.
 We define $\mu_d$ to be dependent on repeat unit, and $\mu_u$ to be constant:
 \begin{align}
     \mu_u &= c \\
@@ -156,7 +156,7 @@ We define $\mu_d$ to be dependent on repeat unit, and $\mu_u$ to be constant:
 where $c$ represents a constant bias for the upward mutation (or, the upward mutation rate itself) and $d$ represents a
 linear bias for the downward mutation rate.
 We constrain $c > 0, d \geq 0$ to ensure that mutation is always occurring.
-The focal length $\hat{\ell}$ is defined as the intersection between the upward and downward mutation rate, where the
+The focal unit $\hat{\ell}$ is defined as the intersection between the upward and downward mutation rate, where the
 probability of expansion equals to the probability of contraction.
 \begin{equation}
     \hat{\ell} = \frac{c}{d}

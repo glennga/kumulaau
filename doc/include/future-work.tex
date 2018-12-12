@@ -19,7 +19,8 @@ This problem is highly parallelizable, but we are only running at most 20 tasks 
 The GPU would allow us to run thousands of tasks in parallel, (ideally) resulting in less runtime.
 
 \section{Mutation Model}\label{sec:mutationModel}
-We were able to obtain estimates for our mutation model, we need to further verify that these parameters are correct.
+We were able to obtain estimates for our mutation model, but we need to further verify that these parameters are
+correct.
 There exists three main areas of future work:
 \begin{enumerate}
     \item Verifying the model using more populations.
@@ -28,8 +29,8 @@ There exists three main areas of future work:
     \item Comparing the total mutation rate to that of other \texttt{GATA} microsatellites in different literature.
     \item Running our MCMC longer.
         As seen in the previous section, our trace was not the ideal shape but it showed hints toward convergence.
-        The easiest way to increase our number of iterations $T_2$, which would show a straighter and thicker line if
-        we have truly converged.
+        The easiest solution here to increase our number of iterations $T_2$, which would show a straighter and thicker
+        line if we have truly converged.
     \item Retrieving more statistics about our Metropolis sampler.
         We visually assessed Markov chain convergence by looking at the trace plot, but there exist other metrics
         that could be explored (see~\cite{cowlesMarkovChainMonte1996}).

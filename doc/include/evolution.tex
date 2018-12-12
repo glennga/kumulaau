@@ -1,6 +1,6 @@
 \chapter{Simulating Evolution}\label{ch:simulatingEvolution}
-In this chapter we cover how we represent microsatellites in this paper, the major different variations for simulation,
-and the approach we take.
+In this chapter we cover how we represent microsatellites, the different variations of simulation,
+and which simulation approach we take.
 
 \section{Microsatellite Representation}\label{sec:microsatelliteRepresentation}
 Let $\ell$ represent an integer associated with number of repeat units of a single microsatellite variation.
@@ -25,7 +25,7 @@ We denote this space to be $\mathbb{M}$:
 Let $\pi^{(t)}$ represent an $N$-sized tuple, or microsatellite \emph{population} of sequences
 $\left(\ell_1, \ell_2, \ldots \ell_{N}\right)$ in a human population of size $\frac{N}{2}$ at generation $t$.
 There exist two microsatellites variations per individual in a human population, but we relax the constraint that
-each individual is associated with two sequences in $\pi^{(t)}$ for brevity.
+each human is associated with two sequences in $\pi^{(t)}$ for brevity.
 The unit of interest here is the microsatellite variation itself, which moves through generations while collecting or
 losing repeats until we reach the same generation our observations are recorded in.
 
@@ -48,24 +48,24 @@ In order to simplify this problem, we assume the Wright-Fisher population model:
 \subsection{$\pi^{(t)}$ To $\pi^{(t+1)}$ Evolution}\label{subsec:piTopiEvolution}
 Let $\pi^{(t)}$ represent an effective microsatellite population at generation $t$, of size
 $\left|\pi^{(t)} \right| = N$.
-A forward simulation starts with population $\pi^{(1)}$, and evolves this population until all members of the current
-population $\pi^{(\overbar{t})}$ shares a sole common ancestor.
+A forward simulation starts with population $\pi^{(1)}$, and evolves this until all members of the current
+population $\pi^{(\overbar{t})}$ share a sole common ancestor.
 Starting from $\pi^{(1)}$, we chose $N$ individuals from $\pi^{(1)}$ with replacement.
 For each individual chosen, we define the next generation $\pi^{(2)}$ as the output of this individual run through some
-stochastic mutation process $f$.
-$f$ is defined as $f : \mathbb{M} \rightarrow \mathbb{M}$, which takes some repeat unit and outputs another
-repeat unit.
+mutation process $f$.
+$f$ is defined as $f : \mathbb{M},\mathbb{V} \rightarrow \mathbb{M}$, which takes some repeat unit and random variables
+$\mathcal{V}$ in space $\mathbb{V}$, and outputs another repeat unit.
 To generate $\pi^{(3)}$, we repeat the process to construct $\pi^{(2)}$ using $\pi^{(2)}$ instead of $\pi^{(1)}$ as
 our ancestor populace.
 This is repeated until we reach $\pi^{(\overbar{t})}$.
 
 An example of the Wright-Fisher evolution process is given in~\autoref{fig:wrightFisherEvolution}.
-Here, there exists two populations: a parent population $\pi^{(t+1)}$ and a child population $\pi^{(t)}$, both of
+There exist two populations here: a parent population $\pi^{(t+1)}$ and a child population $\pi^{(t)}$, both of
 size $N=8$.
 Note that two individuals from the parent population $\ell^{(t)}_5, \ell^{(t)}_6$ do not move to $\pi^{(t+1)}$, a
 consequence of choosing descendants \emph{with replacement} from our ancestors.
-As we evolve through more generations, we eventually end up our entire population sharing some individual from
-$\pi^{(t)}$.
+%As we evolve through more generations, we eventually end up our entire population sharing some individual from
+%$\pi^{(t)}$.
 
 \begin{figure}[t]
     \centering{\input{include/floats/wright-fisher-model.tex}}
@@ -111,7 +111,7 @@ in $\pi^{(t-2)}$ is:
 \end{equation}
 If we ask the same question but for $\pi^{(t-3)}$, we get
 $p(2, t-3) = \frac{1}{N} \cdot  \left(1 - \frac{1}{N}\right)^2$.
-Noting that this probability $p$ is geometrically distributed, we can generalize $p$ for having two individual share a
+Noting that this probability $p$ is geometrically distributed, we can generalize $p$ for having two individuals share a
 common ancestor $y$ generations ago:
 \begin{equation}
     p(2, t-y) = \frac{1}{N} \cdot \left(1 - \frac{1}{N}\right)^{y-1}
@@ -119,7 +119,8 @@ common ancestor $y$ generations ago:
 with $p(2, t-y)$ having mean $E_2 = N$.
 The mean $E_2$ is interpreted as the expected number of generations until $n=2$ individual \emph{coalesce}.
 
-Now we look at the probability that $n=3$ individuals in $\pi^{(t)}$ share a parent from $\pi^{(t-1)}$.
+Now we look at the probability that two individuals out of $n=3$ individuals in $\pi^{(t)}$ share a parent
+from $\pi^{(t-1)}$.
 Here, we asking how many pairs can be formed with $n=3$ out of the entire population:
 \begin{equation}
     p(3, t-1) = \frac{3}{N}
@@ -144,13 +145,12 @@ Going back to our original question, what is the \emph{average} time until $n$ i
 Let us start with the average time until two individuals coalesce: $E_2 = N$ generations.
 The average time until three individuals coalesce is the average time until any two individuals coalesce \emph{plus} the
 average time until coalescence occurs in any three individuals.
-For all $n$ individuals, this average time must be greater than:
-\begin{equation}
-    \begin{aligned}
-        \overbar{t} >& \sum_{i=2}^{n} E_i \\
-        \overbar{t} \gtrapprox& \ 2N
-    \end{aligned}
-\end{equation}
+For all $n$ individuals, this average time constraint is defined in~\autoref{eq:exactExpectedCoalescenceTime}.
+We approximate this further in~\autoref{eq:approximateExpectedCoalescenceTime}.
+\begin{align}
+    \overbar{t} >& \sum_{i=2}^{n} E_i \label{eq:exactExpectedCoalescenceTime} \\
+    \overbar{t} \gtrapprox& \ 2N \label{eq:approximateExpectedCoalescenceTime}
+\end{align}
 
 \subsection{Effective Population $\hat{\pi}$ Sampling}\label{subsec:effectivePopulationPiSampling}
 To circumvent the inefficient space strategy of tracking all lineages formed, we instead chose to simulate to a fixed
@@ -162,7 +162,7 @@ The problem here, is that our sample of $n$ individuals may not share a common a
 
 The simplest approach to mitigate the impact of this problem is to run our simulation process longer than the expected
 time to coalescence.
-This allows us to strengthen our belief that more individuals in $\pi^{(2N)}$ have coalesced.
+This allows us to strengthen our belief that all individuals in $\pi^{(2N)}$ share a common ancestor.
 We denote this additional running time as $t_\epsilon$, a tunable parameter of our procedure.
 This makes our minimum running time:
 \begin{equation}
@@ -176,9 +176,9 @@ Once we have run the evolution process for $\overbar{t}$ generations, we sample 
     \DontPrintSemicolon
     \Fn{ForwardSimulator \ {$(\ell^{(1)}, N, n, t_{\epsilon}, f(\ell))$}} {
         \KwIn{a common ancestor $\ell^{(1)}$, population size $N$, sample size $n$, extra running time $t_\epsilon$,
-        a single-generation mutation function $f$}
+        a single-generation mutation function $f$, where $\mathcal{V}$ is implicit}
         \KwOut{a sample from the resultant population $\tilde{\pi}$}
-        $\pi^{(t-1)} \gets \{ \ell_1 \}$  \
+        $\pi^{(t-1)} \gets \{ \ell_1 \}$,  \
         $\pi^{(t)} \gets \emptyset$ \;
         \For{$t \gets 2$ \KwTo $t_\epsilon + 2N - 1$} {
             \For{$j \gets 1$ \KwTo $N$} {
@@ -203,17 +203,17 @@ The function for forward evolution is presented in~\autoref{alg:forwardEvolution
         individuals in $\pi^{(1)}$ get thrown away.
         With this approach, we only need to worry about one parameter.
     \item Mutation is discussed in detail in~\autoref{ch:modelingMutation}.
-        For now, we define $f(\ell)$ to be some function $f : \mathbb{M} \rightarrow \mathbb{M}$ which
-        takes some repeat unit and returns another repeat unit.
-    \item We start by defining our storage vectors, $\pi^{(t-1)}$ and $\pi^{(t)}$.
+        For now, we define $f(\ell)$ to be some function $f : \mathbb{M}, \mathbb{V} \rightarrow \mathbb{M}$ which
+        takes some repeat unit and random variables, and returns another repeat unit.
+    \item We start by defining our storage sets, $\pi^{(t-1)}$ and $\pi^{(t)}$.
         These hold the ancestor and descendant generations respectively.
-        Both are of size $N$, the effective population size.
     \item The simulation is run for $t_\epsilon + 2N$ generations.
         At each generation $t - 1$ we randomly sample $N$ individuals, apply our mutation function $f$, and store the
         resultant in descendant generation $\pi^{(t)}$.
-        After this process, the current descendant generation $\pi^{(t)}$ becomes the next ancestor generation
+        The current descendant generation $\pi^{(t)}$ then becomes the next ancestor generation
         $\pi^{(t+1)}$ as we increment $t$.
-    \item Once we have reached the end generation, we return $n$ randomly sampled individuals from the last generation.
+    \item Once we have reached $t_\epsilon + 2N$ iterations, we return $n$ randomly sampled individuals from the last
+        generation.
 \end{enumerate}
 
 %The time complexity $T_\text{forward}$ of this algorithm is strictly bounded by $N$.
@@ -262,61 +262,61 @@ Nearly two-million individuals are needlessly generated to produce only 100 end 
 \end{figure}
 
 A backwards simulation reduces $\mathcal{N}_{waste}$ to 0 for all values of $n$ by only working with individuals
-involved in a coalescent event.
+that contribute to the end population.
 Instead of working from generation to generation, this type of simulation works from one \emph{coalescent event} to
 another.
-This allows us to abstract away from generational time steps for now, and build a \emph{coalescent tree}.
-More precisely, we are going to work with Kingman's coalescent trees.
+This allows us to abstract away from generational time steps (for now), and build a \emph{coalescent tree}.
+The type of coalescent tree we are working with is known as a Kingman's coalescent.
 These follow a structure similar to~\autoref{fig:coalescentTree}, varying only in which parent node connects two child
 nodes.
 
 To start, we define $\pi^{(t)}_i$ as the repeat unit associated with some individual $\ell$ in population $\pi$ at
-generation $t$, and $v_j$ a node associated with this repeat unit, enumerated by $j$ for a set of
-populations.
+generation $t$.
+We define $v_j$ as a node associated with this repeat unit, enumerated by $j$ for a set of populations.
 Let $V$ represent the set that holds all nodes used in an instance of a Kingman's coalescent.
 $V$ can be thought of as all the nodes associated with the evolutionary tree, or graph, that we are building.
 
-To state that some node $v_a$ is the direct descendant of $v_b$ is to use the following \emph{directed} edge:
+To state that some node $v_a$ is the direct ancestor of $v_b$ is to use the following \emph{directed} edge:
 \begin{equation}
-    (v_a, v_b) \Leftrightarrow v_a \text{ directly descends from } v_b
+    (v_a, v_b) \Leftrightarrow v_a \text{ descends directly to } v_b
 \end{equation}
 Building the set of directed weighted edges $E$ that connect our graph requires the conditions given below.
 \begin{enumerate}
-    \item For some edge $(v_a, v_b)$, $v_a$ must exist in a generation after $v_b$.
-        This implies that $v_1$ is the sink of our graph and all nodes in the generation-to-be-sampled $\hat{\pi}$ are
-        sources.
+    \item For some edge $(v_a, v_b)$, $v_a$ must exist in a generation before $v_b$.
+        This implies that $v_1$ is the source of our graph and all nodes in the generation-to-be-sampled $\hat{\pi}$ are
+        sinks.
     \item For some edge $(v_a, v_b)$, both $v_a$ and $v_b$ must exist in the set of nodes associated with some instance
         of a Kingman's coalescent $V$.
     \item Recall that all individuals of a Kingman's coalescent at generation $t$ are copied into the following
         generation, with only one individual being copied twice.
         Let $V^{(t)}$ represent all nodes used in the Kingman's coalescent that exist in population $\pi^{(t)}$ at
         generation $t$.
-        For all edges formed using $V^{(t+1)}$ and $V^{(t)}$, there exists only two edges $(v_a, v_b), (v_c, v_b)$ where
-        the ancestor node $v_b$ is seen twice.
+        For all edges formed using $V^{(t+1)}$ and $V^{(t)}$, there exists only two edges $(v_a, v_b), (v_a, v_c)$ where
+        the ancestor node $v_a$ is seen twice.
         For all other edges the descendant node must be unique \& from $V^{(t)}$, and the ancestor node must also be
         unique \& from the set $V^{(t+1)}$.
         This constraint is illustrated with the coalescent tree examples in~\autoref{fig:coalescentTree}.
-    \item Each edge $(v_a, v_b)$ has an associated weight, representing the difference in generations between nodes
-        $v_a$ and $v_b$.
-        For an edge $e \in E$, this weight is found using the function $\tau : E \rightarrow \mathbb{Z}^+$.
-
+    \item Each edge $(v_a, v_b)$ has an associated weight, representing the difference in generations (i.e.\ time)
+        between nodes $v_a$ and $v_b$.
+        For an edge $e \in E$, this weight is found using the function $\tau : E, \mathbb{V} \rightarrow \mathbb{Z}^+$.
+        Again, our random variables $\mathbb{V}$ indicate that the generation selected for each node is random.
 \end{enumerate}
 
 \subsection{Coalescent Repeat Unit Resolution}\label{subsec:coalescentRepeatLengthResolution}
 Constructing the tree is the first step associated with obtaining a sample of $n$ individuals.
-The next step is to determine the repeat units associated with some node $v_i \in V$.
-We define the function $\lambda : E \rightarrow \mathbb{M}$ which resolves the repeat unit of some
-individual of our coalescent tree given some edge $e \in E$, and our mutation function $f$.
+The next step is to determine which repeat units are associated with some node $v_i \in V$.
+We define the function $\lambda : E,\mathbb{V} \rightarrow \mathbb{M}$ which resolves the repeat unit of some
+individual of our coalescent tree.
 For all edges $(v_i, v_j) \in E$, the repeat unit $\ell_i$ associated with node $v_i$ is given by running
 $\ell_i$ through $f$ for a set number of generations to $v_j$.
 The next question of interest is, ``How many generations do we apply $f$ for?''.
 
 In~\autoref{sec:forwardSimulation}, we determined that the expected time between coalescent events for $n$ individuals
 in a population of size $N$ (\autoref{eq:expectedMeanCoa}).
-This number naturally emerged as a result of the Wright-Fisher evolution process, but we must manually define this time
-with the coalescent abstraction.
-Let $\tau_N(e)$ represent a function $\tau_N : E \rightarrow \mathbb{Z}^+$ that takes some edge $e$ as input and returns
-the number of generations between the associated nodes.
+This number naturally emerged as a result of the Wright-Fisher evolution process, but we must manually define
+this time if we are to use the coalescent abstraction.
+Let $\tau_N(e)$ represent a function $\tau_N : E, \mathbb{V} \rightarrow \mathbb{Z}^+$ that takes some edge $e$ as input
+and returns the number of generations between the associated nodes.
 The most common approach is to draw these generations from an exponential distribution with mean
 $\frac{N}{\binom{\rho(e)}{2}}$~\cite{hudsonGeneGenealogiesCoalescent1990}:
 \begin{align}
@@ -340,8 +340,8 @@ Once we have visited each node, we return the repeat units associated with our l
     \SetAlgoLined
     \DontPrintSemicolon
     \Fn{TwoStageBackwardSimulator \ {$(\ell^{(1)}, n, f, \tau_N)$}} {
-        \KwIn{a common ancestor $\ell^{(1)}$, sample size $n$, a single-generation mutation function $f$, a generation
-        determination function $\tau_N$}
+        \KwIn{a common ancestor $\ell^{(1)}$, sample size $n$, a single-generation mutation function $f$ where
+        $\mathcal{V}$ is implicit, a generation determination function $\tau_N$ where $\mathcal{V}$ is implicit}
         \KwOut{a sample from the resultant population $\tilde{\pi}$}
         $V \gets $ an empty $\binom{2N}{2}$ sized vector,
         $E \gets $ an empty $(\binom{2N}{2} - 1)$ sized vector \;
@@ -351,10 +351,10 @@ Once we have visited each node, we return the repeat units associated with our l
             $E' \gets $ an empty $i$ sized vector,
             $A \gets \{ a \mid a \in [\binom{i - 1}{2} + 1, \binom{i}{2}] \land i \in \mathbb{Z} \}$ \;
             \For{$j \gets \binom{i - 1}{2} + 1$ \KwTo $\binom{i}{2}$} {
-                $E'[j] \gets (V[a'], V[i]),$ where $a'$ is randomly selected from $A$ \;
+                $E'[j] \gets (V[i], V[a']),$ where $a'$ is randomly selected from $A$ \;
                 $A \gets A - \{ a' \}$ \;
             }
-            $E'[i + 1] \gets (V[a'], V[i + 1])$, where $ a' \text{ is randomly selected from } \{ a \mid a \in
+            $E'[i + 1] \gets (V[i + 1], V[a'])$, where $ a' \text{ is randomly selected from } \{ a \mid a \in
             [1, \binom{i}{2}] \land i \in \mathbb{Z} \}$ \; \label{algline:coalescentEvent}
             $E[\binom{i}{2}:\binom{i + 1}{2}] \gets \hat{E}$ \;
         }
@@ -362,7 +362,7 @@ Once we have visited each node, we return the repeat units associated with our l
 %        \;
         $V[1] \gets \ell_1$ \;
         \For(\tcc*[f]{Stage 2: Determine the repeat units.}){$i \gets 2$ \KwTo $| V |$} {
-            $v' \gets $ the incoming node attached to $E[i]$ \;
+            $v' \gets $ the outgoing node attached to $E[i]$ \;
             \For{$j \gets 1$ \KwTo $\tau_N(e)$} {
                 $v' \gets f(v')$ \;
             }
@@ -400,8 +400,8 @@ The function for backward evolution is presented in~\autoref{alg:twoStageBackwar
         Starting from the given common ancestor, we perform BFS by visiting the incoming nodes attached to edges in
         the order they were created in.
         Maintaining this order allows us to avoid having to specify the depth determination function $\rho(e)$.
-        For each incoming node $v'$ attached to edge $e$, we applying our mutation process $\tau_N(e)$ times.
-        The result is saved the the outgoing node attached to $e$.
+        For each outgoing node $v'$ attached to edge $e$, we apply our mutation process $\tau_N(e)$ times.
+        The result is saved to the incoming node attached to $e$.
         This is repeated for all edges.
     \item We return the leaves associated with our tree: the last $n$ elements of the $V$ vector.
 \end{enumerate}

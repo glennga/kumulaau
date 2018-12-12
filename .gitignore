@@ -19,7 +19,6 @@ data/0*
 
 # Ignore any output produced by TeX.
 doc/build/*
-*.pdf
 *.aux
 *.log
 *.db
