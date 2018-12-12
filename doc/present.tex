@@ -10,7 +10,7 @@
 \setbeamerfont{page number in head/foot}{size=\fontsize{9}{11}}
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{section in toc}{\inserttocsectionnumber.~\inserttocsection}
-\setbeameroption{show notes}  % Comment this out to not show the notes.
+%\setbeameroption{show notes}  % Comment this out to not show the notes.
 %\setbeameroption{show only notes}  % Uncomment this to only show notes.
 
 \author{Glenn Galvizo, under Dr. Floyd Reed}
@@ -79,7 +79,7 @@
 	\begin{frame}
 		\frametitle{What is the goal of this research?}
         \begin{block}{Research Question}
-            \emph{Which microsatellite mutation model parameters most likely produce our observed data?}
+            \emph{Which microsatellite mutation model parameters are the most likely to produce our observed data?}
         \end{block} \medskip
 
         \begin{block}{Essential Questions}
@@ -210,9 +210,9 @@
                 \item Our first point comes from Ohta and Kimura: \ldots
                     Our second point comes from Ellegren: \ldots
                     The third point comes from Garza: \ldots
-                \item This brings us to our model: in a graph of mutation rate vs.\ repeat length we have two positively
-                    sloped lines that always intersect each other, using three parameters: $c, u, d$\ldots
-                \item $c$ is a constant bias for the upward mutation rate and $d$ is the linear bias for the downward
+                \item This brings us to our model: in a graph of mutation rate vs.\ repeat length we have two
+                    lines that always intersect each other, using two parameters: $c, d$\ldots
+                \item $c$ is the upward mutation rate and $d$ is the linear bias for the downward
                     mutation rate.
                 \item This model allows us to move from one generation to the next, how we do simulate lineages and
                     entire populations using this?
@@ -301,7 +301,7 @@
                             \item Compute distance between generated and observed samples.
                             \item Count number of generated samples where distance is below some threshold.
                             \item Results in wider and flatter
-                                distribution~\cite{lintusaariFundamentalsRecentDevelopments2017}.
+                                distribution (red vs.\ blue)~\cite{lintusaariFundamentalsRecentDevelopments2017}.
                         \end{enumerate}
                 \end{itemize}
             \end{column}
@@ -361,7 +361,7 @@
                     explore.
                     We can maximize an equation, but don't have that here.
                     In better words, how can we get an equation?
-                \item Our solution to maximizing the likelihood is a technique known as MCMC.
+                \item Our solution to this problem involves a technique known as MCMC.
                 \item All MCMC does is randomly walk around our distribution, but waits longer in areas of higher
                     likelihood.
                     In our example here, we move up and up, but may jump back down a small amount.
@@ -380,8 +380,8 @@
         \centering{
 %            Mutation Rate Equations: $\mu_u = c$, $\mu_d = d\ell$
             \input{include/floats/present/histogram-data.tex}
-            \textbf{Focal length $\bm{\hat{\ell} \approx 13}$, \ Effective population size
-            $\bm{N \approx 10,000}$}
+%            \textbf{Focal length $\bm{\hat{\ell} \approx 13}$, \ Effective population size
+%            $\bm{N \approx 10,000}$}
         }
 %        \begin{align*}
 %            \left( \mu_u = c \right) &\rightarrow \left( \hat{\mu_u} = 0.017 \pm 2.0\text{e-}7 \right) \\
@@ -407,8 +407,6 @@
                 \item All of the code was written in Python, optimized by Numba, and ran on the Cray supercomputer here
                     at UH.
                 \item The optimal values are \ldots
-                \item We started by talking about demographic models, and ended with mutation models.
-                    To close the loop, we can actually % TODO: ...
             \end{enumerate}
         }
     \end{frame}
@@ -439,8 +437,8 @@
                 \item For this specific research question, we need to use samples from different locations\ldots
                 \item We need to verify and test the accuracy of these parameters.
                 \item We need to run longer simulations.
-                \item After we are confident in our model, we can explore different demographic models to\ldots
-                \item And %TODO ...
+                \item After we are confident in our model, we can explore different demographic models to work
+                    toward the big question\ldots
             \end{enumerate}
         }
     \end{frame}
@@ -517,6 +515,20 @@
         \tiny
         \bibliographystyle{plain}
         \bibliography{include/references}
+    \end{frame}
+
+    \begin{frame}
+        \centering{\huge Extra Slides}
+    \end{frame}
+
+    \begin{frame}
+        \frametitle{Assessing MCMC Convergence (Trace Plots)}
+            \vspace*{0.3cm}
+            \centering{
+            \input{include/floats/present/c-trace.tex} \newline
+            \vspace*{-1cm}
+            \input{include/floats/present/d-trace.tex}
+        }
     \end{frame}
 
     % Bringing it all together: estimate effective population size, want to
