@@ -54,6 +54,7 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
         VALUES (?, ?, ?)
     """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
 
+    # noinspection SqlInsertValues
     cursor.executemany(f"""
         INSERT INTO WAIT_MODEL
         VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});

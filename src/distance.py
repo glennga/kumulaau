@@ -73,7 +73,7 @@ class Distance(ABC):
         :param sql_observed: A dictionary mapping repeat lengths to frequencies. This is format returned by SQLite.
         :return: None.
         """
-        from numpy import zeros, array
+        from numpy import array
 
         # Cast our observed frequencies into numbers.
         observation_dictionary = [{int(a[0]): float(a[1]) for a in b} for b in sql_observed]

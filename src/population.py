@@ -263,8 +263,9 @@ class Population(object):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser, ArgumentParser
-    from matplotlib import pyplot as plt
     from timeit import default_timer as timer
+    from numpy import std, average
+    from matplotlib import use
 
     parser = ArgumentParser(description='Simulate the evolution of single population.')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
@@ -279,15 +280,20 @@ if __name__ == '__main__':
     paa('-omega', 'Upper bound of repeat lengths.', int)
     main_arguments = parser.parse_args()  # Parse our arguments.
 
-    # Evolve some population 500 times.
+    use('TkAgg')  # Use a different backend (plotting to display).
+    from matplotlib import pyplot as plt
+
+    # Evolve some population 1000 times.
     start_t = timer()
-    [Population(BaseParameters.from_args(main_arguments)).evolve(array(main_arguments.i_0)) for _ in range(500)]
+    main_descendants = \
+        [Population(BaseParameters.from_args(main_arguments)).evolve(array(main_arguments.i_0)) for _ in range(1000)]
     end_t = timer()
-    print('Time Elapsed (500x): [\n\t' + str(end_t - start_t) + '\n]')
+    print('Time Elapsed (1000x): [\n\t' + str(end_t - start_t) + '\n]')
 
-    main_population = Population(BaseParameters.from_args(main_arguments))
-    main_descendants = main_population.evolve(array(main_arguments.i_0))
+    # Determine the variance and mean of the generated populations.
+    print('Mean (1000x): [\n\t' + str(average(main_descendants)) + '\n]')
+    print('Deviation (1000x): [\n\t' + str(std(main_descendants)) + '\n]')
 
-    # Display a histogram.
-    plt.hist(main_descendants, bins=range(min(main_descendants), max(main_descendants)))
+    # Display a histogram of the first generated populace.
+    plt.hist(main_descendants[0], bins=range(min(main_descendants[0]), max(main_descendants[0])))
     plt.savefig(main_arguments.image) if main_arguments.image is not None else plt.show()

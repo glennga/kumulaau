@@ -210,7 +210,7 @@ if __name__ == '__main__':
     cursor_r = connection_r.cursor()
 
     # Determine if we need to use X-server (plotting to display).
-    use('Agg') if main_arguments.image_file is not None else None
+    use('Agg') if main_arguments.image_file is not None else use('TkAgg')
     from matplotlib import pyplot as plt
 
     # Perform the appropriate function. Do you like this makeshift switch statement? :-)
