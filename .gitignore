@@ -26,3 +26,6 @@ doc/build/*
 # Ignore the old folder, where we store all the old stuff.
 old/*
 
+# Ignore the build folder.
+build/*
+
