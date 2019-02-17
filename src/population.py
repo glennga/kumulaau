@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from numpy import ndarray, array, arange, empty, nextafter, asarray
 from numpy.random import uniform, choice, shuffle, exponential, poisson
-from collections import Callable
+from typing import Callable
 from argparse import Namespace
 from numba import jit, prange
 import pop
