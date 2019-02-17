@@ -36,7 +36,7 @@ typedef struct CoalescentStruct {
     PopulationParameters theta; ///< Mutation model parameters.
     int *coalescent_tree; ///< Pointer to our tree, stored as an array.
     int offset; ///< We generalize to include 1+ ancestors. Determine the offset for array representation of tree.
-	gsl_rng *r; ///< Pointer to our RNG. This is preserved across the trace and evolve steps.
+    gsl_rng *r; ///< Pointer to our RNG. This is preserved across the trace and evolve steps.
 } PopulationTree;
 
 /**
@@ -55,7 +55,9 @@ int _triangle (int a) { return (int) (a * (a + 1) / 2.0); }
  */
 int _round_num (int a) { return (a < 0) ? (int) (a - 0.5) : (int) (a + 0.5); }
 
-/** Signature for a mutation function. This is meant to separate generation vs. coalescent event based evolution */
+/**
+ * Signature for a mutation function. This is meant to separate generation vs. coalescent event based evolution.
+ */
 typedef int (*_mutate_f) (int, int, float, float, int, int, const gsl_rng *);
 
 /**
@@ -117,7 +119,7 @@ int _mutate_draw (int t, int ell, float c, float d, int kappa, int omega, const 
 
     // Otherwise, compute the difference between our upward draw and downward draw.
     return MIN((unsigned) omega, MAX((unsigned) kappa, ell + gsl_ran_poisson(r, t * c) -
-    	       gsl_ran_poisson(r, t * ell * d)));
+                                                       gsl_ran_poisson(r, t * ell * d)));
 }
 
 /**
@@ -149,9 +151,9 @@ void _trace_tree (int *coalescent_tree, int n, const gsl_rng *r) {
         for (int k = 0; k < tau_1 - tau_0; k++) {
             _trace_no_branch_nodes(coalescent_tree, tau_0, tau_1, k);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-		// Verify the indices assigned with each non-coalescent event.
-		printf("\nCoalescence event [%d], individual [%d] of tree trace, no shuffle: %d",
-		       tau + 2, k + 2, coalescent_tree[tau_1 + k + 1]);
+            // Verify the indices assigned with each non-coalescent event.
+            printf("\nCoalescence event [%d], individual [%d] of tree trace, no shuffle: %d",
+                   tau + 2, k + 2, coalescent_tree[tau_1 + k + 1]);
 #endif
         }
 
@@ -161,11 +163,11 @@ void _trace_tree (int *coalescent_tree, int n, const gsl_rng *r) {
         // Finally, shuffle the individuals in this generation.
         gsl_ran_shuffle(r, &coalescent_tree[tau_1], tau_1 - tau_0 + 1, sizeof(int));
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-		// Verify that the coalescent event has occurred and that our tree has been randomized.
+        // Verify that the coalescent event has occurred and that our tree has been randomized.
         for (int k = 0; k < tau_1 - tau_0 + 1; k++) {
-			printf("\nCoalescence event [%d], individual [%d] of tree trace, shuffled: %d",
-		           tau + 2, k + 1, coalescent_tree[tau_1 + k]);
-		    if (tau == 2 * n - 1) printf("\n");
+            printf("\nCoalescence event [%d], individual [%d] of tree trace, shuffled: %d",
+                   tau + 2, k + 1, coalescent_tree[tau_1 + k]);
+            if (tau == 2 * n - 1) printf("\n");
         }
 #endif
     }
@@ -203,7 +205,7 @@ void _evolve_event (PopulationTree *p, _mutate_f mutate) {
     int *descendants = NULL;
 
     for (int tau = p->offset; tau < 2 * p->theta.n - 1; tau++) {
-    	int tau_1 = _triangle(tau + 1), tau_2 = _triangle(tau + 2);
+        int tau_1 = _triangle(tau + 1), tau_2 = _triangle(tau + 2);
 
         // We define our descendants for the tau'th coalescent.
         descendants = &(p->coalescent_tree[tau_1]);
@@ -215,12 +217,12 @@ void _evolve_event (PopulationTree *p, _mutate_f mutate) {
 
         // Iterate through each of the descendants (currently indices) and determine each ancestor.
         for (int k = 0; k < descendants_size; k++) { // TODO: Parallelize this process.
-        	_evolve_individual(k, descendants, t_coalescence, mutate, p);
+            _evolve_individual(k, descendants, t_coalescence, mutate, p);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-			// Verify that evolution has occured.
-			printf("\nCoalescence event [%d], individual [%d] of evolution: %d",
-		           tau + 2, k + 1, descendants[k]);
-		    if (tau == descendants_size) printf("\n");
+            // Verify that evolution has occured.
+            printf("\nCoalescence event [%d], individual [%d] of evolution: %d",
+                   tau + 2, k + 1, descendants[k]);
+            if (tau == descendants_size) printf("\n");
 #endif
         }
     }
@@ -242,12 +244,12 @@ void _evolve (int *i_0, int i_0_size, PopulationTree *p) {
         p->coalescent_tree[k] = i_0[k];
     }
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-	// Verify that are ancestors have been properly placed.
-	printf("\nContents of first |ancestors| in tree array: ");
-	for (int k = 0; k < i_0_size; k++) {
-		printf("[%d]", p->coalescent_tree[k]);
-	}
-	printf("\n");
+    // Verify that are ancestors have been properly placed.
+    printf("\nContents of first |ancestors| in tree array: ");
+    for (int k = 0; k < i_0_size; k++) {
+        printf("[%d]", p->coalescent_tree[k]);
+    }
+    printf("\n");
 #endif
     // From our common ancestors, descend forward in time and populate our tree with repeat lengths.
     _evolve_event(p, _mutate_draw);
@@ -260,8 +262,8 @@ void _evolve (int *i_0, int i_0_size, PopulationTree *p) {
  * @param p: Pointer to the PopulationTree object holding the coalescent tree and the RNG.
  */
 void _cleanup (PopulationTree *p) {
-	free(p->coalescent_tree);
-	gsl_rng_free (p->r);
+    free(p->coalescent_tree);
+    gsl_rng_free(p->r);
 }
 
 /**
@@ -287,7 +289,7 @@ static PyObject *trace (PyObject *self, PyObject *args) {
 
     // Parse our arguments.
     if (!PyArg_ParseTuple(args, "ifffii", &p->theta.n, &p->theta.f, &p->theta.c, &p->theta.d,
-    			&p->theta.kappa, &p->theta.omega))
+                          &p->theta.kappa, &p->theta.omega))
         return NULL;
 
     // Generate our random seed based on the current time.
@@ -298,7 +300,7 @@ static PyObject *trace (PyObject *self, PyObject *args) {
 
     // Setup our generator.
     const gsl_rng_type *T = gsl_rng_default;
-    p->r = gsl_rng_alloc (T);
+    p->r = gsl_rng_alloc(T);
     gsl_rng_set(p->r, s);
 
     // Reserve space for our ancestor chain.
@@ -308,15 +310,15 @@ static PyObject *trace (PyObject *self, PyObject *args) {
     // Trace our tree. We do not perform repeat length determination at this step.
     _trace_tree(p->coalescent_tree, p->theta.n, p->r);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-	// Verify that our tree has been generated. Look at the indices of our array representation.
-	printf("\nContents of tree trace: ");
-	for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-		printf("[%d]", p->coalescent_tree[k]);
-	}
-	printf("\n");
+    // Verify that our tree has been generated. Look at the indices of our array representation.
+    printf("\nContents of tree trace: ");
+    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
+        printf("[%d]", p->coalescent_tree[k]);
+    }
+    printf("\n");
 #endif
-	// Return our pointer to our tree to evolve. This is meant to be passed to the call of "evolve".
-	return PyCapsule_New(p, NULL, NULL);
+    // Return our pointer to our tree to evolve. This is meant to be passed to the call of "evolve".
+    return PyCapsule_New(p, NULL, NULL);
 }
 
 /**
@@ -344,16 +346,16 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "OO", &p_capsule, &i_0_list))
         return NULL;
 
-	// Parse the population object generated from the trace call.
-    if (!(p = (PopulationTree*) PyCapsule_GetPointer(p_capsule, NULL)))
+    // Parse the population object generated from the trace call.
+    if (!(p = (PopulationTree *) PyCapsule_GetPointer(p_capsule, NULL)))
         return NULL;
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-	// Check if our tree still exists.
-	printf("\nContents of tree import: ");
-	for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-		printf ("[%d]", p->coalescent_tree[k]);
-	}
-	printf("\n");
+    // Check if our tree still exists.
+    printf("\nContents of tree import: ");
+    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
+        printf ("[%d]", p->coalescent_tree[k]);
+    }
+    printf("\n");
 #endif
     // Verify that our list is not empty.
     int i_0_size = PyObject_Length(i_0_list);
@@ -367,10 +369,10 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
         i_0[k] = PyLong_AsLong(PyList_GetItem(i_0_list, k));
     }
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-	// Verify that our seed lengths were properly imported.
-	printf("\nContents of seed length argument: ");
-	for (int k = 0; k < i_0_size; k++) {
-		printf ("[%d]", i_0[k]);
+    // Verify that our seed lengths were properly imported.
+    printf("\nContents of seed length argument: ");
+    for (int k = 0; k < i_0_size; k++) {
+        printf ("[%d]", i_0[k]);
     }
     printf("\n");
 #endif
@@ -378,11 +380,11 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
     _evolve(i_0, i_0_size, p);
     int *i_evolved = &(p->coalescent_tree[_triangle(2 * p->theta.n) - 2 * p->theta.n]);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
-	// Peer into the contents of the repeat length determination step.
-	printf("\nResults of evolution: ");
-	for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-		printf ("[%d]", p->coalescent_tree[k]);
-	}
+    // Peer into the contents of the repeat length determination step.
+    printf("\nResults of evolution: ");
+    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
+        printf ("[%d]", p->coalescent_tree[k]);
+    }
     printf("\n");
 #endif
     // Store our evolved generation of ancestors in a Python list.
@@ -400,9 +402,9 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
  * Array of Python methods available for use in this module. A trace method and an evolve method.
  */
 static PyMethodDef popMethods[] = {
-        {"trace", trace, METH_VARARGS, "Creates an evolutionary tree."},
+        {"trace",  trace,  METH_VARARGS, "Creates an evolutionary tree."},
         {"evolve", evolve, METH_VARARGS, "Evolves a given evolutionary tree."},
-        {NULL, NULL, 0, NULL}
+        {NULL,     NULL,   0,            NULL}
 };
 
 /**
@@ -419,6 +421,6 @@ static struct PyModuleDef popModule = {
 /**
  * Our initialization function for the module.
  */
-PyMODINIT_FUNC PyInit_pop(void) {
+PyMODINIT_FUNC PyInit_pop (void) {
     return PyModule_Create(&popModule);
 }

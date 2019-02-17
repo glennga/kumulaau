@@ -96,7 +96,7 @@ class BaseParameters(object):
 
 
 class Population(object):
-    def __init__(self, theta: BaseParameters, accel_c: bool=True):
+    def __init__(self, theta: BaseParameters, accel_c: bool = True):
         """ Constructor. Perform the bound checking for each parameter here.
 
         :param theta: Parameter models to use to evolve our population.
