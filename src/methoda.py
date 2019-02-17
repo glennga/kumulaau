@@ -147,7 +147,7 @@ if __name__ == '__main__':
     paa('-epsilon', "Maximum acceptance value for distance between [0, 1].", float)
 
     paa('-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int)
-    paa('-seed', 'If assigned "1", last recorded position in "mdb" is used (TIME_R, PROPOSED_TIME).', int)
+    paa('-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', int)
 
     paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
