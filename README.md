@@ -9,7 +9,7 @@ git clone https://github.com/glennga/kumulaau.git
 
 2. Create an environment variable to this project called `MICRO_SAT_PATH`:
 ```bash
-export MICRO_SAT_PATH=/.../micro-coa
+export MICRO_SAT_PATH=/.../kumulaau
 ```
 
 3. This project uses Python 3.7, Matplotlib, Numpy, Numba, Scipy, and GSL. An `environment.yml` file is provided to build a clone of the Python environment used to develop this:
@@ -178,6 +178,6 @@ usage: plot.py [-h] [-db DB] [-burn_in BURN_IN] [-function {1,2,3,4}]
 | ----------------------- | ------------------------------------------------------------ |
 | db                      | Location of the database required to operate on.             |
 | burn_in                 | Burn in period, in terms of iterations.                      |
-| function                | Visualization function to use: <br><br>*[1 <- Waiting times histogram of mutation model MCMC.]<br>[2 <- Probabilityof our mutation model parameters given our data (histogram & MCMC).]<br>[3 <- Trace plot of our parameters for the mutation model MCMC.]<br>[4 <- Log- likelihood curves of our parameters for the mutation model MCMC.]* |
+| function                | Visualization function to use: <br><br>*[1 <- Waiting times histogram of mutation model MCMC.]<br>[2 <- Probability of our mutation model parameters given our data (histogram & MCMC).]<br>[3 <- Trace plot of our parameters for the mutation model MCMC.]<br>[4 <- Log-likelihood curves of our parameters for the mutation model MCMC.]* |
 | *image_file (optional)* | *Image file to save resulting figure to.*                    |
 | params                  | Parameters associated with function of use:<br><br>*[1 <- Step sizes of histogram in following order: N, F, C, D, KAPPA, OMEGA.]<br>[2 <- Step sizes of histogram in following order: N, F, C, D, KAPPA, OMEGA.]<br>[3 <- None.]<br>[4 <- None.]* |
