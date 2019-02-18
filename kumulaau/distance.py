@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from numpy import ndarray, dot, arccos, pi, mean, zeros
-from population import BaseParameters
+from kumulaau import BaseParameters
 from abc import ABC, abstractmethod
 from typing import List, Callable
 from numpy.linalg import norm

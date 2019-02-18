@@ -1,10 +1,10 @@
 # Coalescent Based Microsatellite Simulator + Analysis for Different Demographic Models
-This repository holds research toward the modeling and analysis of microsatellite mutations.
+This repository holds research toward the modeling and analysis of microsatellite mutations, and a package for microsatellite demographic model inference. The name _kumulaau_ comes from the Hawaiian word for tree, which are the backbone for our speedy simulation.
 
 ## Getting Started
 1. Clone this repository!
 ```bash
-git clone https://github.com/glennga/micro-coa.git
+git clone https://github.com/glennga/kumulaau.git
 ```
 
 2. Create an environment variable to this project called `MICRO_SAT_PATH`:
@@ -21,11 +21,11 @@ conda list
 
 4. Install GSL. For instructions on how to do so, follow here: http://www2.lawrence.edu/fast/GREGGJ/CMSC210/gsl/gsl.html
 
-5. Build our C extensions by running our setup script. This should create a 'build' folder in this project's top level directory.
+5. Install our module. This will build our C extensions.
 ```bash
+conda activate micro
 cd $MICRO_SAT_PATH
-python setup.py build
-python setup.py install
+pip install .
 ```
 
 6. Populate the observed database `observed.db` by running the ALFRED script:
@@ -38,15 +38,15 @@ cd $MICRO_SAT_PATH
 ```bash
 # If working without the HPC:
 cd $MICRO_SAT_PATH
-./script/methoda.sh data/methoda.db
+./script/wasteful/wasteful.sh data/wasteful.db
 
 # If you are on the UH HPC w/ SLURM:
-sbatch ./script/methoda.slurm --array=0-19
+sbatch ./script/wasteful.slurm --array=0-19
 ```
 
 ## Usage
 
-### `population.py`
+### `kumulaau/population.py`
 #### Standalone Program
 Simulate the evolution of single population. 
 ```bash
@@ -83,7 +83,7 @@ p = Population(theta=args, accel_c=True)
 evolved_100 = p.evolve(array([15]))
 ```
 
-### `distance.py`
+### `kumulaau/distance.py`
 #### Standalone Program
 Sample a simulated population and compare this to an observed data set.
 ```bash
@@ -127,19 +127,19 @@ args = BaseParameters(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 expected_delta = main_accumulator.fill_matrices(args, epsilon=0.1)
 ```
 
-### `methoda.py`
+### `script/wasteful/wasteful.py`
 #### Standalone Program
 ABC MCMC for microsatellite mutation model parameter estimation.
 ```bash
-usage: methoda.py [-h] [-odb ODB] [-mdb MDB]
-                  [-uid_observed UID_OBSERVED [UID_OBSERVED ...]]
-                  [-locus_observed LOCUS_OBSERVED [LOCUS_OBSERVED ...]]
-                  [-simulation_n SIMULATION_N] [-iterations_n ITERATIONS_N]
-                  [-epsilon EPSILON] [-flush_n FLUSH_N] [-seed SEED] [-n N]
-                  [-f F] [-c C] [-d D] [-kappa KAPPA] [-omega OMEGA]
-                  [-n_sigma N_SIGMA] [-f_sigma F_SIGMA] [-c_sigma C_SIGMA]
-                  [-d_sigma D_SIGMA] [-kappa_sigma KAPPA_SIGMA]
-                  [-omega_sigma OMEGA_SIGMA]
+usage: wasteful.py [-h] [-odb ODB] [-mdb MDB]
+                   [-uid_observed UID_OBSERVED [UID_OBSERVED ...]]
+                   [-locus_observed LOCUS_OBSERVED [LOCUS_OBSERVED ...]]
+                   [-simulation_n SIMULATION_N] [-iterations_n ITERATIONS_N]
+                   [-epsilon EPSILON] [-flush_n FLUSH_N] [-seed SEED] [-n N]
+                   [-f F] [-c C] [-d D] [-kappa KAPPA] [-omega OMEGA]
+                   [-n_sigma N_SIGMA] [-f_sigma F_SIGMA] [-c_sigma C_SIGMA]
+                   [-d_sigma D_SIGMA] [-kappa_sigma KAPPA_SIGMA]
+                   [-omega_sigma OMEGA_SIGMA]
 ```
 
 | Parameter        | Description                                                  |
@@ -166,7 +166,7 @@ usage: methoda.py [-h] [-odb ODB] [-mdb MDB]
 | kappa_sigma      | Step size of kappa when changing parameters.                 |
 | omega_sigma      | Step size of omega when changing parameters.                 |
 
-### `plot.py`
+### `script/plot/plot.py`
 
 Display the results of MCMC scripts.
 

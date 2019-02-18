@@ -1,4 +1,11 @@
 from distutils.core import setup, Extension
 
-k = [Extension('pop', ['src/_pop.c'], libraries=["m", "gsl", "gslcblas"])]
-setup(name='pop', version='1.0', ext_modules=k, requires=['numpy', 'numba', 'matplotlib', 'scipy'])
+setup(name='kumulaau', 
+      version='1.0',
+      description='Backwards microsatellite simulation and demographic model inference.',
+      url='https://github.com/glennga/kumulaau',
+      author='Glenn Galvizo',
+      packages=['kumulaau'],
+      ext_modules=[Extension('pop', ['kumulaau/_pop.c'], libraries=["m", "gsl", "gslcblas"])],
+      requires=['numpy', 'numba', 'matplotlib', 'scipy'],
+      scripts=['data/alfred/alfred.sh'])
