@@ -128,7 +128,6 @@ expected_delta = main_accumulator.fill_matrices(args, epsilon=0.1)
 ```
 
 ### `script/wasteful/wasteful.py`
-#### Standalone Program
 ABC MCMC for microsatellite mutation model parameter estimation.
 ```bash
 usage: wasteful.py [-h] [-odb ODB] [-mdb MDB]
