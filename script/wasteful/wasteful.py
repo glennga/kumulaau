@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from population import BaseParameters
+from kumulaau.population import BaseParameters
 from sqlite3 import Cursor
 from typing import List, Callable
 
@@ -11,14 +11,14 @@ def create_tables(cursor: Cursor) -> None:
     :return: None.
     """
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WAIT_OBSERVED (
+        CREATE TABLE IF NOT EXISTS WASTEFUL_OBSERVED (
             TIME_R TIMESTAMP,
             UID_OBSERVED TEXT,
             LOCUS_OBSERVED TEXT
         );""")
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WAIT_MODEL (
+        CREATE TABLE IF NOT EXISTS WASTEFUL_MODEL (
             TIME_R TIMESTAMP,
             N INT,
             F FLOAT,
@@ -50,13 +50,13 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
 
     # Record our observed sample log strings and datetime.
     cursor.executemany("""
-        INSERT INTO WAIT_OBSERVED
+        INSERT INTO WASTEFUL_OBSERVED
         VALUES (?, ?, ?)
     """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
 
     # noinspection SqlInsertValues
     cursor.executemany(f"""
-        INSERT INTO WAIT_MODEL
+        INSERT INTO WASTEFUL_MODEL
         VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
@@ -72,7 +72,7 @@ def retrieve_last(cursor: Cursor) -> BaseParameters:
     """
     a = cursor.execute("""
         SELECT N, F, C, D, KAPPA, OMEGA
-        FROM WAIT_MODEL
+        FROM WASTEFUL_MODEL
         ORDER BY TIME_R, PROPOSED_TIME DESC
         LIMIT 1
     """).fetchone()
@@ -106,7 +106,7 @@ def mcmc(iterations_bounds: List, observed_frequencies: List, simulation_n: int,
     :return: None.
     """
     from numpy.random import normal, uniform
-    from distance import Cosine
+    from kumulaau.distance import Cosine
 
     x = [[theta_0, 1, 1.0e-10, 1.0e-10, 0]]  # Seed our Markov chain with our initial guess.
     walk = lambda a, b: normal(a, b)
@@ -185,7 +185,7 @@ if __name__ == '__main__':
 
     main_iterations_start = 0 if main_arguments.seed == 0 else cursor_m.execute("""
         SELECT PROPOSED_TIME -- Determine our iteration boundaries. --
-        FROM WAIT_MODEL
+        FROM WASTEFUL_MODEL
         ORDER BY PROPOSED_TIME DESC
         LIMIT 1
     """).fetchone()[0]
@@ -197,6 +197,6 @@ if __name__ == '__main__':
 
     # Remove the initial states of our chain.
     cursor_m.execute("""
-        DELETE FROM WAIT_MODEL
+        DELETE FROM WASTEFUL_MODEL
         WHERE PROPOSED_TIME = 0
     """), connection_m.commit(), connection_o.close(), connection_m.close()

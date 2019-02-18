@@ -35,7 +35,7 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
         # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cursor.execute(f"""
             SELECT MIN(CAST({dimension} AS FLOAT)), MAX(CAST({dimension} AS FLOAT))
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE PROPOSED_TIME > {burn_in}
         """).fetchone()]
 
@@ -48,7 +48,7 @@ def histogram_1(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
         # Obtain the data to plot. Waiting times indicate the number of repeats to apply to this state.
         axis_wait = cursor.execute(f"""
             SELECT CAST({dimension} AS FLOAT), WAITING_TIME
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE PROPOSED_TIME > {burn_in}
         """).fetchall()
         axis = list(chain.from_iterable([[float(a[0]) for _ in range(int(a[1]))] for a in axis_wait]))
@@ -80,7 +80,7 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
         # Grab the minimum and maximum values for the current dimension.
         min_dimension, max_dimension = [float(x) for x in cursor.execute(f"""
             SELECT MIN(CAST({dimension} AS FLOAT)), MAX(CAST({dimension} AS FLOAT))
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE PROPOSED_TIME > {burn_in}
         """).fetchone()]
 
@@ -93,7 +93,7 @@ def histogram_2(cursor: Cursor, step_sizes: Dict[str, float], burn_in: int) -> N
         # Obtain the data to plot.
         axis = list(map(lambda a: float(a[0]), cursor.execute(f"""
             SELECT CAST({dimension} AS FLOAT)
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE PROPOSED_TIME > {burn_in}
         """).fetchall()))
 
@@ -135,7 +135,7 @@ def trace_1(cursor: Cursor, burn_in: int) -> None:
         # Obtain the data to plot. The acceptance time indicates how we sort our data.
         axis_accept = list(map(lambda a: [int(a[0]), float(a[1])], cursor.execute(f"""
             SELECT PROPOSED_TIME, CAST({dimension} AS FLOAT)
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE PROPOSED_TIME > {burn_in}
             ORDER BY PROPOSED_TIME
         """).fetchall()))
@@ -165,7 +165,7 @@ def likelihood_1(cursor: Cursor, burn_in: int) -> None:
         # Obtain the data to plot. We only take every other value.
         axis_accept = list(map(lambda a: [float(a[0]), float(a[1])], cursor.execute(f"""
             SELECT LIKELIHOOD, CAST({dimension} AS FLOAT)
-            FROM WAIT_MODEL
+            FROM WASTEFUL_MODEL
             WHERE rowid % 2 = 0
             AND PROPOSED_TIME > {burn_in}
             ORDER BY {dimension}

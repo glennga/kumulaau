@@ -29,12 +29,13 @@ for f in data/methoda-*.db; do
         -burn_in ${BURN_IN} \
         -image ${f%".db"}-trace.png
 
-    echo "Plotting [${f}, Likelihood]."
-    python3 src/plot.py \
-        -db ${f} \
-        -function 4 \
-        -burn_in ${BURN_IN} \
-        -image ${f%".db"}-likelihood.png
+    # Takes too long right now...
+#    echo "Plotting [${f}, Likelihood]."
+#    python3 src/plot.py \
+#        -db ${f} \
+#        -function 4 \
+#        -burn_in ${BURN_IN} \
+#        -image ${f%".db"}-likelihood.png
 done
 
 # Combine all samples of our mutation model MCMC.
