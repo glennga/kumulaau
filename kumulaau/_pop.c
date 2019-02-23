@@ -299,7 +299,7 @@ static PyObject *trace (PyObject *self, PyObject *args) {
     unsigned long s = tv.tv_sec + tv.tv_usec;
 
     // Setup our generator.
-    const gsl_rng_type *T = gsl_rng_default;
+    const gsl_rng_type *T = gsl_rng_taus2;
     p->r = gsl_rng_alloc(T);
     gsl_rng_set(p->r, s);
 
