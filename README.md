@@ -12,7 +12,7 @@ git clone https://github.com/glennga/kumulaau.git
 export MICRO_SAT_PATH=/.../kumulaau
 ```
 
-3. This project uses Python 3.7, Matplotlib, Numpy, Numba, Scipy, and GSL. An `environment.yml` file is provided to build a clone of the Python environment used to develop this:
+3. This project uses Python 3.7, Matplotlib, Numpy, Numba, Scipy, and GSL. An `environment.yml` file is provided to build a Conda clone of the Python environment used to develop this:
 ```bash
 conda env create -f environment.yml
 conda activate micro
