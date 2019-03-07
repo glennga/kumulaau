@@ -1,7 +1,82 @@
 #!/usr/bin/env python3
 from kumulaau.population import BaseParameters
-from numpy import ndarray
-from typing import List
+from sqlite3 import Cursor
+from typing import List, Callable
+
+
+def create_tables(cursor: Cursor) -> None:
+    """ Create the tables to log the results of our MCMC to.
+
+    :param cursor: Cursor to the database file to log to.
+    :return:    None.
+    """
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS WASTELESS_OBSERVED (
+            TIME_R TIMESTAMP,
+            UID_OBSERVED TEXT,
+            LOCUS_OBSERVED TEXT
+        );""")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS WASTELESS_MODEL (
+            TIME_R TIMESTAMP,
+            N INT,
+            F FLOAT,
+            C FLOAT,
+            D FLOAT,
+            KAPPA INT,
+            OMEGA INT,
+            WAITING_TIME INT,
+            LIKELIHOOD FLOAT,
+            DISTANCE FLOAT,
+            PROPOSED_TIME INT
+        );""")
+
+
+def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str], x: List) -> None:
+    """ Record our states to some database.
+
+    :param cursor: Cursor to the database file to log to.
+    :param uid_observed: IDs of the observed samples to compare to.
+    :param locus_observed: Loci of the observed samples to compare to.
+    :param x: States and associated times & probabilities collected after running MCMC (our Markov chain).
+    :return: None.
+    """
+    from datetime import datetime
+    date_string = datetime.now()
+
+    if len(x) == 0:  # We can't record if we have nothing to record!
+        return
+
+    # Record our observed sample log strings and datetime.
+    cursor.executemany("""
+        INSERT INTO WASTELESS_OBSERVED
+        VALUES (?, ?, ?)
+    """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
+
+    # noinspection SqlInsertValues
+    cursor.executemany(f"""
+        INSERT INTO WASTELESS_MODEL
+        VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
+    """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
+
+    # Clear our chain except for the last state.
+    x[:] = [x[-1]]
+
+
+def retrieve_last(cursor: Cursor) -> BaseParameters:
+    """ TODO:
+
+    :param cursor:
+    :return:
+    """
+    a = cursor.execute("""
+        SELECT N, F, C, D, KAPPA, OMEGA
+        FROM WASTELESS_MODEL
+        ORDER BY TIME_R, PROPOSED_TIME DESC
+        LIMIT 1
+    """).fetchone()
+    return BaseParameters(*a)
 
 
 def compute_exact_likelihood(distances: ndarray):
@@ -82,24 +157,26 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
 
 
 if __name__ == '__main__':
-    from methoda import create_tables, log_states
     from argparse import ArgumentParser
     from sqlite3 import connect
 
-    parser = ArgumentParser(description='ABC MCMC variant for *microsatellite mutation model* parameter estimation.')
+    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model parameter estimation.')
     parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
-    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/method-b.db')
+    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/method-a.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
     parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
     paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
     paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
+    paa('-epsilon', "Maximum acceptance value for distance between [0, 1].", float)
+
+    paa('-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int)
+    paa('-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', int)
 
     paa('-n', 'Starting sample size (population size).', int)
     paa('-f', 'Scaling factor for total mutation rate.', float)
     paa('-c', 'Constant bias for the upward mutation rate.', float)
-    paa('-u', 'Linear bias for the upward mutation rate.', float)
     paa('-d', 'Linear bias for the downward mutation rate.', float)
     paa('-kappa', 'Lower bound of repeat lengths.', int)
     paa('-omega', 'Upper bound of repeat lengths.', int)
@@ -107,7 +184,6 @@ if __name__ == '__main__':
     paa('-n_sigma', 'Step size of n when changing parameters.', float)
     paa('-f_sigma', 'Step size of f when changing parameters.', float)
     paa('-c_sigma', 'Step size of c when changing parameters.', float)
-    paa('-u_sigma', 'Step size of u when changing parameters.', float)
     paa('-d_sigma', 'Step size of d when changing parameters.', float)
     paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
     paa('-omega_sigma', 'Step size of omega when changing parameters.', float)
@@ -125,11 +201,27 @@ if __name__ == '__main__':
         AND LOCUS LIKE ?
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
-    # Perform the MCMC variant, and record our chain.
-    main_theta_0 = BaseParameters.from_args(main_arguments, False)
+    # Parse our starting point. If 'seed' is specified, we use this over any (n, f, c, d, u, ...) given.
+    main_theta_0 = BaseParameters.from_args(main_arguments, False) if main_arguments.seed != 1 else \
+        retrieve_last(cursor_m)
     main_q_sigma = BaseParameters.from_args(main_arguments, True)
-    log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed,
-               mcmc(main_arguments.iterations_n, main_observed_frequencies, main_arguments.simulation_n,
-                    main_arguments.epsilon, main_theta_0, main_q_sigma))
+    main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
+        connection_m.commit() if b % main_arguments.flush_n == 0 else None
 
-    connection_m.commit(), connection_o.close(), connection_m.close()
+    main_iterations_start = 0 if main_arguments.seed == 0 else cursor_m.execute("""
+        SELECT PROPOSED_TIME -- Determine our iteration boundaries. --
+        FROM WASTELESS_MODEL
+        ORDER BY PROPOSED_TIME DESC
+        LIMIT 1
+    """).fetchone()[0]
+    main_iterations_bounds = [main_iterations_start, main_arguments.iterations_n + main_iterations_start + 1]
+
+    # Perform the ABC MCMC. Record at every 'flush_n'.
+    mcmc(main_iterations_bounds, main_observed_frequencies, main_arguments.simulation_n,
+         main_arguments.epsilon, main_theta_0, main_q_sigma, main_log)
+
+    # Remove the initial states of our chain.
+    cursor_m.execute("""
+        DELETE FROM WASTELESS_MODEL
+        WHERE PROPOSED_TIME = 0
+    """), connection_m.commit(), connection_o.close(), connection_m.close()

@@ -11,8 +11,8 @@ for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
 done
 
 # Run once to seed our database. Must break into parts because GC is garbage ):<
-python3 src/methoda.py \
-    -mdb "data/$1.db" \
+python3 script/ma1t0s0i/ma1t0s0i.py \
+    -mdb "/home/glennga/lus/ma1t0s0i-$1.db" \
     -simulation_n 100 \
     -epsilon 0.55 \
     -iterations_n 10000 \
@@ -28,10 +28,10 @@ python3 src/methoda.py \
     -omega 30 -omega_sigma 0.0
 echo "MCMC Progress [1/10]."
 
-# Repeat 9 more times.
-for i in {2..10}; do
-    python3 src/methoda.py \
-        -mdb "data/$1.db" \
+# Repeat 29 more times.
+for i in {2..30}; do
+    python3 script/ma1t0s0i/ma1t0s0i.py \
+        -mdb "/home/glennga/lus/ma1t0s0i-$1.db" \
         -simulation_n 100 \
         -epsilon 0.55 \
         -iterations_n 10000 \

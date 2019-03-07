@@ -3,14 +3,55 @@ from __future__ import annotations
 
 from numpy import ndarray, array, arange, empty, nextafter, asarray
 from numpy.random import uniform, choice, shuffle, exponential, poisson
-from typing import Callable
+from abc import ABC, abstractmethod
+from typing import Callable, List
+from kumulaau import Parameters
 from argparse import Namespace
 from numba import jit, prange
 import pop
 
 
-class BaseParameters(object):
-    def __init__(self, n: float, f: float, c: float, d: float, kappa: float, omega: float):
+class Population(ABC):
+    @property
+    @abstractmethod
+    def theta(self):
+        """ Enforce the definition of some parameter set theta.
+
+        :return: None.
+        """
+        raise NotImplementedError
+
+    def evolve(self, i_0: ndarray) -> ndarray:
+        """ Using the common ancestors 'i_0', evolve the population until '2n' alleles are present.
+
+        :param i_0 Array of starting common ancestors.
+        :return: The evolved generation from the common ancestor.
+        """
+        if self.is_evolved:  # If we have evolved, then return what we currently have. Otherwise, raise our flag.
+            return self.evolved
+        else:
+            self.is_evolved = True
+
+        if not self.accel_c:
+            # Determine our offset, and seed our ancestors for the tree.
+            self.offset = i_0.size - 1
+            self.coalescent_tree[self.triangle(self.offset):self.triangle(self.offset + 1)] = i_0
+
+            # From our common ancestors, descend forward in time and populate our tree with repeat lengths.
+            k = (self._evolve, self.triangle, self._mutate_draw)
+            self._evolve_n(self.coalescent_tree, array(list(self.theta)), self.offset, *k)
+
+            self.evolved = self.coalescent_tree[-2 * self.theta.n:]
+        else:
+            # Evolve our population using the tree generated at instantiation.
+            self.evolved = asarray(pop.evolve(self.population_tree_pointer, [i for i in i_0]))
+
+        # Return the evolved generation of ancestors.
+        return self.evolved
+
+
+class Parameters1T0S0I(Parameters):
+    def __init__(self, n: float, f: float, c: float, d: float, kappa: int, omega: int):
         """ Constructor. This is just meant to be a data class for the mutation model. Note that if any changes are made
         to the quantity or type of parameters here, they MUST be changed in "_pop.c" as well.
 
@@ -21,82 +62,48 @@ class BaseParameters(object):
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        self.n, self.f, self.c, self.d, self.kappa, self.omega = \
-            round(n), f, c, d, round(kappa), round(omega)
+        super().__init__(c, d, kappa, omega)
+        self.n, self.f = round(n), f
 
-        self.PARAMETER_COUNT = 6
-
-    def __iter__(self):
-        """ Return each our of parameters in the following order: n, f, c, d, kappa, omega
-
-        :return: Iterator for all of our parameters.
-        """
-        for parameter in [self.n, self.f, self.c, self.d, self.kappa, self.omega]:
-            yield parameter
-
-    def __len__(self):
-        """ The number of parameters that exist here.
+    def PARAMETER_COUNT(self):
+        """ The number of parameters we have.
 
         :return: The number of parameters we have.
         """
-        return self.PARAMETER_COUNT
+        return 6
 
     @staticmethod
-    def from_args(arguments: Namespace, is_sigma: bool = False) -> BaseParameters:
-        """ Given a namespace, return a BaseParameters object with the appropriate parameters. If 'is_sigma' is
-        toggled, we look for the sigma arguments in our namespace instead. This is commonly used with an ArgumentParser
-        instance.
+    def _from_namespace(p) -> List:
+        """ Return a list from a namespace in the same order of __iter__.
 
-        :param arguments: Arguments from some namespace.
-        :param is_sigma: If true, we search for 'n_sigma', 'f_sigma', ... Otherwise we search for 'n', 'f', ...
-        :return: New BaseParameters object with the parsed in arguments.
-        """
-        if not is_sigma:
-            return BaseParameters(n=arguments.n,
-                                  f=arguments.f,
-                                  c=arguments.c,
-                                  d=arguments.d,
-                                  kappa=arguments.kappa,
-                                  omega=arguments.omega)
-        else:
-            return BaseParameters(n=arguments.n_sigma,
-                                  f=arguments.f_sigma,
-                                  c=arguments.c_sigma,
-                                  d=arguments.d_sigma,
-                                  kappa=arguments.kappa_sigma,
-                                  omega=arguments.omega_sigma)
+         :param p: Arguments from some namespace.
+         :return: List from namespace.
+         """
+        return [p.n, p.f, p.c, p.d, p.kappa, p.omega]
 
     @staticmethod
-    def from_walk(theta: BaseParameters, pi_sigma: BaseParameters, walk: Callable) -> BaseParameters:
-        """ Generate a new point from some walk function. We apply this walk function to each dimension, using the
-        walking parameters specified in 'pi_sigma'. 'walk' must accept two variables, with the first being
-        the point to walk from and second being the parameter to walk with. We must be within bounds.
+    def _sigma_namespace(p: Namespace) -> List:
+        """ Return a list of '_sigma' values from a namespace in the same order of __iter__
 
-        :param theta: Current point in our model space. The point we are currently walking from.
-        :param pi_sigma: Walking parameters. These are commonly deviations.
-        :param walk: For some point theta, generate a new one with the corresponding pi_sigma.
-        :return: A new BaseParameters (point).
+        :param p: Arguments from some namespace.
+        :return: List from namespace.
         """
-        while True:
-            theta_proposed = BaseParameters(n=walk(theta.n, pi_sigma.n),
-                                            f=walk(theta.f, pi_sigma.f),
-                                            c=walk(theta.c, pi_sigma.c),
-                                            d=walk(theta.d, pi_sigma.d),
-                                            kappa=walk(theta.kappa, pi_sigma.kappa),
-                                            omega=walk(theta.omega, pi_sigma.omega))
+        return [p.n_sigma, p.f_sigma, p.c_sigma, p.d_sigma, p.kappa_sigma, p.omega_sigma]
 
-            if theta_proposed.n > 0 and \
-                    theta_proposed.f >= 0 and \
-                    theta_proposed.c > 0 and \
-                    theta_proposed.d >= 0 and \
-                    0 < theta_proposed.kappa < theta_proposed.omega:
-                break
+    def _walk_criteria(self) -> bool:
+        """ Determine if a current parameter set is valid.
 
-        return theta_proposed
+        :return: True if valid. False otherwise.
+        """
+        return self.n > 0 and \
+            self.f >= 0 and \
+            self.c > 0 and \
+            self.d >= 0 and \
+            0 < self.kappa < self.omega
 
 
-class Population(object):
-    def __init__(self, theta: BaseParameters, accel_c: bool = True):
+class Population1T0S0I(Population):
+    def __init__(self, theta: Parameters1T0S0I, accel_c: bool = True):
         """ Constructor. Perform the bound checking for each parameter here.
 
         :param theta: Parameter models to use to evolve our population.
@@ -331,12 +338,12 @@ if __name__ == '__main__':
     from matplotlib import pyplot as plt
 
     # Run once, to separate compilation time from actual running time.
-    Population(BaseParameters.from_args(main_arguments)).evolve(array(main_arguments.i_0))
+    Population(Parameters1T0S0I.from_args(main_arguments)).evolve(array(main_arguments.i_0))
 
     # Evolve some population 1000 times.
     start_t = timer()
     main_descendants = \
-        [Population(BaseParameters.from_args(main_arguments),  main_arguments.accel_c == 1
+        [Population(Parameters1T0S0I.from_args(main_arguments), main_arguments.accel_c == 1
                     ).evolve(array(main_arguments.i_0)) for _ in range(10000)]
     end_t = timer()
     print('Time Elapsed (10000x): [\n\t' + str(end_t - start_t) + '\n]')
