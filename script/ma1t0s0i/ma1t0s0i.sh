@@ -28,7 +28,7 @@ python3 script/ma1t0s0i/ma1t0s0i.py \
     -omega 30 -omega_sigma 0.0
 echo "MCMC Progress [1/10]."
 
-# Repeat 2 more times.
+# Repeat 29 more times.
 for i in {2..30}; do
     python3 script/ma1t0s0i/ma1t0s0i.py \
         -mdb "/home/glennga/lus/ma1t0s0i-$1.db" \

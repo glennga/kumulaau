@@ -1,7 +1,91 @@
 #!/usr/bin/env python3
-from kumulaau.population import BaseParameters
-from sqlite3 import Cursor
+from numpy import nextafter, ndarray
+from kumulaau import Parameters, Population
 from typing import List, Callable
+from argparse import Namespace
+from sqlite3 import Cursor
+
+
+class Parameters1T0S0I(Parameters):
+    def __init__(self, n: float, f: float, c: float, d: float, kappa: int, omega: int):
+        """ Constructor. This is just meant to be a data class for the mutation model. Note that if any changes are made
+        to the quantity or type of parameters here, they MUST be changed in "_pop.c" as well.
+
+        :param n: Population size, used for determining the number of generations between events.
+        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
+        :param c: Constant bias for the upward mutation rate.
+        :param d: Linear bias for the downward mutation rate.
+        :param kappa: Lower bound of repeat lengths.
+        :param omega: Upper bound of repeat lengths.
+        """
+        super().__init__(c, d, kappa, omega)
+        self.n, self.f = round(n), f
+
+    def PARAMETER_COUNT(self):
+        """ The number of parameters we have.
+
+        :return: The number of parameters we have.
+        """
+        return 6
+
+    @staticmethod
+    def _from_namespace(p) -> List:
+        """ Return a list from a namespace in the same order of __iter__.
+
+         :param p: Arguments from some namespace.
+         :return: List from namespace.
+         """
+        return [p.n, p.f, p.c, p.d, p.kappa, p.omega]
+
+    @staticmethod
+    def _sigma_namespace(p: Namespace) -> List:
+        """ Return a list of '_sigma' values from a namespace in the same order of the constructor.
+
+        :param p: Arguments from some namespace.
+        :return: List from namespace.
+        """
+        return [p.n_sigma, p.f_sigma, p.c_sigma, p.d_sigma, p.kappa_sigma, p.omega_sigma]
+
+    def _walk_criteria(self) -> bool:
+        """ Determine if a current parameter set is valid.
+
+        :return: True if valid. False otherwise.
+        """
+        return self.n > 0 and \
+            self.f >= 0 and \
+            self.c > 0 and \
+            self.d >= 0 and \
+            0 < self.kappa < self.omega
+
+
+class Population1T0S0I(Population):
+    def _transform_bounded(self, theta: Parameters1T0S0I) -> Parameters1T0S0I:
+        """ Return a new parameter set, bounded by the constraints below.
+
+        :param theta: Parameter1T0S0I set to transform.
+        :return: A new Parameter1T0S0I set, properly bounded.
+        """
+        return Parameters1T0S0I(max(theta.n, 0),
+                                max(theta.f, 0),
+                                max(theta.c, nextafter(0, 1)),  # Dr. Reed gave a strict bound > 0 here, but I forget...
+                                max(theta.d, 0),
+                                max(theta.kappa, 0),
+                                max(theta.omega, theta.kappa))
+
+    def _trace_trees(self, theta: Parameters1T0S0I) -> List:
+        """ Generate a 1-element list of pointers to a single tree in the pop module.
+
+        :param theta: Parameter1T0S0I set to use with tree tracing.
+        :return: 1-element list of pointers to pop module C structure.
+        """
+        return [self._pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
+
+    def _resolve_lengths(self, i_0: ndarray) -> ndarray:
+        """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
+
+        :return: List of repeat lengths.
+        """
+        return self._pop_evolve(self.tree_pointers[0], i_0)
 
 
 def create_tables(cursor: Cursor) -> None:
@@ -11,14 +95,14 @@ def create_tables(cursor: Cursor) -> None:
     :return: None.
     """
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WASTEFUL_OBSERVED (
+        CREATE TABLE IF NOT EXISTS MA1T0S0I_OBSERVED (
             TIME_R TIMESTAMP,
             UID_OBSERVED TEXT,
             LOCUS_OBSERVED TEXT
         );""")
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WASTEFUL_MODEL (
+        CREATE TABLE IF NOT EXISTS MA1T0S0I_MODEL (
             TIME_R TIMESTAMP,
             N INT,
             F FLOAT,
@@ -50,13 +134,13 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
 
     # Record our observed sample log strings and datetime.
     cursor.executemany("""
-        INSERT INTO WASTEFUL_OBSERVED
+        INSERT INTO MA1T0S0I_OBSERVED
         VALUES (?, ?, ?)
     """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
 
     # noinspection SqlInsertValues
     cursor.executemany(f"""
-        INSERT INTO WASTEFUL_MODEL
+        INSERT INTO MA1T0S0I_MODEL
         VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
     """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
 
@@ -64,23 +148,23 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     x[:] = [x[-1]]
 
 
-def retrieve_last(cursor: Cursor) -> BaseParameters:
-    """ TODO:
+def retrieve_last(cursor: Cursor) -> Parameters1T0S0I:
+    """ Retrieve the last parameter set from a previous run. This is meant to be used for continuing MCMC runs.
 
-    :param cursor:
-    :return:
+    :param cursor: Cursor to the database file holding the results of a previous run.
+    :return: BaseParameters holding the parameter set from last recorded run.
     """
     a = cursor.execute("""
         SELECT N, F, C, D, KAPPA, OMEGA
-        FROM WASTEFUL_MODEL
+        FROM MA1T0S0I_MODEL
         ORDER BY TIME_R, PROPOSED_TIME DESC
         LIMIT 1
     """).fetchone()
-    return BaseParameters(*a)
+    return Parameters1T0S0I(*a)
 
 
 def mcmc(iterations_bounds: List, observed_frequencies: List, simulation_n: int,
-         epsilon: float, theta_0: BaseParameters, q_sigma: BaseParameters, log: Callable) -> None:
+         epsilon: float, theta_0: Parameters1T0S0I, q_sigma: Parameters1T0S0I, log: Callable) -> None:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this ABC-MCMC approach
     is given below:
@@ -105,18 +189,19 @@ def mcmc(iterations_bounds: List, observed_frequencies: List, simulation_n: int,
     :param log: A log function, used to flush our chain to disk.
     :return: None.
     """
+    from kumulaau.population import Population
     from numpy.random import normal, uniform
     from kumulaau.distance import Cosine
 
     x = [[theta_0, 1, 1.0e-10, 1.0e-10, 0]]  # Seed our Markov chain with our initial guess.
-    walk = lambda a, b: normal(a, b)
+    sample, walk = lambda a, b: Population(a).evolve(b), lambda a, b: normal(a, b)
 
     for i in range(iterations_bounds[0] + 1, iterations_bounds[1]):  # Walk from our previous state.
-        theta_proposed, theta_k = BaseParameters.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
+        theta_proposed, theta_k = Parameters1T0S0I.from_walk(x[-1][0], q_sigma, walk), x[-1][0]
         delta = Cosine(observed_frequencies, theta_proposed.kappa, theta_proposed.omega, simulation_n)
 
         # Compute our matched and delta matrix (simulation (rows) by observation (columns)). Get a mean distance.
-        expected_distance = delta.fill_matrices(theta_proposed, epsilon)
+        expected_distance = delta.fill_matrices(sample, theta_proposed, epsilon)
 
         # Accept our proposal according to our alpha value.
         p_proposed, p_k = delta.match_likelihood(), x[-1][2]
@@ -132,12 +217,12 @@ def mcmc(iterations_bounds: List, observed_frequencies: List, simulation_n: int,
 
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, Namespace
     from sqlite3 import connect
 
-    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model parameter estimation.')
+    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model parameter estimation (1 pop).')
     parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
-    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/method-a.db')
+    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/ma1t0s0i.db')
     paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
 
     parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
@@ -177,15 +262,15 @@ if __name__ == '__main__':
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
     # Parse our starting point. If 'seed' is specified, we use this over any (n, f, c, d, u, ...) given.
-    main_theta_0 = BaseParameters.from_args(main_arguments, False) if main_arguments.seed != 1 else \
+    main_theta_0 = Parameters1T0S0I.from_args(main_arguments, False) if main_arguments.seed != 1 else \
         retrieve_last(cursor_m)
-    main_q_sigma = BaseParameters.from_args(main_arguments, True)
+    main_q_sigma = Parameters1T0S0I.from_args(main_arguments, True)
     main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
         connection_m.commit() if b % main_arguments.flush_n == 0 else None
 
     main_iterations_start = 0 if main_arguments.seed == 0 else cursor_m.execute("""
         SELECT PROPOSED_TIME -- Determine our iteration boundaries. --
-        FROM WASTEFUL_MODEL
+        FROM MA1T0S0I_MODEL
         ORDER BY PROPOSED_TIME DESC
         LIMIT 1
     """).fetchone()[0]
@@ -197,6 +282,6 @@ if __name__ == '__main__':
 
     # Remove the initial states of our chain.
     cursor_m.execute("""
-        DELETE FROM WASTEFUL_MODEL
+        DELETE FROM MA1T0S0I_MODEL
         WHERE PROPOSED_TIME = 0
     """), connection_m.commit(), connection_o.close(), connection_m.close()

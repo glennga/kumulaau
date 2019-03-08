@@ -325,7 +325,7 @@ static PyObject *trace (PyObject *self, PyObject *args) {
  * The repeat length determination method, to be called directly from Python. We accept 2 parameters here:
  *
  * 1. p -- (PopulationTree) The population structure generated from a "trace" call.
- * 2. i_0 -- (list of ints) A Python list of integers holding
+ * 2. i_0 -- (list of ints) A Python list of integers holding the seed lengths.
  *
  * NOTE: No error checking occurs to see if the number of seeds passed fill in all slots of a given coalescent event.
  * For instance you may pass in 2 lengths, which leaves the individuals of the 2nd coalescent event to be both
