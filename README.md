@@ -40,8 +40,8 @@ cd $MICRO_SAT_PATH
 cd $MICRO_SAT_PATH
 ./script/wasteful/wasteful.sh data/wasteful.db
 
-# If you are on the UH HPC w/ SLURM:
-sbatch ./script/wasteful.slurm --array=0-19
+# If you are on the UH HPC w/ SLURM (runs three separate instances):
+sbatch ./script/ma1t0s0i/ma1t0s0i.slurm --array=0-3
 ```
 
 ## Usage
@@ -127,10 +127,10 @@ args = BaseParameters(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 expected_delta = main_accumulator.fill_matrices(args, epsilon=0.1)
 ```
 
-### `script/wasteful/wasteful.py`
-ABC MCMC for microsatellite mutation model parameter estimation.
+### `script/ma1t0s0i/ma1t0s0i.py`
+ABC MCMC for microsatellite mutation model parameter estimation of 1 total population, 0 splits, and 0 intermediate populations (totaling 1 population total):
 ```bash
-usage: wasteful.py [-h] [-odb ODB] [-mdb MDB]
+usage: ma1t0s0i.py [-h] [-odb ODB] [-mdb MDB]
                    [-uid_observed UID_OBSERVED [UID_OBSERVED ...]]
                    [-locus_observed LOCUS_OBSERVED [LOCUS_OBSERVED ...]]
                    [-simulation_n SIMULATION_N] [-iterations_n ITERATIONS_N]
@@ -144,7 +144,7 @@ usage: wasteful.py [-h] [-odb ODB] [-mdb MDB]
 | Parameter        | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
 | *odb (optional)* | *Location of the observed database file (default = `data/observed.db`).* |
-| *mdb (optional)* | *Location of the database to record to (default = `data/method-a.db`).* |
+| *mdb (optional)* | *Location of the database to record to (default = `data/ma1t0s0i.db`).* |
 | uid_observed     | ID of the observed samples to compare to.                    |
 | locus_observed   | Loci of observed samples (must match with uids).             |
 | simulation_n     | Number of simulations to use to obtain a distance.           |
