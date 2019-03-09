@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from sqlite3 import Cursor, Connection
+from sqlite3 import Connection
 from numpy import ndarray
 from typing import List
 
@@ -67,39 +67,9 @@ class MCMCA(ABC):
         """
         raise NotImplementedError
 
-    def pull_frequencies(self, cursor_o):
-        """ TODO
-
-        :param cursor_o:
-        :param uid:
-        :param locus:
-        :return:
-        """
-        return list(map(lambda a, b: cursor_o.execute("""
-            SELECT ELL, ELL_FREQ
-            FROM OBSERVED_ELL
-            WHERE SAMPLE_UID LIKE ?
-            AND LOCUS LIKE ?
-        """, (a, b,)).fetchall(), self.uid, self.locus))
-
-    @classmethod
-    def retrieve_last(cls):
-        """ Retrieve the last parameter set from a previous run. This is meant to be used for continuing MCMC runs.
-
-        :return: Parameters object holding the parameter set from last recorded run.
-        """
-        return cls.PARAMETER_CLASS(*cls.cursor.execute(f"""
-            SELECT {cls.MODEL_SCHEME_SQL.replace("INT", "").replace("FLOAT", "")}
-            FROM {cls.MODEL_NAME}_MODEL
-            INNER JOIN {cls.MODEL_NAME}_RESULTS USING (TIME_R)
-            ORDER BY {cls.MODEL_NAME}_MODEL.TIME_R, {cls.MODEL_NAME}_MODEL.PROPOSED_TIME DESC
-            LIMIT 1
-        """).fetchone())
-
     def create_tables(self) -> None:
         """ Create the tables to log the results of our MCMC to.
 
-        :param cursor: Cursor to the database file to log to.
         :return: None.
         """
         self.cursor.execute(f"""
@@ -124,8 +94,42 @@ class MCMCA(ABC):
                 PROPOSED_TIME INT
             );""")
 
-    def determine_boundaries(self, seed, iterations_n):
-        start = 0 if seed == 0 else self.cursor.execute(f"""
+    def pull_frequencies(self, cursor_o):
+        """ Given a cursor to the observed database, pull the frequencies associated with the given (uid, locus)
+        list.
+
+        :param cursor_o: Cursor to the observed database.
+        :return: List of frequencies associated with each (uid, locus) tuple.
+        """
+        return list(map(lambda a, b: cursor_o.execute("""
+            SELECT ELL, ELL_FREQ
+            FROM OBSERVED_ELL
+            WHERE SAMPLE_UID LIKE ?
+            AND LOCUS LIKE ?
+        """, (a, b,)).fetchall(), self.uid, self.locus))
+
+    def retrieve_last(self):
+        """ Retrieve the last parameter set from a previous run. This is meant to be used for continuing MCMC runs.
+
+        :return: Parameters object holding the parameter set from last recorded run.
+        """
+        return self.PARAMETER_CLASS(*self.cursor.execute(f"""
+            SELECT {self.MODEL_SCHEME_SQL.replace("INT", "").replace("FLOAT", "")}
+            FROM {self.MODEL_NAME}_MODEL
+            INNER JOIN {self.MODEL_NAME}_RESULTS USING (TIME_R)
+            ORDER BY {self.MODEL_NAME}_MODEL.TIME_R, {self.MODEL_NAME}_RESULTS.PROPOSED_TIME DESC
+            LIMIT 1
+        """).fetchone())
+
+    def determine_boundaries(self, iterations_n: int, seed: bool):
+        """ Given a seed flag and the number of iterations to run our MCMC for, determine the boundaries of the
+        MCMC iterations (start and end).
+
+        :param iterations_n: Number of iterations to run MCMC for.
+        :param seed: If raised, pull the last recorded iteration from our database.
+        :return: Starting and end iteration counts for our MCMC.
+        """
+        start = 0 if not seed else self.cursor.execute(f"""
             SELECT PROPOSED_TIME  -- Determine our iteration boundaries. --
             FROM {self.MODEL_NAME}_RESULTS
             ORDER BY PROPOSED_TIME DESC
@@ -134,21 +138,26 @@ class MCMCA(ABC):
 
         return [start, iterations_n + start + 1]
 
-    def __init__(self, connection_m: Connection, connection_o: Connection, theta_0, pi_epsilon, uid_observed: List,
-                 locus_observed: List, simulation_n: int, iterations_n: int, flush_n: int, seed: int, epsilon: float):
-        """
+    def __init__(self, connection_m: Connection, connection_o: Connection, uid_observed: List, locus_observed: List,
+                 simulation_n: int, iterations_n: int, flush_n: int, epsilon: float, pi_epsilon, theta_0=None):
+        """ A lot of shit is done here. I think I may need to break this down deeper in the future, but... I guess for
+        now this works:
+
+        1. Create the tables we must log to.
+        2. Pull the frequencies associated with observation parameters we passed in.
+        3. Determine the starting point, based on the seed parameter.
+        4. Determine our iteration bounds, based on the seed parameter.
 
         :param connection_m: Connection to the database to log to.
         :param connection_o: Connection to the database holding the observed frequencies to compare to.
-        :param theta_0: An initial state for the MCMC.
-        :param pi_epsilon: Distribution parameters associated with the walk function.
         :param uid_observed: IDs of observed samples to compare to.
         :param locus_observed: Loci of observed samples (must match with uid).
         :param simulation_n: Number of simulations to use to obtain a distance.
         :param iterations_n: Number of iterations to run MCMC for.
         :param flush_n: Number of iterations to run MCMC before flushing to disk.
-        :param seed: 1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).
         :param epsilon: Maximum acceptance value for distance between [0, 1].
+        :param pi_epsilon: Distribution parameters associated with the walk function.
+        :param theta_0: An initial state for the MCMC. If not specified, we pull the last recorded parameter set.
         """
         # Save the connection to our logging database.
         self.connection, self.cursor = connection_m, connection_m.cursor()
@@ -165,14 +174,14 @@ class MCMCA(ABC):
         self.observed = self.pull_frequencies(connection_o.cursor())
 
         # Determine our starting point, and save the walk distribution parameters.
-        self.theta_0 = theta_0 if seed != 1 else self.retrieve_last()
+        self.theta_0 = theta_0 if theta_0 is not None else self.retrieve_last()
         self.pi_epsilon = pi_epsilon
 
         # Determine the iterations the MCMC will run for.
-        self.boundaries = self.determine_boundaries(seed, iterations_n)
+        self.boundaries = self.determine_boundaries(iterations_n, theta_0 is None)
 
     def log_states(self, x: List, i: int) -> None:
-        """ Record our states to some database.
+        """ Record our states to our logging database.
 
         :param x: States and associated times & probabilities collected after running MCMC (our Markov chain).
         :param i: Current iteration of the MCMC run.
@@ -270,4 +279,3 @@ class MCMCA(ABC):
 
         # Remove our initial guess.
         self.cleanup()
-

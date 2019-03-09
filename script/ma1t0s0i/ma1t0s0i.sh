@@ -16,7 +16,6 @@ python3 script/ma1t0s0i/ma1t0s0i.py \
     -simulation_n 100 \
     -epsilon 0.55 \
     -iterations_n 10000 \
-    -seed 0 \
     -flush_n 5000 \
     -uid_observed ${sample_uids} \
     -locus_observed ${loci} \
@@ -35,7 +34,6 @@ for i in {2..30}; do
         -simulation_n 100 \
         -epsilon 0.55 \
         -iterations_n 10000 \
-        -seed 1 \
         -flush_n 5000 \
         -uid_observed ${sample_uids} \
         -locus_observed ${loci} \

@@ -133,7 +133,6 @@ def get_arguments() -> Namespace:
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None],
         ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None],
-        ['-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', int, None, None],
         ['-n', 'Starting sample size (population size).', int, None, None],
         ['-f', 'Scaling factor for total mutation rate.', float, None, None],
         ['-c', 'Constant bias for the upward mutation rate.', float, None, None],
@@ -164,9 +163,10 @@ if __name__ == '__main__':
     connection_o, connection_m = connect(arguments.odb), connect(arguments.mdb)
 
     # Prepare an MCMC run (obtain frequencies, create tables).
-    mcmc = MCMC1T0S0I(connection_m, connection_o,
-                      Parameters1T0S0I.from_args(arguments), Parameters1T0S0I.from_args_sigma(arguments),
-                      **{k:v for k,v in vars(arguments).items() if k not in p_complement})
+    mcmc = MCMC1T0S0I(connection_m=connection_m, connection_o=connection_o,
+                      # theta_0=Parameters1T0S0I.from_args(arguments) if arguments.n is not None else None,
+                      pi_epsilon=Parameters1T0S0I.from_args_sigma(arguments),
+                      **{k: v for k, v in vars(arguments).items() if k not in p_complement})
 
     # Run the MCMC.
     mcmc.run()
