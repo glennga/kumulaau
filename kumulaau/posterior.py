@@ -28,6 +28,15 @@ class MCMCA(ABC):
 
     @property
     @abstractmethod
+    def POPULATION_CLASS(self):
+        """ Enforce the definition of some population class, a child of the Population class.
+
+        :return: None.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
     def PARAMETER_CLASS(self):
         """ Enforce the definition of some parameter class, a child of the Parameter class.
 
@@ -46,18 +55,6 @@ class MCMCA(ABC):
 
     @staticmethod
     @abstractmethod
-    def _sample(theta, i_0) -> ndarray:
-        """ Given some parameter set theta and an initial state i_0, return a population that represents sampling from
-        the posterior distribution.
-
-        :param theta: Current parameter set to sample.
-        :param i_0: Common ancestor state.
-        :return: Array of repeat lengths to compare with an observed population.
-        """
-        raise NotImplementedError
-
-    @staticmethod
-    @abstractmethod
     def _walk(theta, pi_epsilon):
         """ Given some parameter set theta and distribution parameters pi_epsilon, generate a new parameter set.
 
@@ -67,7 +64,7 @@ class MCMCA(ABC):
         """
         raise NotImplementedError
 
-    def create_tables(self) -> None:
+    def _create_tables(self) -> None:
         """ Create the tables to log the results of our MCMC to.
 
         :return: None.
@@ -94,7 +91,7 @@ class MCMCA(ABC):
                 PROPOSED_TIME INT
             );""")
 
-    def pull_frequencies(self, cursor_o):
+    def _pull_frequencies(self, cursor_o) -> List:
         """ Given a cursor to the observed database, pull the frequencies associated with the given (uid, locus)
         list.
 
@@ -108,7 +105,7 @@ class MCMCA(ABC):
             AND LOCUS LIKE ?
         """, (a, b,)).fetchall(), self.uid, self.locus))
 
-    def retrieve_last(self):
+    def _retrieve_last(self):
         """ Retrieve the last parameter set from a previous run. This is meant to be used for continuing MCMC runs.
 
         :return: Parameters object holding the parameter set from last recorded run.
@@ -121,7 +118,7 @@ class MCMCA(ABC):
             LIMIT 1
         """).fetchone())
 
-    def determine_boundaries(self, iterations_n: int, seed: bool):
+    def _determine_boundaries(self, iterations_n: int, seed: bool) -> List:
         """ Given a seed flag and the number of iterations to run our MCMC for, determine the boundaries of the
         MCMC iterations (start and end).
 
@@ -166,21 +163,31 @@ class MCMCA(ABC):
         self.simulation_n, self.iterations_n, self.epsilon = simulation_n, iterations_n, epsilon
 
         # Create our tables to log to, and save our logging parameter.
-        self.create_tables()
+        self._create_tables()
         self.flush_n = flush_n
 
         # Save our observation database parameters and pull the associated frequencies.
         self.uid, self.locus = uid_observed, locus_observed
-        self.observed = self.pull_frequencies(connection_o.cursor())
+        self.observed = self._pull_frequencies(connection_o.cursor())
 
         # Determine our starting point, and save the walk distribution parameters.
-        self.theta_0 = theta_0 if theta_0 is not None else self.retrieve_last()
+        self.theta_0 = theta_0 if theta_0 is not None else self._retrieve_last()
         self.pi_epsilon = pi_epsilon
 
         # Determine the iterations the MCMC will run for.
-        self.boundaries = self.determine_boundaries(iterations_n, theta_0 is None)
+        self.boundaries = self._determine_boundaries(iterations_n, theta_0 is None)
 
-    def log_states(self, x: List, i: int) -> None:
+    def _sample(self, theta, i_0) -> ndarray:
+        """ Given some parameter set theta and an initial state i_0, return a population that represents sampling from
+        the posterior distribution.
+
+        :param theta: Current parameter set to sample.
+        :param i_0: Common ancestor state.
+        :return: Array of repeat lengths to compare with an observed population.
+        """
+        return self.POPULATION_CLASS(theta).evolve(i_0)
+
+    def _log_states(self, x: List, i: int) -> None:
         """ Record our states to our logging database.
 
         :param x: States and associated times & probabilities collected after running MCMC (our Markov chain).
@@ -215,7 +222,7 @@ class MCMCA(ABC):
         # Clear our chain except for the last state.
         x[:] = [x[-1]]
 
-    def cleanup(self) -> None:
+    def _cleanup(self) -> None:
         """ Remove the initial state logged from our database, required to start the MCMC.
 
         :return: None.
@@ -275,7 +282,7 @@ class MCMCA(ABC):
                 x[-1][1] += 1
 
             # We record to our chain. This is dependent on the current iteration of MCMC.
-            self.log_states(x, i)
+            self._log_states(x, i)
 
         # Remove our initial guess.
-        self.cleanup()
+        self._cleanup()

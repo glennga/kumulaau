@@ -80,22 +80,14 @@ class MCMC1T0S0I(MCMCA):
     # Set the model schema associated with the database.
     MODEL_SCHEME_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
+    # Set the population class to use.
+    POPULATION_CLASS = Population1T0S0I
+
     # Set the parameter class to use.
     PARAMETER_CLASS = Parameters1T0S0I
 
     # Set the distance class to use.
     DISTANCE_CLASS = Cosine
-
-    @staticmethod
-    def _sample(theta, i_0) -> ndarray:
-        """ Given some parameter set theta and an initial state i_0, return a population that represents sampling from
-        the posterior distribution.
-
-        :param theta: Current parameter set to sample.
-        :param i_0: Common ancestor state.
-        :return: Array of repeat lengths to compare with an observed population.
-        """
-        return Population1T0S0I(theta).evolve(i_0)
 
     @staticmethod
     def _walk(theta, pi_epsilon) -> Parameters1T0S0I:
@@ -164,7 +156,7 @@ if __name__ == '__main__':
 
     # Prepare an MCMC run (obtain frequencies, create tables).
     mcmc = MCMC1T0S0I(connection_m=connection_m, connection_o=connection_o,
-                      # theta_0=Parameters1T0S0I.from_args(arguments) if arguments.n is not None else None,
+                      theta_0=Parameters1T0S0I.from_args(arguments) if arguments.n is not None else None,
                       pi_epsilon=Parameters1T0S0I.from_args_sigma(arguments),
                       **{k: v for k, v in vars(arguments).items() if k not in p_complement})
 
