@@ -7,7 +7,7 @@ from numpy import ndarray
 from typing import List
 
 
-class MCMCA(ABC):
+class Posterior(ABC):
     @property
     @abstractmethod
     def MODEL_NAME(self):
@@ -64,6 +64,50 @@ class MCMCA(ABC):
         """
         raise NotImplementedError
 
+    def _pull_frequencies(self, cursor_o) -> List:
+        """ Given a cursor to the observed database, pull the frequencies associated with the given (uid, locus)
+        list.
+
+        :param cursor_o: Cursor to the observed database.
+        :return: List of frequencies associated with each (uid, locus) tuple.
+        """
+        return list(map(lambda a, b: cursor_o.execute("""
+            SELECT ELL, ELL_FREQ
+            FROM OBSERVED_ELL
+            WHERE SAMPLE_UID LIKE ?
+            AND LOCUS LIKE ?
+        """, (a, b,)).fetchall(), self.uid, self.locus))
+
+    def _sample(self, theta, i_0) -> ndarray:
+        """ Given some parameter set theta and an initial state i_0, return a population that represents sampling from
+        the posterior distribution.
+
+        :param theta: Current parameter set to sample.
+        :param i_0: Common ancestor state.
+        :return: Array of repeat lengths to compare with an observed population.
+        """
+        return self.POPULATION_CLASS(theta).evolve(i_0)
+
+    def __init__(self, connection_m: Connection, connection_o: Connection, uid: List, locus: List):
+        """ All posterior classes require the following:
+
+        1. A connection to the logging database.
+        2. Frequencies to compare results to.
+
+        :param connection_m: Connection to the database to log to.
+        :param connection_o: Connection to the database holding the observed frequencies to compare to.
+        :param uid: IDs of observed samples to compare to.
+        :param locus: Loci of observed samples (must match with uid).
+        """
+        # Save the connection to our logging database.
+        self.connection, self.cursor = connection_m, connection_m.cursor()
+
+        # Save our observation database parameters and pull the associated frequencies.
+        self.uid, self.locus = uid, locus
+        self.observed = self._pull_frequencies(connection_o.cursor())
+
+
+class MCMCA(Posterior, ABC):
     def _create_tables(self) -> None:
         """ Create the tables to log the results of our MCMC to.
 
@@ -90,20 +134,6 @@ class MCMCA(ABC):
                 DISTANCE FLOAT,
                 PROPOSED_TIME INT
             );""")
-
-    def _pull_frequencies(self, cursor_o) -> List:
-        """ Given a cursor to the observed database, pull the frequencies associated with the given (uid, locus)
-        list.
-
-        :param cursor_o: Cursor to the observed database.
-        :return: List of frequencies associated with each (uid, locus) tuple.
-        """
-        return list(map(lambda a, b: cursor_o.execute("""
-            SELECT ELL, ELL_FREQ
-            FROM OBSERVED_ELL
-            WHERE SAMPLE_UID LIKE ?
-            AND LOCUS LIKE ?
-        """, (a, b,)).fetchall(), self.uid, self.locus))
 
     def _retrieve_last(self):
         """ Retrieve the last parameter set from a previous run. This is meant to be used for continuing MCMC runs.
@@ -140,9 +170,9 @@ class MCMCA(ABC):
         """ A lot of shit is done here. I think I may need to break this down deeper in the future, but... I guess for
         now this works:
 
-        1. Create the tables we must log to.
-        2. Pull the frequencies associated with observation parameters we passed in.
-        3. Determine the starting point, based on the seed parameter.
+        1. Pull the frequencies associated with observation parameters we passed in (from Posterior).
+        2. Create the tables we must log to.
+        3. Determine the starting point, based on the seed parameter (from Posterior).
         4. Determine our iteration bounds, based on the seed parameter.
 
         :param connection_m: Connection to the database to log to.
@@ -156,8 +186,7 @@ class MCMCA(ABC):
         :param pi_epsilon: Distribution parameters associated with the walk function.
         :param theta_0: An initial state for the MCMC. If not specified, we pull the last recorded parameter set.
         """
-        # Save the connection to our logging database.
-        self.connection, self.cursor = connection_m, connection_m.cursor()
+        super().__init__(connection_m, connection_o, uid_observed, locus_observed)
 
         # Save the parameters associated with our ABC-MCMC itself.
         self.simulation_n, self.iterations_n, self.epsilon = simulation_n, iterations_n, epsilon
@@ -166,26 +195,12 @@ class MCMCA(ABC):
         self._create_tables()
         self.flush_n = flush_n
 
-        # Save our observation database parameters and pull the associated frequencies.
-        self.uid, self.locus = uid_observed, locus_observed
-        self.observed = self._pull_frequencies(connection_o.cursor())
-
         # Determine our starting point, and save the walk distribution parameters.
         self.theta_0 = theta_0 if theta_0 is not None else self._retrieve_last()
         self.pi_epsilon = pi_epsilon
 
         # Determine the iterations the MCMC will run for.
         self.boundaries = self._determine_boundaries(iterations_n, theta_0 is None)
-
-    def _sample(self, theta, i_0) -> ndarray:
-        """ Given some parameter set theta and an initial state i_0, return a population that represents sampling from
-        the posterior distribution.
-
-        :param theta: Current parameter set to sample.
-        :param i_0: Common ancestor state.
-        :return: Array of repeat lengths to compare with an observed population.
-        """
-        return self.POPULATION_CLASS(theta).evolve(i_0)
 
     def _log_states(self, x: List, i: int) -> None:
         """ Record our states to our logging database.
