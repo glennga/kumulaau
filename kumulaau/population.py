@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from numpy import ndarray, array, asarray
 from abc import ABC, abstractmethod
+from argparse import Namespace
 from typing import List
 import pop
 
@@ -40,6 +41,7 @@ class Population(ABC):
         :param theta: A parameter set for the given population model.
         """
         self.is_evolved, self.evolved = False, array([])  # Our default values.
+        self.theta = theta  # Save our parameter set.
 
         # Trace our trees. The result should return pointers to one or more C structures.
         self.tree_pointers = self._trace_trees(self._transform_bounded(theta))
@@ -61,7 +63,8 @@ class Population(ABC):
         # Return the evolved generation of ancestors.
         return self.evolved
 
-    def _pop_trace(self, n, f, c, d, kappa, omega):
+    @staticmethod
+    def _pop_trace(n, f, c, d, kappa, omega):
         """ A wrapper for the pop module trace method.
 
         :param n: Population size, used for determining the number of generations between events.
@@ -74,7 +77,8 @@ class Population(ABC):
         """
         return pop.trace(n, f, c, d, kappa, omega)
 
-    def _pop_evolve(self, p, i_0: ndarray) -> ndarray:
+    @staticmethod
+    def _pop_evolve(p, i_0: ndarray) -> ndarray:
         """ A wrapper for the pop module evolve method.
 
         :param p: Pointer to a pop module C structure (tree)

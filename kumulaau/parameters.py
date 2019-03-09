@@ -52,27 +52,23 @@ class Parameters(ABC):
         """
         raise NotImplementedError
 
-    @staticmethod
-    @abstractmethod
-    def _sigma_namespace(p: Namespace) -> List:
-        """ Return a list of '_sigma' values from a namespace in the same order of __iter__
-
-        :param p: Arguments from some namespace.
-        :return: List from namespace.
-        """
-        raise NotImplementedError
-
     @classmethod
-    def from_args(cls, arguments: Namespace, is_sigma: bool = False):
-        """ Given a namespace, return a Parameters object with the appropriate parameters. If 'is_sigma' is
-        toggled, we look for the sigma arguments in our namespace instead. This is commonly used with an ArgumentParser
-        instance.
+    def from_args(cls, arguments: Namespace):
+        """ Given a namespace, return a Parameters object with the appropriate parameters.
 
         :param arguments: Arguments from some namespace.
-        :param is_sigma: If true, we search for 'n_sigma', 'f_sigma', ... Otherwise we search for 'n', 'f', ...
         :return: New Parameters object with the parsed in arguments.
         """
-        return cls(*cls._from_namespace(arguments)) if not is_sigma else cls(*cls._sigma_namespace(arguments))
+        return cls(*cls._from_namespace(arguments))
+
+    @classmethod
+    def from_args_sigma(cls, arguments: Namespace):
+        """ TODO
+
+        :param arguments:
+        :return:
+        """
+        return cls(*[vars(arguments)[i] for i in list(filter(lambda a: '_sigma' in a, vars(arguments)))])
 
     @abstractmethod
     def _walk_criteria(self) -> bool:
@@ -94,7 +90,7 @@ class Parameters(ABC):
         :return: A new Parameters (point).
         """
         while True:
-            theta_proposed = cls(*list(map(walk, list(theta), list(pi_sigma))))
+            theta_proposed = cls(*walk(theta, pi_sigma))
 
             if theta_proposed._walk_criteria():  # Only return if the parameter set is valid.
                 return theta_proposed
