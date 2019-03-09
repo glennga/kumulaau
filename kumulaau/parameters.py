@@ -2,37 +2,44 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, List
 from argparse import Namespace
+from typing import Callable
 
 
 class Parameters(ABC):
+    @classmethod
+    def _inspect_fields(cls):
+        """ Determine the parameter fields, based on the defined constructor. We do not include "self".
+
+        :return: List of all parameters used in the constructor.
+        """
+        from inspect import getfullargspec
+
+        return getfullargspec(cls.__init__).args[1:]
+
     def __init__(self, c: float, d: float, kappa: int, omega: int):
         """ Every model involves the same mutation model (for now). This involves the parameters c, d, and our bounds
         [kappa, omega].
+
+        Notes to User: This must be called **LAST** in the inherited constructor.
 
         :param c: Constant bias for the upward mutation rate.
         :param d: Linear bias for the downward mutation rate.
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
+        # Set our mutation model parameters.
         self.c, self.d, self.kappa, self.omega = c, d, kappa, omega
 
-    @property
-    @abstractmethod
-    def PARAMETER_COUNT(self):
-        """ Enforce the definition of a parameter count.
-
-        :return: None.
-        """
-        raise NotImplementedError
+        # Obtain a iterable for parameter expansion.
+        self.params = list(map(lambda a: getattr(self, a), self._inspect_fields()))
 
     def __iter__(self):
-        """ Return each our of parameters in some standard order (based off _from_namespace).
+        """ Return each our of parameters in the constructor order.
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in self._from_namespace(self):
+        for parameter in self.params:
             yield parameter
 
     def __len__(self):
@@ -40,35 +47,18 @@ class Parameters(ABC):
 
         :return: The number of parameters we have.
         """
-        return self.PARAMETER_COUNT
-
-    @staticmethod
-    @abstractmethod
-    def _from_namespace(p) -> List:
-        """ Return a list from a namespace in the same order of __iter__.
-
-        :param p: Arguments from some namespace.
-        :return: List from namespace.
-        """
-        raise NotImplementedError
+        return len(self.params)
 
     @classmethod
-    def from_args(cls, arguments: Namespace):
-        """ Given a namespace, return a Parameters object with the appropriate parameters.
+    def from_namespace(cls, arguments: Namespace, transform: Callable = lambda a: a):
+        """ Given a namespace, return a Parameters object with the appropriate parameters. Transform each attribute
+        (e.g. add a suffix or prefix) if desired.
 
         :param arguments: Arguments from some namespace.
+        :param transform: Function to transform each attribute, given a string and returning a string.
         :return: New Parameters object with the parsed in arguments.
         """
-        return cls(*cls._from_namespace(arguments))
-
-    @classmethod
-    def from_args_sigma(cls, arguments: Namespace):
-        """ TODO
-
-        :param arguments:
-        :return:
-        """
-        return cls(*[vars(arguments)[i] for i in list(filter(lambda a: '_sigma' in a, vars(arguments)))])
+        return cls(*list(map(lambda a: getattr(arguments, transform(a)), cls._inspect_fields())))
 
     @abstractmethod
     def _walk_criteria(self) -> bool:

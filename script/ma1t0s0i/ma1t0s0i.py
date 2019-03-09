@@ -7,10 +7,8 @@ from typing import List
 
 
 class Parameters1T0S0I(Parameters):
-    PARAMETER_COUNT = 6  # Set our properties.
-
-    def __init__(self, n: float, f: float, c: float, d: float, kappa: int, omega: int):
-        """ Constructor.
+    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+        """ Constructor. Here we set our parameters.
 
         :param n: Population size, used for determining the number of generations between events.
         :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
@@ -19,17 +17,9 @@ class Parameters1T0S0I(Parameters):
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
+        self.n, self.f = n, f
+
         super().__init__(c, d, kappa, omega)
-        self.n, self.f = round(n), f
-
-    @staticmethod
-    def _from_namespace(p) -> List:
-        """ Return a list from a namespace in the same order of __iter__.
-
-         :param p: Arguments from some namespace.
-         :return: List from namespace.
-         """
-        return [p.n, p.f, p.c, p.d, p.kappa, p.omega]
 
     def _walk_criteria(self) -> bool:
         """ Determine if a current parameter set is valid.
@@ -52,7 +42,7 @@ class Population1T0S0I(Population):
         """
         return Parameters1T0S0I(max(theta.n, 0),
                                 max(theta.f, 0),
-                                max(theta.c, nextafter(0, 1)),  # Dr. Reed gave a strict bound > 0 here, but I forget...
+                                max(theta.c, nextafter(0, 1)),
                                 max(theta.d, 0),
                                 max(theta.kappa, 0),
                                 max(theta.omega, theta.kappa))
@@ -63,14 +53,14 @@ class Population1T0S0I(Population):
         :param theta: Parameter1T0S0I set to use with tree tracing.
         :return: 1-element list of pointers to pop module C structure.
         """
-        return [self._pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
+        return [self.pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
 
     def _resolve_lengths(self, i_0: ndarray) -> ndarray:
         """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
 
         :return: List of repeat lengths.
         """
-        return self._pop_evolve(self.tree_pointers[0], i_0)
+        return self.pop_evolve(self.tree_pointers[0], i_0)
 
 
 class MCMC1T0S0I(MCMCA):
@@ -156,8 +146,8 @@ if __name__ == '__main__':
 
     # Prepare an MCMC run (obtain frequencies, create tables).
     mcmc = MCMC1T0S0I(connection_m=connection_m, connection_o=connection_o,
-                      theta_0=Parameters1T0S0I.from_args(arguments) if arguments.n is not None else None,
-                      pi_epsilon=Parameters1T0S0I.from_args_sigma(arguments),
+                      theta_0=Parameters1T0S0I.from_namespace(arguments) if arguments.n is not None else None,
+                      pi_epsilon=Parameters1T0S0I.from_namespace(arguments, lambda a: a + '_sigma'),
                       **{k: v for k, v in vars(arguments).items() if k not in p_complement})
 
     # Run the MCMC.
