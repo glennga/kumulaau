@@ -11,12 +11,11 @@ for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
 done
 
 # Run once to seed our database. Must break into parts because GC is garbage ):<
-python3 script/ma1t0s0i/ma1t0s0i.py \
-    -mdb "/home/glennga/lus/ma1t0s0i-$1.db" \
-    -simulation_n 100 \
+python3 script/ma4t1s2i/ma4t1s2i.py \
+    -mdb "/home/glennga/lus/ma4t1s2i-$1.db" \
+    -simulation_n 100 \  # TODO: Change this to the correct parameters.
     -epsilon 0.55 \
     -iterations_n 10000 \
-    -seed 0 \
     -flush_n 5000 \
     -uid_observed ${sample_uids} \
     -locus_observed ${loci} \
@@ -30,13 +29,12 @@ echo "MCMC Progress [1/10]."
 
 # Repeat 29 more times.
 for i in {2..30}; do
-    python3 script/ma1t0s0i/ma1t0s0i.py \
-        -mdb "/home/glennga/lus/ma1t0s0i-$1.db" \
+    python3 script/ma1t0s0i/ma4t1s2i.py \
+        -mdb "/home/glennga/lus/ma4t1s2i-$1.db" \
         -simulation_n 100 \
         -epsilon 0.55 \
         -iterations_n 10000 \
-        -seed 1 \
-        -flush_n 5000 \
+        -flush_n 5000 \  # TODO: Change this to the correct parameters.
         -uid_observed ${sample_uids} \
         -locus_observed ${loci} \
         -n_sigma 0.0 \
