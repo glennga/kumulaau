@@ -84,24 +84,34 @@ class Population(ABC):
         return asarray(pop.evolve(p, [i for i in i_0]))
 
 
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments, if used as our main script.
+
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description='Simulate the evolution of single population.')
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3]), [
+        ['-image', 'Image file to save resulting repeat length distribution (histogram) to.', str, None],
+        ['-i_0', 'Repeat lengths of starting ancestors.', int, '+'],
+        ['-n', 'Starting population size.', int, None],
+        ['-f', 'Scaling factor for total mutation rate.', float, None],
+        ['-c', 'Constant bias for the upward mutation rate.', float, None],
+        ['-d', 'Linear bias for the downward mutation rate.', float, None],
+        ['-kappa', 'Lower bound of repeat lengths.', int, None],
+        ['-omega', 'Upper bound of repeat lengths.', int, None]
+    ]))
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    from argparse import ArgumentParser, ArgumentParser
     from timeit import default_timer as timer
     from numpy import std, average
     from matplotlib import use
 
-    parser = ArgumentParser(description='Simulate the evolution of single population.')
-    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
-    paa('-image', 'Image file to save resulting repeat length distribution (histogram) to.', str)
-
-    parser.add_argument('-i_0', help='Repeat lengths of starting ancestors.', type=int, nargs='+')
-    paa('-n', 'Starting population size.', int)
-    paa('-f', 'Scaling factor for total mutation rate.', float)
-    paa('-c', 'Constant bias for the upward mutation rate.', float)
-    paa('-d', 'Linear bias for the downward mutation rate.', float)
-    paa('-kappa', 'Lower bound of repeat lengths.', int)
-    paa('-omega', 'Upper bound of repeat lengths.', int)
-    main_arguments = parser.parse_args()  # Parse our arguments.
+    main_arguments = get_arguments()  # Parse our arguments.
 
     use('TkAgg')  # Use a different backend (plotting to display).
     from matplotlib import pyplot as plt

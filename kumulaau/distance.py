@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-from numpy import ndarray, dot, arccos, pi, mean
+from numpy import ndarray, dot, arccos, pi, zeros, mean
 from abc import ABC, abstractmethod
 from typing import List, Callable
+from argparse import Namespace
 from numpy.linalg import norm
 from numba import jit, prange
 from sqlite3 import Cursor
@@ -234,22 +235,32 @@ class Euclidean(Distance):  # TODO: Actually test this metric...
         return norm(generated - observation)
 
 
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments, if used as our main script.
+
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description='Sample a simulated population and compare this to an observed data set.')
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], default=a[3], choices=a[4]), [
+        ['-odb', 'Location of the observed database file.', str, 'data/observed.db', None],
+        ['-rdb', 'Location of the database to record data to.', str, 'data/delta.db', None],
+        ['-function', 'Distance function to use.', str, None, ['COSINE', 'EUCLIDEAN']],
+        ['-uid_observed', 'ID of the observed sample to compare to.', str, None, None],
+        ['-locus_observed', 'Locus of the observed sample to compare to.', str, None, None]
+    ]))
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    from argparse import ArgumentParser, Namespace
     from timeit import default_timer as timer
-    from numpy import zeros, array
+    from numpy import array
     from sqlite3 import connect
     import pop
 
-    parser = ArgumentParser(description='Sample a simulated population and compare this to an observed data set.')
-    parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
-    parser.add_argument('-rdb', help='Location of the database to record data to.', type=str, default='data/delta.db')
-    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
-
-    parser.add_argument('-function', help='Distance function to use.', type=str, choices=['COSINE', 'EUCLIDEAN'])
-    paa('-uid_observed', 'ID of the observed sample to compare to.', str)
-    paa('-locus_observed', 'Locus of the observed sample to compare to.', str)
-    main_arguments = parser.parse_args()  # Parse our arguments.
+    main_arguments = get_arguments()  # Parse our arguments.
 
     # Connect to all of our databases, and create our table if it does not already exist.
     connection_o, connection_r = connect(main_arguments.odb), connect(main_arguments.rdb)
