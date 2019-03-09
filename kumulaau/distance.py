@@ -5,45 +5,6 @@ from typing import List, Callable
 from argparse import Namespace
 from numpy.linalg import norm
 from numba import jit, prange
-from sqlite3 import Cursor
-
-
-def create_table(cursor: Cursor) -> None:
-    """ Create the table to log the results of our comparisons to.
-
-    :param cursor: Cursor to the database file to log to.
-    :return: None.
-    """
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS DISTANCE_POP (
-            TIME_R TIMESTAMP,
-            ID_GENERATED TEXT,
-            UID_OBSERVED TEXT,
-            LOCUS_OBSERVED TEXT,
-            DISTANCE FLOAT
-        );""")
-
-
-def log_distances(cursor: Cursor, distances: ndarray, uid_observed: str, locus_observed: str) -> None:
-    """ Given the computed differences between two sample's distributions, record each with a unique ID into the
-     database.
-
-    :param cursor: Cursor to the database to log to.
-    :param distances: Computed differences from the sampling.
-    :param uid_observed: ID of the observed sample to compare to.
-    :param locus_observed: Locus of the observed sample to compare to.
-    :return: None.
-    """
-    from string import ascii_uppercase, digits
-    from datetime import datetime
-    from random import choice
-
-    # Record our results.
-    cursor.executemany("""
-        INSERT INTO DISTANCE_POP
-        VALUES (?, ?, ?, ?, ?)
-    """, ((datetime.now(), ''.join(choice(ascii_uppercase + digits) for _ in range(20)), uid_observed,
-           locus_observed, a) for a in distances))
 
 
 class Distance(ABC):
@@ -70,7 +31,7 @@ class Distance(ABC):
     def _prepare(self, sql_observed: List) -> None:
         """ Prepare our matched matrix and convert our list of observations into a matrix of sparse frequencies.
 
-        :param sql_observed: A dictionary mapping repeat lengths to frequencies. This is format returned by SQLite.
+        :param sql_observed: A dictionary mapping repeat lengths to frequencies. This format is returned by SQLite.
         :return: None.
         """
         from numpy import array
@@ -171,8 +132,8 @@ class Distance(ABC):
         """
         from numpy import log, exp
 
-        # Avoid floating point error, use logarithms.
-        return exp(sum(map(log, mean(self.h, axis=0))))
+        # Avoid floating point error, use logarithms. Avoid log(0) errors.
+        return exp(sum(map(lambda a: 0 if a == 0 else log(a), mean(self.h, axis=0))))
 
 
 class Cosine(Distance):
@@ -245,8 +206,7 @@ def get_arguments() -> Namespace:
     parser = ArgumentParser(description='Sample a simulated population and compare this to an observed data set.')
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], default=a[3], choices=a[4]), [
         ['-odb', 'Location of the observed database file.', str, 'data/observed.db', None],
-        ['-rdb', 'Location of the database to record data to.', str, 'data/delta.db', None],
-        ['-function', 'Distance function to use.', str, None, ['COSINE', 'EUCLIDEAN']],
+        ['-function', 'Distance function to use.', str, None, ['Cosine', 'Euclidean']],
         ['-uid_observed', 'ID of the observed sample to compare to.', str, None, None],
         ['-locus_observed', 'Locus of the observed sample to compare to.', str, None, None]
     ]))
@@ -256,39 +216,44 @@ def get_arguments() -> Namespace:
 
 if __name__ == '__main__':
     from timeit import default_timer as timer
-    from numpy import array
+    from importlib import import_module
     from sqlite3 import connect
+    from numpy import array
     import pop
 
-    main_arguments = get_arguments()  # Parse our arguments.
+    arguments = get_arguments()  # Parse our arguments.
 
-    # Connect to all of our databases, and create our table if it does not already exist.
-    connection_o, connection_r = connect(main_arguments.odb), connect(main_arguments.rdb)
-    cursor_o, cursor_r = connection_o.cursor(), connection_r.cursor()
-    create_table(cursor_r)
+    connection = connect(arguments.odb)
+    if not bool(connection.execute(""" -- Verify that OBSERVED_ELL exists. --
+        SELECT NAME
+        FROM sqlite_master
+        WHERE type='table' AND NAME='OBSERVED_ELL'
+    """).fetchone()):
+        raise LookupError("'OBSERVED_ELL' not found in observation database.")
 
-    main_observed_frequency = connection_o.execute(""" -- Pull the frequency from the observed database. --
+    main_frequencies = connection.execute(""" -- Pull the frequency from the observed database. --
         SELECT ELL, ELL_FREQ
         FROM OBSERVED_ELL
         WHERE SAMPLE_UID LIKE ?
         AND LOCUS LIKE ?
-    """, (main_arguments.uid_observed, main_arguments.locus_observed,)).fetchall()
+    """, (arguments.uid_observed, arguments.locus_observed,)).fetchall()
+    connection.close()
 
     # Create our parameter sets and sampling lambda.
-    main_theta = {'n': 100, 'f': 100.0, 'c': 0.01, 'd': 0.001, 'kappa': 3, 'omega': 30}
-    main_accumulator_parameters = [[main_observed_frequency], 3, 30, 1000]
-    main_accumulator = Cosine(*main_accumulator_parameters) if main_arguments.function == 'COSINE' \
-        else Euclidean(*main_accumulator_parameters)
+    main_accumulator = getattr(import_module('kumulaau'), arguments.function)(*[[main_frequencies], 3, 30, 1000])
     sampler = lambda a, b: pop.evolve(pop.trace(a.n, a.f, a.c, a.d, a.kappa, a.omega), b)
 
     # Execute the sampling and print the running time.
     start_t = timer()
-    expected_delta = main_accumulator.fill_matrices(sampler, Namespace(**main_theta), 0.1)
+    expected_delta = main_accumulator.fill_matrices(sampler, Namespace(**{'n': 100,
+                                                                          'f': 100.0,
+                                                                          'c': 0.01,
+                                                                          'd': 0.001,
+                                                                          'kappa': 3,
+                                                                          'omega': 30}), 0.1)
     end_t = timer()
     print('Time Elapsed (1000x): [\n\t' + str(end_t - start_t) + '\n]')
 
     # Display our results to console, and record to our simulated database.
     print('Expected Distance: [\n\t' + str(expected_delta) + '\n]')
     print('Likelihood: [\n\t' + str(main_accumulator.match_likelihood()) + '\n]')
-    log_distances(cursor_r, array([expected_delta]), main_arguments.uid_observed, main_arguments.locus_observed)
-    connection_r.commit(), connection_r.close(), connection_o.close()
