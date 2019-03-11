@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from kumulaau import Parameters, Population, MCMCA
+from kumulaau import Parameter, Model, MCMCA
 from kumulaau.distance import Cosine
 from argparse import Namespace
 from numpy import ndarray
 from typing import List
 
 
-class Parameters4T1S2I(Parameters):
-    PARAMETER_COUNT = 13  # Set our properties.
-
+class Parameter4T1S2I(Parameter):
     def __init__(self, n_b: int, n_s1: int, n_s2: int, n_e: int, f_b: float, f_s1: float, f_s2: float, f_e: float,
                  alpha: float, c: float, d: float, kappa: int, omega: int):
         """ Constructor. This is just meant to be a data class for the 4T1S2I model.
@@ -28,21 +26,12 @@ class Parameters4T1S2I(Parameters):
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        super().__init__(c, d, kappa, omega)
-
         self.n_b, self.n_s1, self.n_s2, self.n_e, self.f_b, self.f_s1, self.f_s2, self.f_e, self.alpha = \
             round(n_b), round(n_s1), round(n_s2), round(n_e), f_b, f_s1, f_s2, f_e, alpha
 
-    @staticmethod
-    def _from_namespace(p) -> List:
-        """ Return a list from a namespace in the same order of __iter__.
+        super().__init__(c, d, kappa, omega)
 
-         :param p: Arguments from some namespace.
-         :return: List from namespace.
-         """
-        return [p.n_b, p.n_s1, p.n_s2, p.n_e, p.f_b, p.f_s1, p.f_s2, p.f_e, p.alpha, p.c, p.d, p.kappa, p.omega]
-
-    def _walk_criteria(self) -> bool:
+    def _validity(self) -> bool:
         """ Determine if a current parameter set is valid. We constrain the following:
 
         1. A population size is always positive.
@@ -62,33 +51,8 @@ class Parameters4T1S2I(Parameters):
             self.n_e < self.n_s1 + self.n_s2 < self.n_e
 
 
-class Population4T1S2I(Population):
-    @staticmethod
-    def _keep_nonnegative(p):
-        """ Given some parameter p, return the max(p, 0).
-
-        :param p: Parameter to keep bounded.
-        :return: The max(p, 0).
-        """
-        return max(p, 0)
-
-    def _transform_bounded(self, theta: Parameters4T1S2I) -> Parameters4T1S2I:
-        """ Return a new parameter set, bounded by the constraints below.
-
-        :param theta: Parameters4T1S2I set to transform.
-        :return: A new Parameters4T1S2I set, properly bounded.
-        """
-        from numpy import nextafter
-
-        return Parameters4T1S2I(*(list(map(self._keep_nonnegative, [theta.n_b, theta.n_s1, theta.n_s2, theta.n_e])) +
-                                list(map(self._keep_nonnegative, [theta.f_b, theta.f_s1, theta.f_s2, theta.f_e])) +
-                                [max(min(theta.alpha, 0), 1),
-                                 max(theta.c, nextafter(0, 1)),
-                                 max(theta.d, 0),
-                                 max(theta.kappa, 0),
-                                 max(theta.omega, theta.kappa)]))
-
-    def _trace_trees(self, theta: Parameters4T1S2I) -> List:
+class Model4T1S2I(Model):
+    def _generate_topology(self, theta: Parameter4T1S2I) -> List:
         """ Generate a 4-element list of pointers to a single tree in the pop module. The order is as follows:
 
         1. Common ancestor population.
@@ -99,10 +63,10 @@ class Population4T1S2I(Population):
         :param theta: Parameters4T1S2I set to use with tree tracing.
         :return: 4-element list of pointers to pop module C structure.
         """
-        return [self._pop_trace(theta.n_b, theta.f_b, theta.c, theta.d, theta.kappa, theta.omega),
-                self._pop_trace(theta.n_s1, theta.f_s1, theta.c, theta.d, theta.kappa, theta.omega),
-                self._pop_trace(theta.n_s2, theta.f_s2, theta.c, theta.d, theta.kappa, theta.omega),
-                self._pop_trace(theta.n_e, theta.f_e, theta.c, theta.d, theta.kappa, theta.omega)]
+        return [self.pop_trace(theta.n_b, theta.f_b, theta.c, theta.d, theta.kappa, theta.omega),
+                self.pop_trace(theta.n_s1, theta.f_s1, theta.c, theta.d, theta.kappa, theta.omega),
+                self.pop_trace(theta.n_s2, theta.f_s2, theta.c, theta.d, theta.kappa, theta.omega),
+                self.pop_trace(theta.n_e, theta.f_e, theta.c, theta.d, theta.kappa, theta.omega)]
 
     def _resolve_lengths(self, i_0: ndarray) -> ndarray:
         """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
@@ -113,18 +77,18 @@ class Population4T1S2I(Population):
         from numpy import asarray, abs, concatenate
 
         # Evolve our common ancestor tree.
-        anc_out = self._pop_evolve(self.tree_pointers[0], i_0)
+        anc_out = self.pop_evolve(self.generate_topology_results[0], i_0)
 
         # Determine our descendant inputs. Normally distributed around alpha.
         split_alpha = int(round(abs(normal(self.theta.alpha, 0.2)) * len(anc_out)))
         shuffle(anc_out)
 
         # Evolve our descendant populations 1 and 2.
-        desc_1_out = self._pop_evolve(self.tree_pointers[1], anc_out[0:split_alpha])
-        desc_2_out = self._pop_evolve(self.tree_pointers[2], anc_out[:-split_alpha])
+        desc_1_out = self.pop_evolve(self.generate_topology_results[1], anc_out[0:split_alpha])
+        desc_2_out = self.pop_evolve(self.generate_topology_results[2], anc_out[:-split_alpha])
 
         # Evolve our last descendant population.
-        return asarray(self._pop_evolve(self.tree_pointers[3], concatenate((desc_1_out, desc_2_out))))
+        return asarray(self.pop_evolve(self.generate_topology_results[3], concatenate((desc_1_out, desc_2_out))))
 
 
 class MCMC4T1S2I(MCMCA):
@@ -136,17 +100,17 @@ class MCMC4T1S2I(MCMCA):
                        "F_B FLOAT, F_S1 FLOAT, F_S2 FLOAT, F_E FLOAT " \
                        "ALPHA FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
-    # Set the population class to use.
-    POPULATION_CLASS = Population4T1S2I
+    # Set the model class to use.
+    MODEL_CLASS = Model4T1S2I
 
     # Set the parameter class to use.
-    PARAMETER_CLASS = Parameters4T1S2I
+    PARAMETER_CLASS = Parameter4T1S2I
 
     # Set the distance class to use.
     DISTANCE_CLASS = Cosine
 
     @staticmethod
-    def _walk(theta, pi_epsilon) -> Parameters4T1S2I:
+    def _walk(theta, pi_epsilon) -> Parameter4T1S2I:
         """ Given some parameter set theta and the sigma parameters pi_epsilon, generate a new parameter set.
 
         :param theta: Current point to walk from.
@@ -156,12 +120,12 @@ class MCMC4T1S2I(MCMCA):
         from numpy.random import normal
 
         # TODO: Figure out how to walk.
-        return Parameters4T1S2I(n=round(normal(theta.n, pi_epsilon.n)),
-                                f=normal(theta.f, pi_epsilon.f),
-                                c=normal(theta.c, pi_epsilon.c),
-                                d=normal(theta.d, pi_epsilon.d),
-                                kappa=round(normal(theta.kappa, pi_epsilon.kappa)),
-                                omega=round(normal(theta.omega, pi_epsilon.omega)))
+        return Parameter4T1S2I(n=round(normal(theta.n, pi_epsilon.n)),
+                               f=normal(theta.f, pi_epsilon.f),
+                               c=normal(theta.c, pi_epsilon.c),
+                               d=normal(theta.d, pi_epsilon.d),
+                               kappa=round(normal(theta.kappa, pi_epsilon.kappa)),
+                               omega=round(normal(theta.omega, pi_epsilon.omega)))
 
 
 def get_arguments() -> Namespace:
@@ -229,8 +193,8 @@ if __name__ == '__main__':
 
     # Prepare an MCMC run (obtain frequencies, create tables).
     mcmc = MCMC4T1S2I(connection_m=connection_m, connection_o=connection_o,
-                      theta_0=Parameters4T1S2I.from_args(arguments) if arguments.n is not None else None,
-                      pi_epsilon=Parameters4T1S2I.from_args_sigma(arguments),
+                      theta_0=Parameter4T1S2I.from_namespace(arguments) if arguments.n is not None else None,
+                      walk_params=Parameter4T1S2I.from_namespace(arguments, lambda a: a + '_sigma'),
                       **{k: v for k, v in vars(arguments).items() if k not in p_complement})
 
     # Run the MCMC.

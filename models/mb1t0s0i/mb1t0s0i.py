@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from kumulaau.population import BaseParameters
+from kumulaau.model import Parameters1T0S0I
 from sqlite3 import Cursor
 from typing import List, Callable
 
@@ -64,7 +64,7 @@ def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str
     x[:] = [x[-1]]
 
 
-def retrieve_last(cursor: Cursor) -> BaseParameters:
+def retrieve_last(cursor: Cursor) -> Parameters1T0S0I:
     """ TODO:
 
     :param cursor:
@@ -76,7 +76,7 @@ def retrieve_last(cursor: Cursor) -> BaseParameters:
         ORDER BY TIME_R, PROPOSED_TIME DESC
         LIMIT 1
     """).fetchone()
-    return BaseParameters(*a)
+    return Parameters1T0S0I(*a)
 
 
 def compute_exact_likelihood(distances: ndarray):
@@ -101,7 +101,7 @@ def compute_exact_likelihood(distances: ndarray):
 
 
 def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
-        theta_0: BaseParameters, q_sigma: BaseParameters) -> List:
+         theta_0: Parameters1T0S0I, q_sigma: Parameters1T0S0I) -> List:
     """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
     chain is determined by the distance between repeat length distributions. My interpretation of this new MCMC approach
     is given below:
@@ -137,7 +137,7 @@ def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
 
     for iteration in range(1, iterations_n):
         theta_k, summary = x[-1][0], Cosine()
-        theta_proposed = BaseParameters.from_walk(theta_k, q_sigma, walk)
+        theta_proposed = Parameters1T0S0I.from_walk(theta_k, q_sigma, walk)
 
         for _ in range(simulation_n):
             # Generate some population given the current parameter set.
@@ -202,9 +202,9 @@ if __name__ == '__main__':
     """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
 
     # Parse our starting point. If 'seed' is specified, we use this over any (n, f, c, d, u, ...) given.
-    main_theta_0 = BaseParameters.from_args(main_arguments, False) if main_arguments.seed != 1 else \
+    main_theta_0 = Parameters1T0S0I.from_namespace(main_arguments, False) if main_arguments.seed != 1 else \
         retrieve_last(cursor_m)
-    main_q_sigma = BaseParameters.from_args(main_arguments, True)
+    main_q_sigma = Parameters1T0S0I.from_namespace(main_arguments, True)
     main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
         connection_m.commit() if b % main_arguments.flush_n == 0 else None
 

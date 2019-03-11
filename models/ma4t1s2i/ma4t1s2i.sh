@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Ensure that we have only one argument passed.
+if [[ "$#" -ne 1 ]]; then
+    echo "Usage: ma4t1s2i.sh [results database]"
+    exit 1
+fi
+SCRIPT_DIR=$(dirname "$0")
+
 # Our criteria for the loci and sample IDs to use for this run of MCMC: The Colombian populace.
 sample_uids=(); loci=()
 for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
@@ -11,8 +18,8 @@ for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
 done
 
 # Run once to seed our database. Must break into parts because GC is garbage ):<
-python3 script/ma4t1s2i/ma4t1s2i.py \
-    -mdb "/home/glennga/lus/ma4t1s2i-$1.db" \
+python3 ${SCRIPT_DIR}/ma4t1s2i.py \
+	-mdb "$1" \
     -simulation_n 100 \  # TODO: Change this to the correct parameters.
     -epsilon 0.55 \
     -iterations_n 10000 \
@@ -29,8 +36,8 @@ echo "MCMC Progress [1/10]."
 
 # Repeat 29 more times.
 for i in {2..30}; do
-    python3 script/ma1t0s0i/ma4t1s2i.py \
-        -mdb "/home/glennga/lus/ma4t1s2i-$1.db" \
+    python3 ${SCRIPT_DIR}/ma4t1s2i.py \
+    	-mdb "$1" \
         -simulation_n 100 \
         -epsilon 0.55 \
         -iterations_n 10000 \
