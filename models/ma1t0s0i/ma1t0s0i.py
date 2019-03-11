@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 from numpy import nextafter, ndarray
-from kumulaau import Parameters, Population
+from kumulaau import Parameter, Model
 from kumulaau import Cosine, MCMCA
+from typing import List, Iterable
 from argparse import Namespace
-from typing import List
 
 
-class Parameters1T0S0I(Parameters):
+class Parameter1T0S0I(Parameter):
     def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
         """ Constructor. Here we set our parameters.
 
@@ -21,7 +21,7 @@ class Parameters1T0S0I(Parameters):
 
         super().__init__(c, d, kappa, omega)
 
-    def _walk_criteria(self) -> bool:
+    def _validity(self) -> bool:
         """ Determine if a current parameter set is valid.
 
         :return: True if valid. False otherwise.
@@ -33,21 +33,8 @@ class Parameters1T0S0I(Parameters):
             0 < self.kappa < self.omega
 
 
-class Population1T0S0I(Population):
-    def _transform_bounded(self, theta: Parameters1T0S0I) -> Parameters1T0S0I:
-        """ Return a new parameter set, bounded by the constraints below.
-
-        :param theta: Parameter1T0S0I set to transform.
-        :return: A new Parameter1T0S0I set, properly bounded.
-        """
-        return Parameters1T0S0I(max(theta.n, 0),
-                                max(theta.f, 0),
-                                max(theta.c, nextafter(0, 1)),
-                                max(theta.d, 0),
-                                max(theta.kappa, 0),
-                                max(theta.omega, theta.kappa))
-
-    def _trace_trees(self, theta: Parameters1T0S0I) -> List:
+class Model1T0S0I(Model):
+    def _generate_topology(self, theta: Parameter1T0S0I) -> List:
         """ Generate a 1-element list of pointers to a single tree in the pop module.
 
         :param theta: Parameter1T0S0I set to use with tree tracing.
@@ -55,12 +42,12 @@ class Population1T0S0I(Population):
         """
         return [self.pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
 
-    def _resolve_lengths(self, i_0: ndarray) -> ndarray:
+    def _resolve_lengths(self, i_0: Iterable) -> ndarray:
         """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
 
         :return: List of repeat lengths.
         """
-        return self.pop_evolve(self.tree_pointers[0], i_0)
+        return self.pop_evolve(self.generate_topology_results[0], i_0)
 
 
 class MCMC1T0S0I(MCMCA):
@@ -71,30 +58,30 @@ class MCMC1T0S0I(MCMCA):
     MODEL_SCHEME_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
     # Set the population class to use.
-    POPULATION_CLASS = Population1T0S0I
+    MODEL_CLASS = Model1T0S0I
 
     # Set the parameter class to use.
-    PARAMETER_CLASS = Parameters1T0S0I
+    PARAMETER_CLASS = Parameter1T0S0I
 
     # Set the distance class to use.
     DISTANCE_CLASS = Cosine
 
     @staticmethod
-    def _walk(theta, pi_epsilon) -> Parameters1T0S0I:
-        """ Given some parameter set theta and the sigma parameters pi_epsilon, generate a new parameter set.
+    def _walk(theta, walk_params) -> Parameter1T0S0I:
+        """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
 
         :param theta: Current point to walk from.
-        :param pi_epsilon: Distribution parameters (deviation, with mean at theta) to walk with.
+        :param walk_params: Parameters associated with a walk.
         :return: A new parameter set.
         """
         from numpy.random import normal
 
-        return Parameters1T0S0I(n=round(normal(theta.n, pi_epsilon.n)),
-                                f=normal(theta.f, pi_epsilon.f),
-                                c=normal(theta.c, pi_epsilon.c),
-                                d=normal(theta.d, pi_epsilon.d),
-                                kappa=round(normal(theta.kappa, pi_epsilon.kappa)),
-                                omega=round(normal(theta.omega, pi_epsilon.omega)))
+        return Parameter1T0S0I(n=max(round(normal(theta.n, walk_params.n)), 0),
+                               f=max(normal(theta.f, walk_params.f), 0),
+                               c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
+                               d=max(normal(theta.d, walk_params.d), 0),
+                               kappa=max(round(normal(theta.kappa, walk_params.kappa)), 0),
+                               omega=max(round(normal(theta.omega, walk_params.omega)), theta.kappa))
 
 
 def get_arguments() -> Namespace:
@@ -146,8 +133,8 @@ if __name__ == '__main__':
 
     # Prepare an MCMC run (obtain frequencies, create tables).
     mcmc = MCMC1T0S0I(connection_m=connection_m, connection_o=connection_o,
-                      theta_0=Parameters1T0S0I.from_namespace(arguments) if arguments.n is not None else None,
-                      pi_epsilon=Parameters1T0S0I.from_namespace(arguments, lambda a: a + '_sigma'),
+                      theta_0=Parameter1T0S0I.from_namespace(arguments) if arguments.n is not None else None,
+                      walk_params=Parameter1T0S0I.from_namespace(arguments, lambda a: a + '_sigma'),
                       **{k: v for k, v in vars(arguments).items() if k not in p_complement})
 
     # Run the MCMC.

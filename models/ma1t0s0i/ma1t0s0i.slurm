@@ -24,4 +24,4 @@ module load GCC/7.1.0-2.28
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 conda activate /home/glennga/apps/software/coaenv
-/home/glennga/apps/kumulaau/script/ma1t0s0i/ma1t0s0i.sh ${SLURM_ARRAY_TASK_ID}
+/home/glennga/apps/kumulaau/script/ma1t0s0i/ma1t0s0i.sh /home/glennga/lus/ma1t0s0i-${SLURM_ARRAY_TASK_ID}.db"
