@@ -37,8 +37,6 @@ sbatch ./script/ma1t0s0i/ma1t0s0i.slurm --array=0-3
 ```
 
 ## ABC-MCMC Single Population Example
-Kumulaau involves 
-
 ### Usage of `kumulaau.Parameter`
 The `Parameter` class is an ABC which holds all parameters associated with a given model. Two methods must be defined: the constructor and `_validity`. The former defines all parameters a model requires, while the latter defines what a valid parameter set is (returns `True` if the parameter set is valid, `False` otherwise). Special care is required when defining the constructor: (a) the class fields must be the same name as the constructor fields, and (b) the base constructor must be called last.
 ```python
@@ -97,7 +95,7 @@ The `Posterior` class is an ABC which holds all data and functions associated wi
 | Property           | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
 | `MODEL_NAME`       | String of the name of the model, to use with the tables in the recorded database. |
-| `MODEL_SCHEME_SQL` | String of the SQL schema associated with the model, **in the same order as the defined Parameters  constructor**. Parameters should be seperated by commas, and should specify their SQLite type after the their name. | 
+| `MODEL_SCHEME_SQL` | String of the SQL schema associated with the model, **in the same order as the defined Parameters  constructor**. Parameters should be seperated by commas, and should specify their SQLite type after the their name. |
 | `MODEL_CLASS`      | Model associated with this MCMC. A child of the `Model` class. |
 | `PARAMETER_CLASS`  | Parameters associated with the model defined above. A child of the `Parameter` class. |
 | `DISTANCE_CLASS`   | Distance function to use with this MCMC. A child of the `Distance` class. |
@@ -115,10 +113,10 @@ class MCMCAExample(MCMCA):
 	
 	@staticmethod
 	def _walk(theta, walk_params):
-		from numpy.random import normal
+	    from numpy.random import normal
 
         return ParameterExample(
-        	n=max(round(normal(theta.n, walk_params.n)), 0),
+            n=max(round(normal(theta.n, walk_params.n)), 0),
             f=max(normal(theta.f, walk_params.f), 0),
             c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
             d=max(normal(theta.d, walk_params.d), 0),
@@ -160,20 +158,17 @@ walk_params = SimpleNamespace(n=0.0, f=0.0, c=0.0003, d=5.5e-5, kappa=0.0, omega
 uid_observed = ['SA001097R', 'SA001098S', 'SA001538R', 'SA001539S', 'SA001540K']
 locus_observed = ['D16S539' for _ in uid_observed]
 
-# Prepare our MCMC run.
+# Run our MCMC!
 mcmc = MCMCAExample(connection_m=connection_m, 
                     connection_o=connection_o,
                     theta_0=theta_0,
-				    walk_params=walk_params,
+                    walk_params=walk_params,
 				    uid_observed=uid_observed,
 				    locus_observed=locus_observed,
 				    simulation_n=100,
 				    iterations_n=100,
 				    flush_n=100,
-				    epsilon=0.4)
-				    
-# Run the MCMC!
-mcmc.run()
+				    epsilon=0.4).run()
 
 # View the results of our MCMC by querying our results database.
 results = connection_m.execute(f"""
@@ -184,15 +179,15 @@ results = connection_m.execute(f"""
 [print(result) for result in results]
 
 # If desired, one can continue the previous MCMC run by creating another MCMCAExample instance w/o theta_0.
-MCMAExample(connection_m=connection_m,
-			connection_o=connection_o,
-			walk_params=walk_params,
-			uid_observed=uid_observed,
-			locus_observed=locus_observed,
-			simulation_n=100,
-			iterations_n=100,
-			flush_n=100,
-			epsilon=0.4).run()
+MCMAExample(connection_m=connection_m, 
+            connection_o=connection_o,
+            walk_params=walk_params,
+            uid_observed=uid_observed,
+            locus_observed=locus_observed,
+            simulation_n=100,
+            iterations_n=100,
+            flush_n=100,
+            epsilon=0.4).run()
 
 # Close our connections when we are finished.
 connection_m.commit(), connection_o.close(), connection_m.close()
