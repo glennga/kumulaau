@@ -6,7 +6,7 @@ from argparse import Namespace
 from typing import Callable
 
 
-class Parameters(ABC):
+class Parameter(ABC):
     @classmethod
     def _inspect_fields(cls):
         """ Determine the parameter fields, based on the defined constructor. We do not include "self".
@@ -61,7 +61,7 @@ class Parameters(ABC):
         return cls(*list(map(lambda a: getattr(arguments, transform(a)), cls._inspect_fields())))
 
     @abstractmethod
-    def _walk_criteria(self) -> bool:
+    def _validity(self) -> bool:
         """ Determine if a current parameter set is valid.
 
         :return: True if valid. False otherwise.
@@ -82,5 +82,5 @@ class Parameters(ABC):
         while True:
             theta_proposed = cls(*walk(theta, pi_sigma))
 
-            if theta_proposed._walk_criteria():  # Only return if the parameter set is valid.
+            if theta_proposed._validity():  # Only return if the parameter set is valid.
                 return theta_proposed

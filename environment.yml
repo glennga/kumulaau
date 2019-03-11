@@ -1,4 +1,4 @@
-name: micro
+name: kumulaau
 channels:
   - defaults
 dependencies:
@@ -40,5 +40,4 @@ dependencies:
   - wheel=0.32.3=py37_0
   - xz=5.2.4=h1de35cc_4
   - zlib=1.2.11=h1de35cc_3
-prefix: /Users/glenngalvizo/Anaconda/anaconda3/envs/micro
 
