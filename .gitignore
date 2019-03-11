@@ -1,6 +1,7 @@
 # Ignore Pycharm and caches.
 .idea/
 __pycache__
+.DS_Store
 
 # Ignore generated data.
 data/old/*
@@ -17,13 +18,15 @@ data/8*
 data/9*
 data/0*
 
-# Ignore any output produced by TeX.
+# Ignore any output produced by TeX, as well as our build script.
 doc/build/*
+doc/build.sh
 *.aux
 *.log
 *.db
+*.texpadtmp
 
-# Ignore the old folder, where we store all the old stuff.
+# Ignore the old folder, where we store all the old stuff ():<).
 old/*
 
 # Ignore the build folder.
