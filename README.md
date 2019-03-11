@@ -118,6 +118,7 @@ class MCMCAExample(MCMCA):
         #               (c) A different Parameter instance is returned.
         #               (d) Resulting Parameter instance is valid.
         from numpy.random import normal
+        from numpy import nextafter
 
         return ParameterExample(
             n=max(round(normal(theta.n, walk_params.n)), 0),
@@ -163,35 +164,35 @@ uid_observed = ['SA001097R', 'SA001098S', 'SA001538R', 'SA001539S', 'SA001540K']
 locus_observed = ['D16S539' for _ in uid_observed]
 
 # Run our MCMC!
-mcmc = MCMCAExample(connection_m=connection_m, 
-                    connection_o=connection_o,
-                    theta_0=theta_0,
-                    walk_params=walk_params,
-                    uid_observed=uid_observed,
-                    locus_observed=locus_observed,
-                    simulation_n=100,
-                    iterations_n=100,
-                    flush_n=100,
-                    epsilon=0.4).run()
+MCMCAExample(connection_m=connection_m, 
+             connection_o=connection_o,
+             theta_0=theta_0,
+             walk_params=walk_params,
+             uid_observed=uid_observed,
+             locus_observed=locus_observed,
+             simulation_n=100,
+             iterations_n=100,
+             flush_n=100,
+             epsilon=0.4).run()
 
 # View the results of our MCMC by querying our results database.
 results = connection_m.execute(f"""
-    SELECT *
-    FROM {MCMCAExample.MODEL_NAME}_OBSERVED 
-    INNER JOIN {MCMCAExample.MODEL_NAME}_RESULTS USING (TIME_R)
+    SELECT A.N, A.F, A.C, A.D, A.KAPPA, A.OMEGA, B.WAITING_TIME, B.PROPOSED_TIME, B.DISTANCE
+    FROM {MCMCAExample.MODEL_NAME}_MODEL A
+    INNER JOIN {MCMCAExample.MODEL_NAME}_RESULTS B USING (TIME_R)
 """).fetchall()
 [print(result) for result in results]
 
 # If desired, one can continue the previous MCMC run by creating another MCMCAExample instance w/o theta_0.
-MCMAExample(connection_m=connection_m, 
-            connection_o=connection_o,
-            walk_params=walk_params,
-            uid_observed=uid_observed,
-            locus_observed=locus_observed,
-            simulation_n=100,
-            iterations_n=100,
-            flush_n=100,
-            epsilon=0.4).run()
+MCMCAExample(connection_m=connection_m, 
+             connection_o=connection_o,
+             walk_params=walk_params,
+             uid_observed=uid_observed,
+             locus_observed=locus_observed,
+             simulation_n=100,
+             iterations_n=100,
+             flush_n=100,
+             epsilon=0.4).run()
 
 # Close our connections when we are finished.
 connection_m.commit(), connection_o.close(), connection_m.close()

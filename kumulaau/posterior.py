@@ -29,7 +29,7 @@ class Posterior(ABC):
 
     @property
     @abstractmethod
-    def POPULATION_CLASS(self):
+    def MODEL_CLASS(self):
         """ Enforce the definition of some population class, a child of the Population class.
 
         :return: None.
@@ -147,7 +147,7 @@ class Posterior(ABC):
         :param i_0: Common ancestor state.
         :return: Array of repeat lengths to compare with an observed population.
         """
-        return self.POPULATION_CLASS(theta).evolve(i_0)
+        return self.MODEL_CLASS(theta).evolve(i_0)
 
     @abstractmethod
     def run(self):
