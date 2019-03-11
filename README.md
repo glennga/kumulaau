@@ -43,14 +43,14 @@ The `Parameter` class is an ABC which holds all parameters associated with a giv
 from kumulaau import Parameter
 
 class ParameterExample(Parameter):
-	def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
-		# Requirements: (a) Class fields and constructor arguments are same.
-		#               (b) Base constructor is called last.
-		self.n, self.f = n, f  
-		super().__init__(c, d, kappa, omega)  
+    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+        # Requirements: (a) Class fields and constructor arguments are same.
+        #               (b) Base constructor is called last.
+        self.n, self.f = n, f  
+        super().__init__(c, d, kappa, omega)  
 		
-	def _validity(self): 
-		return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
+    def _validity(self): 
+        return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
 ```
 
 ### Usage of `kumulaau.Model`
@@ -73,15 +73,15 @@ The second method, `_resolve_lengths`, requires that (a) an iterable of seed len
 from kumulaau import Model
 
 class ModelExample(Model):
-	def _generate_topology(self, theta):
-		# Requirement: Return a list of self.pop_trace() calls.
-		return [self.pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
+    def _generate_topology(self, theta):
+        # Requirement: Return a list of self.pop_trace() calls.
+        return [self.pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
 	
-	def _resolve_lengths(self, i_0):
-		# Requirements: (a) Utilize the topologies from self.generate_topology_results.
-		#               (b) i_0 must be triangle number.
-		#               (c) The result of a single self.pop_evolve() call be returned.
-		return self.pop_evolve(self.generate_topology_results[0], i_0)
+    def _resolve_lengths(self, i_0):
+        # Requirements: (a) Utilize the topologies from self.generate_topology_results.
+        #               (b) i_0 must be triangle number.
+        #               (c) The result of a single self.pop_evolve() call be returned.
+        return self.pop_evolve(self.generate_topology_results[0], i_0)
 ```
 
 ### Usage of `kumulaau.Distance`
@@ -105,14 +105,14 @@ The static `_walk` method requires that a `Parameter` object be passed in with a
 ```python
 from kumulaau import MCMCA, Cosine
 class MCMCAExample(MCMCA):
-	MODEL_NAME = "EXAMPLE_MODEL"
-	MODEL_SCHEME_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
-	MODEL_CLASS = ModelExample
-	PARAMETER_CLASS = ParameterExample
-	DISTANCE_CLASS = Cosine
+    MODEL_NAME = "EXAMPLE_MODEL"
+    MODEL_SCHEME_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+    MODEL_CLASS = ModelExample
+    PARAMETER_CLASS = ParameterExample
+    DISTANCE_CLASS = Cosine
 	
-	@staticmethod
-	def _walk(theta, walk_params):
+    @staticmethod
+    def _walk(theta, walk_params):
 	    from numpy.random import normal
 
         return ParameterExample(
@@ -163,18 +163,18 @@ mcmc = MCMCAExample(connection_m=connection_m,
                     connection_o=connection_o,
                     theta_0=theta_0,
                     walk_params=walk_params,
-				    uid_observed=uid_observed,
-				    locus_observed=locus_observed,
-				    simulation_n=100,
-				    iterations_n=100,
-				    flush_n=100,
-				    epsilon=0.4).run()
+                    uid_observed=uid_observed,
+                    locus_observed=locus_observed,
+                    simulation_n=100,
+                    iterations_n=100,
+                    flush_n=100,
+                    epsilon=0.4).run()
 
 # View the results of our MCMC by querying our results database.
 results = connection_m.execute(f"""
-	SELECT *
-	FROM {MCMCAExample.MODEL_NAME}_OBSERVED 
-	INNER JOIN {MCMCAExample.MODEL_NAME}_RESULTS USING (TIME_R)
+    SELECT *
+    FROM {MCMCAExample.MODEL_NAME}_OBSERVED 
+    INNER JOIN {MCMCAExample.MODEL_NAME}_RESULTS USING (TIME_R)
 """).fetchall()
 [print(result) for result in results]
 
