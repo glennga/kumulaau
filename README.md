@@ -113,7 +113,11 @@ class MCMCAExample(MCMCA):
 	
     @staticmethod
     def _walk(theta, walk_params):
-	    from numpy.random import normal
+        # Requirements: (a) Parameter instance is passed in.
+        #               (b) Walk parameters are passed in.
+        #               (c) A different Parameter instance is returned.
+        #               (d) Resulting Parameter instance is valid.
+        from numpy.random import normal
 
         return ParameterExample(
             n=max(round(normal(theta.n, walk_params.n)), 0),
