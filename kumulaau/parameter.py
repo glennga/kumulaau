@@ -7,21 +7,10 @@ from typing import Callable
 
 
 class Parameter(ABC):
-    @classmethod
-    def _inspect_fields(cls):
-        """ Determine the parameter fields, based on the defined constructor. We do not include "self".
-
-        :return: List of all parameters used in the constructor.
-        """
-        from inspect import getfullargspec
-
-        return getfullargspec(cls.__init__).args[1:]
-
-    def __init__(self, c: float, d: float, kappa: int, omega: int):
+    def __init__(self, c: float, d: float, kappa: int, omega: int, **kwargs):
         """ Every model involves the same mutation model (for now). This involves the parameters c, d, and our bounds
-        [kappa, omega].
-
-        Notes to User: This must be called **LAST** in the inherited constructor.
+        [kappa, omega]. Model specific parameters are specified in the kwargs argument. Call of base constructor must
+        use keyword arguments.
 
         :param c: Constant bias for the upward mutation rate.
         :param d: Linear bias for the downward mutation rate.
@@ -31,15 +20,15 @@ class Parameter(ABC):
         # Set our mutation model parameters.
         self.c, self.d, self.kappa, self.omega = c, d, kappa, omega
 
-        # Obtain a iterable for parameter expansion.
-        self.params = list(map(lambda a: getattr(self, a), self._inspect_fields()))
+        # Set our model specific parameters.
+        self.__dict__.update(kwargs)
 
     def __iter__(self):
         """ Return each our of parameters in the constructor order.
 
         :return: Iterator for all of our parameters.
         """
-        for parameter in self.params:
+        for parameter in self.__dict__:
             yield parameter
 
     def __len__(self):
@@ -47,7 +36,7 @@ class Parameter(ABC):
 
         :return: The number of parameters we have.
         """
-        return len(self.params)
+        return len(self.__dict__)
 
     @classmethod
     def from_namespace(cls, arguments: Namespace, transform: Callable = lambda a: a):
@@ -58,7 +47,7 @@ class Parameter(ABC):
         :param transform: Function to transform each attribute, given a string and returning a string.
         :return: New Parameters object with the parsed in arguments.
         """
-        return cls(*list(map(lambda a: getattr(arguments, transform(a)), cls._inspect_fields())))
+        return cls(*list(map(lambda a: getattr(arguments, transform(a)), cls.__dict__)))
 
     @abstractmethod
     def _validity(self) -> bool:
@@ -80,7 +69,7 @@ class Parameter(ABC):
         :return: A new Parameters (point).
         """
         while True:
-            theta_proposed = cls(*walk(theta, pi_sigma))
+            theta_proposed = cls(**walk(theta, pi_sigma).__dict__)
 
             if theta_proposed._validity():  # Only return if the parameter set is valid.
                 return theta_proposed

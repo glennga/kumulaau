@@ -38,16 +38,14 @@ sbatch ./script/ma1t0s0i/ma1t0s0i.slurm --array=0-3
 
 ## ABC-MCMC Single Population Example
 ### Usage of `kumulaau.Parameter`
-The `Parameter` class is an ABC which holds all parameters associated with a given model. Two methods must be defined: the constructor and `_validity`. The former defines all parameters a model requires, while the latter defines what a valid parameter set is (returns `True` if the parameter set is valid, `False` otherwise). Special care is required when defining the constructor: (a) the class fields must be the same name as the constructor fields, and (b) the base constructor must be called last.
+The `Parameter` class is an ABC which holds all parameters associated with a given model. Two methods must be defined: the constructor and `_validity`. The former defines all parameters a model requires, while the latter defines what a valid parameter set is (returns `True` if the parameter set is valid, `False` otherwise). When defining the child constructor, the base constructor must use keyword arguments to pass the model specific parameters.
 ```python
 from kumulaau import Parameter
 
 class ParameterExample(Parameter):
     def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
-        # Requirements: (a) Class fields and constructor arguments are same.
-        #               (b) Base constructor is called last.
-        self.n, self.f = n, f  
-        super().__init__(c, d, kappa, omega)  
+        # Requirement: Call of base constructor uses keyword arguments.
+        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)  
 		
     def _validity(self): 
         return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
