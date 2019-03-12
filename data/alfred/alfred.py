@@ -1,26 +1,9 @@
 #!/usr/bin/env python3
-
-
-def create_table() -> None:
-    """ Create the required table if it does not exist.
-
-    :return: None.
-    """
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS OBSERVED_ELL (
-            TIME_R TIMESTAMP,
-            POP_NAME TEXT,
-            POP_UID TEXT,
-            SAMPLE_UID TEXT,
-            SAMPLE_SIZE INT,
-            LOCUS TEXT,
-            ELL TEXT,
-            ELL_FREQ FLOAT
-        );""")
-
+from kumulaau._observed import Observed
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+    from types import SimpleNamespace
     from sqlite3 import connect
     from csv import reader
 
@@ -36,7 +19,7 @@ if __name__ == '__main__':
     # Connect to the database to log to.
     connection = connect(args.f)
     cursor = connection.cursor()
-    create_table()
+    Observed.create_table(cursor)
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
     with open(args.freq_f) as tsv_f:
@@ -46,12 +29,13 @@ if __name__ == '__main__':
         # Perform the insertion. Print out any anomalies.
         for entry in freq_reader:
             try:
-                cursor.execute("""
-                    INSERT INTO OBSERVED_ELL (TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-                """, (entry[7], entry[0], entry[1], entry[2], int(entry[3]), entry[4], int(entry[6]), float(entry[8])))
+                Observed.single_insert(cursor, (SimpleNamespace(time_r=entry[7],
+                                                                pop_name=entry[0],
+                                                                pop_uid=entry[1],
+                                                                sample_uid=entry[2],
+                                                                sample_size=int(entry[3]),
+                                                                locus=entry[4],
+                                                                ell=int(entry[6]),
+                                                                ell_freq=float(entry[8]))))
             except (ValueError, IndexError):
                 print('Error at: {}'.format(entry))
-
-    connection.commit(), connection.close()
-

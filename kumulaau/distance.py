@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from numpy import ndarray, dot, arccos, pi, zeros, mean
+from kumulaau._observed import Observed
 from abc import ABC, abstractmethod
 from typing import List, Callable
 from argparse import Namespace
@@ -8,46 +9,20 @@ from numba import jit, prange
 
 
 class Distance(ABC):
-    def __init__(self, sql_observed: List, kappa: int, omega: int, simulation_n: int):
+    def __init__(self, observed: Observed, simulation_n: int):
         """ Constructor. Store the population we are comparing to.
 
-        :param sql_observed: Raw observed frequency samples. Needs to be transformed into sparse vector.
-        :param kappa: Lower bound of our state space. omega - kappa = vector dimensionality to extract distance from.
-        :param omega: Upper bound of our state space. omega - kappa = vector dimensionality to extract distance from.
+        :param observed: Observed instance holding the various representations of our observations.
         :param simulation_n: Number of simulations to run per generated population (number of rows for matched matrix).
         """
-        from numpy import array
+        self.simulation_n, self.observed = simulation_n, observed
 
-        # Save our parameters.
-        self.omega, self.kappa, self.simulation_n = omega, kappa, simulation_n
-
-        # Generate the match and distance matrix, and clean the observation set.
-        self.observations, self.h, self.d = [array([]) for _ in range(3)]
-        self._prepare(sql_observed)
+        # Generate the match and distance matrix.
+        self.h = zeros((self.simulation_n, len(self.observed.tuples_raw)), dtype='int8')
+        self.d = zeros((self.simulation_n, len(self.observed.tuples_raw)), dtype='float64')
 
         #  Create a list of all observed lengths.
-        self.ell_0_pool = array(list(set([int(b[0]) for a in sql_observed for b in a])))
-
-    def _prepare(self, sql_observed: List) -> None:
-        """ Prepare our matched matrix and convert our list of observations into a matrix of sparse frequencies.
-
-        :param sql_observed: A dictionary mapping repeat lengths to frequencies. This format is returned by SQLite.
-        :return: None.
-        """
-        from numpy import array
-
-        # Cast our observed frequencies into numbers.
-        observation_dictionary = [{int(a[0]): float(a[1]) for a in b} for b in sql_observed]
-
-        # Fit our observed distribution into a sparse frequency vector.
-        self.observations = array([zeros(self.omega - self.kappa + 1) for _ in sql_observed])
-        for j, observation in enumerate(observation_dictionary):
-            for repeat_unit in observation.keys():
-                self.observations[j, repeat_unit - self.kappa + 1] = observation[repeat_unit]
-
-        # Construct an empty matched matrix and deltas matrix.
-        self.h = zeros((self.simulation_n, len(sql_observed)), dtype='int8')
-        self.d = zeros((self.simulation_n, len(sql_observed)), dtype='float64')
+        self.ell_0_pool = observed.generate_pool()
 
     def _choose_ell_0(self, kappa: int, omega: int) -> List:
         """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
@@ -70,13 +45,13 @@ class Distance(ABC):
 
         :param sample_g: Generated sample vector, which holds the sampled simulated population.
         :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param bounds: Upper and lower bound (in that order) of the repeat unit space.
+        :param bounds: Lower and upper bound (in that order) of the repeat unit space.
         :return: The distance between the generated and observed population.
         """
         raise NotImplementedError
 
     @staticmethod
-    @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+    # @jit(nopython=True, nogil=True, target='cpu', parallel=True)
     def _delta_matrix(epsilon: float, sample_all: ndarray, observations: ndarray, h: ndarray, d: ndarray,
                       bounds: ndarray, delta: Callable) -> float:
         """ Compute the expected distance for all observations to a set of populations. If the distance between a
@@ -120,8 +95,8 @@ class Distance(ABC):
                             for _ in range(self.h.shape[0])])
 
         # We are computing the matches and returning the expected distance.
-        return self._delta_matrix(epsilon, sample_all, self.observations, self.h, self.d,
-                                  array([self.omega, self.kappa], dtype='int'), self._delta)
+        return self._delta_matrix(epsilon, sample_all, self.observed.sparse_matrix, self.h, self.d,
+                                  array(self.observed.bounds, dtype='int'), self._delta)
 
     def match_likelihood(self) -> float:
         """ 'j' specifies the column or associated observed microsatellite sample in the matched matrix. To determine
@@ -147,10 +122,10 @@ class Cosine(Distance):
 
         :param sample_g: Generated sample vector, which holds the sampled simulated population.
         :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param bounds: Upper and lower bound (in that order) of the repeat unit space.
+        :param bounds: Lower and upper bound (in that order) of the repeat unit space.
         :return: The distance between the generated and observed population.
         """
-        omega, kappa = bounds  # Unpack our bounds.
+        kappa, omega = bounds  # Unpack our bounds.
 
         # Prepare the storage vector for our generated frequency vector.
         generated = zeros(omega - kappa + 1)
@@ -177,10 +152,10 @@ class Euclidean(Distance):  # TODO: Actually test this metric...
 
         :param sample_g: Generated sample vector, which holds the sampled simulated population.
         :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-        :param bounds: Upper and lower bound (in that order) of the repeat unit space.
+        :param bounds: Lower and upper bound (in that order) of the repeat unit space.
         :return: The distance between the generated and observed population.
         """
-        omega, kappa = bounds  # Unpack our bounds.
+        kappa, omega = bounds  # Unpack our bounds.
 
         # Prepare the storage vector for our generated frequency vector.
         generated = zeros(omega - kappa + 1)
@@ -223,37 +198,27 @@ if __name__ == '__main__':
 
     arguments = get_arguments()  # Parse our arguments.
 
-    connection = connect(arguments.odb)
-    if not bool(connection.execute(""" -- Verify that OBSERVED_ELL exists. --
-        SELECT NAME
-        FROM sqlite_master
-        WHERE type='table' AND NAME='OBSERVED_ELL'
-    """).fetchone()):
-        raise LookupError("'OBSERVED_ELL' not found in observation database.")
-
-    main_frequencies = connection.execute(""" -- Pull the frequency from the observed database. --
-        SELECT ELL, ELL_FREQ
-        FROM OBSERVED_ELL
-        WHERE SAMPLE_UID LIKE ?
-        AND LOCUS LIKE ?
-    """, (arguments.uid_observed, arguments.locus_observed,)).fetchall()
-    connection.close()
+    connection = connect(arguments.odb)  # Connect to our observation database.
+    main_observed = Observed(connection, [arguments.uid_observed], [arguments.locus_observed], [3, 30])
 
     # Create our parameter sets and sampling lambda.
-    main_accumulator = getattr(import_module('kumulaau'), arguments.function)(*[[main_frequencies], 3, 30, 1000])
+    main_accumulator = getattr(import_module('kumulaau'), arguments.function)(main_observed, 1000)
     sampler = lambda a, b: pop.evolve(pop.trace(a.n, a.f, a.c, a.d, a.kappa, a.omega), b)
 
-    # Execute the sampling and print the running time.
+    # Run once to remove compile time in elapsed time.
+    main_fill = lambda: main_accumulator.fill_matrices(sampler, Namespace(**{'n': 100,
+                                                                             'f': 100.0,
+                                                                             'c': 0.01,
+                                                                             'd': 0.001,
+                                                                             'kappa': 3,
+                                                                             'omega': 30}), 0.1)
     start_t = timer()
-    expected_delta = main_accumulator.fill_matrices(sampler, Namespace(**{'n': 100,
-                                                                          'f': 100.0,
-                                                                          'c': 0.01,
-                                                                          'd': 0.001,
-                                                                          'kappa': 3,
-                                                                          'omega': 30}), 0.1)
+    expected_delta = main_fill()  # Execute the sampling and print the running time.
     end_t = timer()
     print('Time Elapsed (1000x): [\n\t' + str(end_t - start_t) + '\n]')
 
     # Display our results to console, and record to our simulated database.
     print('Expected Distance: [\n\t' + str(expected_delta) + '\n]')
     print('Likelihood: [\n\t' + str(main_accumulator.match_likelihood()) + '\n]')
+
+    connection.close()
