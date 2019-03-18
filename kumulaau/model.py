@@ -7,54 +7,52 @@ from argparse import Namespace
 import pop
 
 
-class Model(object):
-    @staticmethod
-    def simulator(func: Callable) -> Callable:
-        """ Decorator for all simulator functions. All we do here is verify that (a) theta is an argument, (b) i_0
-        is an argument, and (c) that i_0 is a triangle number.
+def simulator(func: Callable) -> Callable:
+    """ Decorator for all simulator functions. All we do here is verify that (a) theta is an argument, (b) i_0 is an
+    argument, and (c) that i_0 is a triangle number.
 
-        :param func: Simulator function to wrap.
-        :return: Simulator function with appropriate argument and bounds checking.
-        """
-        def simulator_wrapper(*args, **kwargs):
-            if 'i_0' not in kwargs:  # Verify that we are issued the bare minimum correct arguments.
-                raise KeyError("i_0 not passed as an argument.")
-            elif 'theta' not in kwargs:
-                raise KeyError("theta not passed as an argument.")
+    :param func: Simulator function to wrap.
+    :return: Simulator function with appropriate argument and bounds checking.
+    """
+    def simulator_wrapper(*args, **kwargs):
+        if 'i_0' not in kwargs:  # Verify that we are issued the bare minimum correct arguments.
+            raise KeyError("i_0 not passed as an argument.")
+        elif 'theta' not in kwargs:
+            raise KeyError("theta not passed as an argument.")
 
-            # Verify that number of seed lengths passed is a triangle number.
-            if 0.5 * (sqrt(8 * len(kwargs['i_0']) + 1) - 1) % 1 != 0:
-                raise ValueError("i_0 is not a triangle number.")
+        # Verify that number of seed lengths passed is a triangle number.
+        if 0.5 * (sqrt(8 * len(kwargs['i_0']) + 1) - 1) % 1 != 0:
+            raise ValueError("i_0 is not a triangle number.")
 
-            return func(*args, **kwargs)
+        return func(*args, **kwargs)
 
-        return simulator_wrapper
+    return simulator_wrapper
 
-    @staticmethod
-    def trace(n, f, c, d, kappa, omega):
-        """ A wrapper for the pop module trace method. This returns a C pointer that holds the topology and population
-        parameters from the trace method.
 
-        :param n: Population size, used for determining the number of generations between events.
-        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
-        :param c: Constant bias for the upward mutation rate.
-        :param d: Linear bias for the downward mutation rate.
-        :param kappa: Lower bound of repeat lengths.
-        :param omega: Upper bound of repeat lengths.
-        :return: Pointer to a pop module C structure (tree).
-        """
-        return pop.trace(n, f, c, d, kappa, omega)
+def trace(n, f, c, d, kappa, omega):
+    """ A wrapper for the pop module trace method. This returns a C pointer that holds the topology and population
+    parameters from the trace method.
 
-    @staticmethod
-    def evolve(p, i_0: Iterable) -> ndarray:
-        """ A wrapper for the pop module evolve method. Given the C pointer from a trace call and initial lengths,
-        we resolve our repeat lengths and return our result as a numpy array.
+    :param n: Population size, used for determining the number of generations between events.
+    :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
+    :param c: Constant bias for the upward mutation rate.
+    :param d: Linear bias for the downward mutation rate.
+    :param kappa: Lower bound of repeat lengths.
+    :param omega: Upper bound of repeat lengths.
+    :return: Pointer to a pop module C structure (tree).
+    """
+    return pop.trace(n, f, c, d, kappa, omega)
 
-        :param p: Pointer to a pop module C structure (tree)
-        :param i_0: Array of starting lengths.
-        :return: Array of repeat lengths.
-        """
-        return asarray(pop.evolve(p, [i for i in i_0]))
+
+def evolve(p, i_0: Iterable) -> ndarray:
+    """ A wrapper for the pop module evolve method. Given the C pointer from a trace call and initial lengths,
+    we resolve our repeat lengths and return our result as a numpy array.
+
+    :param p: Pointer to a pop module C structure (tree)
+    :param i_0: Array of starting lengths.
+    :return: Array of repeat lengths.
+    """
+    return asarray(pop.evolve(p, [i for i in i_0]))
 
 
 def get_arguments() -> Namespace:
