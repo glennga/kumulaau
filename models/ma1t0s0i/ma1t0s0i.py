@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 from numpy import nextafter, ndarray
-from kumulaau import Parameter, Model
-from kumulaau import Cosine, MCMCA
-from typing import List, Iterable
 from argparse import Namespace
+from typing import List
+from kumulaau import *
+
+# The model name associated with the results database.
+MODEL_NAME = "MA1T0S0I"
+
+# The model SQL associated with model database.
+MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 
 class Parameter1T0S0I(Parameter):
@@ -17,9 +22,7 @@ class Parameter1T0S0I(Parameter):
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        self.n, self.f = n, f
-
-        super().__init__(c, d, kappa, omega)
+        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
     def _validity(self) -> bool:
         """ Determine if a current parameter set is valid.
@@ -33,55 +36,31 @@ class Parameter1T0S0I(Parameter):
             0 < self.kappa < self.omega
 
 
-class Model1T0S0I(Model):
-    def _generate_topology(self, theta: Parameter1T0S0I) -> List:
-        """ Generate a 1-element list of pointers to a single tree in the pop module.
+def sample_1T0S0I(theta: Parameter1T0S0I, i_0: List) -> ndarray:
+    """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
 
-        :param theta: Parameter1T0S0I set to use with tree tracing.
-        :return: 1-element list of pointers to pop module C structure.
-        """
-        return [self.pop_trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)]
-
-    def _resolve_lengths(self, i_0: Iterable) -> ndarray:
-        """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
-
-        :return: List of repeat lengths.
-        """
-        return self.pop_evolve(self.generate_topology_results[0], i_0)
+    :param theta: Parameter1T0S0I set to use with tree tracing.
+    :param i_0: Seed lengths associated with tree.
+    :return: List of repeat lengths.
+    """
+    return model.evolve(model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
 
 
-class MCMC1T0S0I(MCMCA):
-    # Set the model name associated with the database.
-    MODEL_NAME = "MA1T0S0I"
+def walk_1T0S0I(theta, walk_params) -> Parameter1T0S0I:
+    """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
 
-    # Set the model schema associated with the database.
-    MODEL_SCHEME_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+    :param theta: Current point to walk from.
+    :param walk_params: Parameters associated with a walk.
+    :return: A new parameter set.
+    """
+    from numpy.random import normal
 
-    # Set the population class to use.
-    MODEL_CLASS = Model1T0S0I
-
-    # Set the parameter class to use.
-    PARAMETER_CLASS = Parameter1T0S0I
-
-    # Set the distance class to use.
-    DISTANCE_CLASS = Cosine
-
-    @staticmethod
-    def _walk(theta, walk_params) -> Parameter1T0S0I:
-        """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
-
-        :param theta: Current point to walk from.
-        :param walk_params: Parameters associated with a walk.
-        :return: A new parameter set.
-        """
-        from numpy.random import normal
-
-        return Parameter1T0S0I(n=max(round(normal(theta.n, walk_params.n)), 0),
-                               f=max(normal(theta.f, walk_params.f), 0),
-                               c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
-                               d=max(normal(theta.d, walk_params.d), 0),
-                               kappa=max(round(normal(theta.kappa, walk_params.kappa)), 0),
-                               omega=max(round(normal(theta.omega, walk_params.omega)), theta.kappa))
+    return Parameter1T0S0I(n=max(round(normal(theta.n, walk_params.n)), 0),
+                           f=max(normal(theta.f, walk_params.f), 0),
+                           c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
+                           d=max(normal(theta.d, walk_params.d), 0),
+                           kappa=max(round(normal(theta.kappa, walk_params.kappa)), 0),
+                           omega=max(round(normal(theta.omega, walk_params.omega)), theta.kappa))
 
 
 def get_arguments() -> Namespace:
@@ -93,52 +72,64 @@ def get_arguments() -> Namespace:
 
     parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
 
-    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4]), [
-        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db'],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/ma1t0s0i.db'],
-        ['-uid_observed', 'IDs of observed samples to compare to.', str, '+', None],
-        ['-locus_observed', 'Loci of observed samples (must match with uid).', str, '+', None], 
-        ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None],
-        ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None],
-        ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None],
-        ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None],
-        ['-n', 'Starting sample size (population size).', int, None, None],
-        ['-f', 'Scaling factor for total mutation rate.', float, None, None],
-        ['-c', 'Constant bias for the upward mutation rate.', float, None, None],
-        ['-d', 'Linear bias for the downward mutation rate.', float, None, None],
-        ['-kappa', 'Lower bound of repeat lengths.', int, None, None],
-        ['-omega', 'Upper bound of repeat lengths.', int, None, None],
-        ['-n_sigma', 'Step size of n when changing parameters.', float, None, None],
-        ['-f_sigma', 'Step size of f when changing parameters.', float, None, None],
-        ['-c_sigma', 'Step size of c when changing parameters.', float, None, None],
-        ['-d_sigma', 'Step size of d when changing parameters.', float, None, None],
-        ['-kappa_sigma', 'Step size of kappa when changing parameters.', float, None, None],
-        ['-omega_sigma', 'Step size of omega when changing parameters.', float, None, None]
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/ma1t0s0i.db', None],
+        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
+        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
+        ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
+        ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
+        ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
+        ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
+        ['-n', 'Starting sample size (population size).', int, None, None, None],
+        ['-f', 'Scaling factor for total mutation rate.', float, None, None, None],
+        ['-c', 'Constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d', 'Linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa', 'Lower bound of repeat lengths.', int, None, None, None],
+        ['-omega', 'Upper bound of repeat lengths.', int, None, None, None],
+        ['-n_sigma', 'Step size of n when changing parameters.', float, None, None, None],
+        ['-f_sigma', 'Step size of f when changing parameters.', float, None, None, None],
+        ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
+        ['-d_sigma', 'Step size of d when changing parameters.', float, None, None, None],
+        ['-kappa_sigma', 'Step size of kappa when changing parameters.', float, None, None, None],
+        ['-omega_sigma', 'Step size of omega when changing parameters.', float, None, None, None]
     ]))
 
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    from sqlite3 import connect
+    from importlib import import_module
 
     arguments = get_arguments()  # Parse our arguments.
 
-    # Determine the arguments that aren't in a MCMC1T0S0I object.
-    p_complement = ['odb', 'mdb', 'n', 'f', 'c', 'd', 'kappa', 'omega', 'n_sigma', 'f_sigma', 'c_sigma',
-                    'd_sigma', 'kappa_sigma', 'omega_sigma']
+    # Collect observations to compare to.
+    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
 
-    # Connect to all of our databases.
-    connection_o, connection_m = connect(arguments.odb), connect(arguments.mdb)
+    # Determine if we are continuing an MCMC run or starting a new one.
+    is_new_run = arguments.n is not None
 
-    # Prepare an MCMC run (obtain frequencies, create tables).
-    mcmc = MCMC1T0S0I(connection_m=connection_m, connection_o=connection_o,
-                      theta_0=Parameter1T0S0I.from_namespace(arguments) if arguments.n is not None else None,
-                      walk_params=Parameter1T0S0I.from_namespace(arguments, lambda a: a + '_sigma'),
-                      **{k: v for k, v in vars(arguments).items() if k not in p_complement})
+    # Connect to our results database.
+    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, posterior.mcmca.SQL, is_new_run) as lumberjack:
 
-    # Run the MCMC.
-    mcmc.run()
+        # Record our observations.
+        lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
 
-    # Close our connections.
-    connection_m.commit(), connection_o.close(), connection_m.close()
+        # Construct the walk, distance, and log functions based on our given arguments.
+        walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
+        delta = getattr(import_module('kumulaau.distance'), arguments.delta_f + '_delta')
+        log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
+
+        # Determine our starting point and boundaries.
+        if arguments.n is not None:
+            theta_0 = Parameter1T0S0I.from_namespace(arguments)
+            boundaries = [0, arguments.iterations_n]
+        else:
+            theta_0 = Parameter1T0S0I.from_namespace(**lumberjack.retrieve_last_theta())
+            offset = lumberjack.retrieve_last_result('PROPOSED_TIME')
+            boundaries = [0 + offset, arguments.iterations_n + offset]
+
+        # Run our MCMC!
+        posterior.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+                            theta_0=theta_0, observed=observations, epsilon=arguments.epsilon, boundaries=boundaries)
