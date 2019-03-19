@@ -49,25 +49,25 @@ class ParameterExample(Parameter):
 
 Aside from holding the parameters, an implementation of `Parameter` also allows one to construct an instance of this implementation given a namespace and some transformation function. This allows one to use a package like `argparse` with ease:
 ```python
-    parser = ArgumentParser()
-    parser.add_argument('-n', type=int)
-    parser.add_argument('-f', type=float)
-    parser.add_argument('-c', type=float)
-    parser.add_argument('-d', type=float)
-    parser.add_argument('-kappa', type=int)
-    parser.add_argument('-omega', type=int)
-    theta = ParameterExample.from_namespace(parser.parse_args())
+parser = ArgumentParser()
+parser.add_argument('-n', type=int)
+parser.add_argument('-f', type=float)
+parser.add_argument('-c', type=float)
+parser.add_argument('-d', type=float)
+parser.add_argument('-kappa', type=int)
+parser.add_argument('-omega', type=int)
+theta = ParameterExample.from_namespace(parser.parse_args())
 ```
 The *transform* argument to this function allows one to instantiate a `Parameter` implementation using names with a suffix or prefix to the parameters themselves:
 ```python
-    parser = ArgumentParser()
-    parser.add_argument('-n_sp', type=int)
-    parser.add_argument('-f_sp', type=float)
-    parser.add_argument('-c_sp', type=float)
-    parser.add_argument('-d_sp', type=float)
-    parser.add_argument('-kappa_sp', type=int)
-    parser.add_argument('-omega_sp', type=int)
-    theta = ParameterExample.from_namespace(parser.parse_args(), lambda a: a + '_sp')
+parser = ArgumentParser()
+parser.add_argument('-n_sp', type=int)
+parser.add_argument('-f_sp', type=float)
+parser.add_argument('-c_sp', type=float)
+parser.add_argument('-d_sp', type=float)
+parser.add_argument('-kappa_sp', type=int)
+parser.add_argument('-omega_sp', type=int)
+theta = ParameterExample.from_namespace(parser.parse_args(), lambda a: a + '_sp')
 ```
 
 
