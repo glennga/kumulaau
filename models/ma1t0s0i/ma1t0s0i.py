@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from numpy import nextafter, ndarray
 from argparse import Namespace
-from typing import List
+from typing import Sequence
 from kumulaau import *
 
 # The model name associated with the results database.
@@ -36,7 +36,7 @@ class Parameter1T0S0I(Parameter):
             0 < self.kappa < self.omega
 
 
-def sample_1T0S0I(theta: Parameter1T0S0I, i_0: List) -> ndarray:
+def sample_1T0S0I(theta: Parameter1T0S0I, i_0: Sequence) -> ndarray:
     """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
 
     :param theta: Parameter1T0S0I set to use with tree tracing.

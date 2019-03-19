@@ -8,13 +8,13 @@ fi
 SCRIPT_DIR=$(dirname "$0")
 
 # Our criteria for the loci and sample IDs to use for this run of MCMC: The Colombian populace.
-sample_uids=(); loci=()
+sample_uids=(); sample_loci=()
 for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
                                      FROM OBSERVED_ELL \
                                      WHERE LOCUS LIKE 'D16S539' \
                                      AND POP_UID LIKE 'PO000503I';"); do
     IFS='|' read -r -a array <<< "$r"
-    sample_uids+="${array[0]} "; loci+="${array[1]} "
+    sample_uids+="${array[0]} "; sample_loci+="${array[1]} "
 done
 
 # Run once to seed our database. Must break into parts because GC is garbage ):<
@@ -24,8 +24,8 @@ python3 ${SCRIPT_DIR}/ma1t0s0i.py \
     -epsilon 0.55 \
     -iterations_n 10000 \
     -flush_n 5000 \
-    -uid_observed ${sample_uids} \
-    -locus_observed ${loci} \
+    -uid ${sample_uids} \
+    -loci ${sample_loci} \
     -n 50 -n_sigma 0.0 \
     -f 100 -f_sigma 0.0 \
     -c 0.01067 -c_sigma 0.01003 \
@@ -42,8 +42,8 @@ for i in {2..30}; do
         -epsilon 0.55 \
         -iterations_n 10000 \
         -flush_n 5000 \
-        -uid_observed ${sample_uids} \
-        -locus_observed ${loci} \
+        -uid ${sample_uids} \
+        -loci ${sample_loci} \
         -n_sigma 0.0 \
         -f_sigma 0.0 \
         -c_sigma 0.01003 \
