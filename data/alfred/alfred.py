@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from kumulaau._observed import Observed
+from kumulaau.observed import Observed
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
