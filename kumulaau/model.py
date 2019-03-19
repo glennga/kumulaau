@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 from numpy import ndarray, asarray, sqrt
 from argparse import Namespace
-from typing import List
+from typing import Sequence
 import pop
 
 
@@ -22,7 +20,7 @@ def trace(n, f, c, d, kappa, omega):
     return pop.trace(n, f, c, d, kappa, omega)
 
 
-def evolve(p, i_0: List) -> ndarray:
+def evolve(p, i_0: Sequence) -> ndarray:
     """ A wrapper for the pop module evolve method. Given the C pointer from a trace call and initial lengths,
     we resolve our repeat lengths and return our result as a numpy array.
 

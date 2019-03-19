@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-from sqlite3 import Cursor
+from typing import List, Iterable, Sequence
 from numpy import ndarray, array
-from typing import List
+from sqlite3 import Cursor
 
-# The name of the observed table.
-_TABLE_NAME = 'OBSERVED_ELL'
+# The name of the tables in the alfred and record databases.
+_ALFRED_TABLE_NAME = 'OBSERVED_ELL'
 
-# Our table schema.
-_SCHEMA = 'TIME_R TIMESTAMP, POP_NAME TEXT, POP_UID TEXT, SAMPLE_UID TEXT, SAMPLE_SIZE INT, \
+# Our table schema for the alfred database.
+_ALFRED_SCHEMA = 'TIME_R TIMESTAMP, POP_NAME TEXT, POP_UID TEXT, SAMPLE_UID TEXT, SAMPLE_SIZE INT, \
           LOCUS TEXT, ELL TEXT, ELL_FREQ FLOAT'
 
-# Our table fields.
-_FIELDS = 'TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ'
+# Our table fields for the alfred database.
+_ALFRED_FIELDS = 'TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ'
 
 
-def _extract_tuples(cursor: Cursor, uid_loci: List) -> List:
+def _extract_tuples(cursor: Cursor, uid_loci: Iterable) -> List:
     """ Query the observation table for (repeat length, frequency) tuples for various uid, locus pairs.
 
     :param cursor: Cursor to the observation database.
@@ -29,12 +29,12 @@ def _extract_tuples(cursor: Cursor, uid_loci: List) -> List:
     """, (a[0], a[1])).fetchall(), uid_loci))
 
 
-def extract_tuples(filename: str, uid_loci: List) -> List:
+def extract_alfred_tuples(uid_loci: Iterable, filename: str = 'data/observed.db') -> List:
     """ Wrapper for the _extract_tuples method. Here we verify that the ALFRED script has been run, connect to
     our observation database, and return the results from _extract_tuples.
 
-    :param filename: Location of the observation database.
     :param uid_loci: List of (uid, loci) pairs to query our database with. Order of tuple matters here!!
+    :param filename: Location of the observation database.
     :return: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
     """
     from sqlite3 import connect
@@ -46,7 +46,7 @@ def extract_tuples(filename: str, uid_loci: List) -> List:
     if not bool(cursor.execute(f"""
         SELECT NAME
         FROM sqlite_master
-        WHERE type='table' AND NAME='{_TABLE_NAME}'
+        WHERE type='table' AND NAME='{_ALFRED_TABLE_NAME}'
     """).fetchone()):
         raise LookupError("'OBSERVED_ELL' not found in observation database. Run the ALFRED script.")
 
@@ -58,16 +58,7 @@ def extract_tuples(filename: str, uid_loci: List) -> List:
     return tuples
 
 
-def tuples_to_numpy(tuples: List) -> ndarray:
-    """ Generate the 2D (int, float) numpy representation using the tuple representation.
-
-    :param tuples: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :return: 2D numpy array of (int, float) tuples representing the (repeat length, frequency) tuples.
-    """
-    return array([array([(int(a[0]), float(a[1]), ) for a in b]) for b in tuples])
-
-
-def tuples_to_dictionaries(tuples: List) -> ndarray:
+def tuples_to_dictionaries(tuples: Iterable) -> ndarray:
     """ Generate the dictionary representation (frequencies indexed by repeat lengths) using the tuple
     representation.
 
@@ -77,7 +68,7 @@ def tuples_to_dictionaries(tuples: List) -> ndarray:
     return array([{int(a[0]): float(a[1]) for a in b} for b in tuples])
 
 
-def tuples_to_sparse_matrix(tuples: List, bounds: List) -> ndarray:
+def tuples_to_sparse_matrix(tuples: Iterable, bounds: Sequence) -> ndarray:
     """ Generate the sparse matrix representation (column = repeat length, row = observation) using the tuple
     representation and user-defined boundaries.
 
@@ -99,10 +90,41 @@ def tuples_to_sparse_matrix(tuples: List, bounds: List) -> ndarray:
     return observations
 
 
-def tuples_to_pool(tuples: List) -> ndarray:
+def tuples_to_pool(tuples: Iterable) -> List:
     """ Using the tuples representation, parse all repeat lengths that exist in this specific observation.
 
     :param tuples: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :return: A 1D array of all repeat lengths associated with this observation.
+    :return: A 1D list of all repeat lengths associated with this observation.
     """
-    return tuples_to_numpy(tuples)[:, :, 0].flatten()
+    return list(set([a[0] for b in tuples for a in b]))
+
+
+def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: str):
+    """ Given a cursor to some database, the name of the table, and the primary key associated with the table, create
+    a table with the schema: {pk}, UID TEXT, LOCI TEXT.
+
+    :param cursor: Cursor to the database to create the table for.
+    :param table_name: Name of the table to create.
+    :param pk_name_type: Primary key field and type.
+    :return: None.
+    """
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+        {pk_name_type}, UID TEXT, LOCI TEXT
+    );""")
+
+
+def record_uid_loci(cursor: Cursor, table_name: str, pk, uid_loci: Iterable):
+    """ Given a cursor to some database, the name of the table, and the primary key associated with this insert, insert
+    our uid_loci pairs appropriately.
+
+    :param cursor: Cursor to the database containing the table to log to.
+    :param table_name: Name of the table to log to. Table must already exist.
+    :param pk: Primary key.
+    :param uid_loci: List of (uid, loci) pairs to query our database with. Order of tuple matters here!!
+    :return: None.
+    """
+    cursor.executemany(f"""
+        INSERT INTO {table_name}
+        VALUES (?, ?, ?);
+    """, ((pk, a[0], a[1]) for a in uid_loci))

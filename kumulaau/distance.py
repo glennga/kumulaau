@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from kumulaau.observed import tuples_to_pool, tuples_to_sparse_matrix
 from numpy import ndarray, dot, arccos, pi, zeros, mean
-from typing import List, Callable
+from typing import List, Callable, Sequence
 from types import SimpleNamespace
 from argparse import Namespace
 from numpy.linalg import norm
@@ -64,7 +64,7 @@ def euclidean_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) ->
     return norm(generated - observation)
 
 
-def generate_hdo(observations: List, simulation_n: int, bounds: List) -> SimpleNamespace:
+def generate_hdo(observations: Sequence, simulation_n: int, bounds: Sequence) -> SimpleNamespace:
     """ Generate three matrices of interest, we do not populate H and D here.
 
     H - Binary match matrix of generated x observation. 1 indicates a match, 0 indicates no match.
@@ -113,20 +113,6 @@ def populate_hd(hdo: SimpleNamespace, sample: Callable, delta: Callable, theta_p
     return SimpleNamespace(expected_delta=expected_delta, h=hdo.h, d=hdo.d)
 
 
-def _choose_ell_0(observations: List, kappa: int, omega: int) -> List:
-    """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
-    from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
-
-    :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param kappa: Lower bound of our repeat length space.
-    :param omega: Upper bound of our repeat length space.
-    :return: A single repeat length, wrapped in a list.
-    """
-    from numpy.random import choice
-
-    return [min(omega, max(kappa, choice(tuples_to_pool(observations))))]
-
-
 def likelihood_from_h(h: ndarray) -> float:
     """ 'j' specifies the column or associated observed microsatellite sample in the matched matrix. To determine
     the probability of a model (parameters) matching this observed sample, we compute the average of this column.
@@ -139,6 +125,20 @@ def likelihood_from_h(h: ndarray) -> float:
 
     # Avoid floating point error, use logarithms. Avoid log(0) errors.
     return exp(sum(map(lambda a: 0 if a == 0 else log(a), mean(h, axis=0))))
+
+
+def _choose_ell_0(observations: Sequence, kappa: int, omega: int) -> List:
+    """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
+    from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
+
+    :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
+    :param kappa: Lower bound of our repeat length space.
+    :param omega: Upper bound of our repeat length space.
+    :return: A single repeat length, wrapped in a list.
+    """
+    from numpy.random import choice
+
+    return [min(omega, max(kappa, choice(tuples_to_pool(observations))))]
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -187,7 +187,7 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
-    from kumulaau.observed import extract_tuples
+    from kumulaau.observed import extract_alfred_tuples
     from timeit import default_timer as timer
     from kumulaau.model import trace, evolve
     from importlib import import_module
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     arguments = get_arguments()  # Parse our arguments.
 
     # Collect observations to compare to.
-    main_observed = extract_tuples(arguments.odb, [[arguments.uid_observed, arguments.locus_observed]])
+    main_observed = extract_alfred_tuples([[arguments.uid_observed, arguments.locus_observed]], arguments.odb)
 
     # Determine our delta and sampling functions.
     main_delta_function = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
