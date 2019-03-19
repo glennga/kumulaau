@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from argparse import Namespace
 from typing import Callable
 
 
@@ -39,7 +38,7 @@ class Parameter(ABC):
         return len(self.__dict__)
 
     @classmethod
-    def from_namespace(cls, arguments: Namespace, transform: Callable = lambda a: a):
+    def from_namespace(cls, arguments, transform: Callable = lambda a: a):
         """ Given a namespace, return a Parameters object with the appropriate parameters. Transform each attribute
         (e.g. add a suffix or prefix) if desired.
 
@@ -47,7 +46,9 @@ class Parameter(ABC):
         :param transform: Function to transform each attribute, given a string and returning a string.
         :return: New Parameters object with the parsed in arguments.
         """
-        return cls(*list(map(lambda a: getattr(arguments, transform(a)), cls.__dict__)))
+        from inspect import getfullargspec
+
+        return cls(*list(map(lambda a: getattr(arguments, transform(a)), getfullargspec(cls.__init__).args[1:])))
 
     @abstractmethod
     def _validity(self) -> bool:
