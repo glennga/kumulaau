@@ -158,12 +158,12 @@ def walk(theta):
     from numpy.random import normal
     from numpy import nextafter
 
-    return ParameterExample(n=theta.n,  # No change in N.
-                            f=theta.f,  # No change in F.
-                            c=max(normal(theta.c, 0.0003), nextafter(0, 1)),
-                            d=max(normal(theta.d, 5.5e-5), 0),
-                            kappa=theta.kappa,  # No change in kappa.
-                            omega=theta.omega)  # No change in omega.
+    return MyParameter(n=theta.n,  # No change in N.
+                       f=theta.f,  # No change in F.
+                       c=max(normal(theta.c, 0.0003), nextafter(0, 1)),
+                       d=max(normal(theta.d, 5.5e-5), 0),
+                       kappa=theta.kappa,  # No change in kappa.
+                       omega=theta.omega)  # No change in omega.
 
 def log_handler(x, i):
     [print(a) for a in x]
@@ -173,13 +173,13 @@ uid = ['SA001097R', 'SA001098S', 'SA001538R', 'SA001539S', 'SA001540K']
 loci = ['D16S539' for _ in uid]
 
 # Collect our observations in base representation.
-observations = observed.extract_alfred_tuples(zip(uid_observed, locus_observed))
+observations = observed.extract_alfred_tuples(zip(uid, loci))
 
 # Define our starting point.
-theta_0 = ParameterExample(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
+theta_0 = MyParameter(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 
 # Run our MCMC!
-posterior.mcmca.run(walk=walk, sample=sample, delta=distance.cosine, log_handler=log_handler,
+posterior.mcmca.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
                    theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
 ```
 
