@@ -47,6 +47,30 @@ class ParameterExample(Parameter):
         return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
 ```
 
+Aside from holding the parameters, an implementation of `Parameter` also allows one to construct an instance of this implementation given a namespace and some transformation function. This allows one to use a package like `argparse` with ease:
+```python
+    parser = ArgumentParser()
+    parser.add_argument('-n', type=int)
+    parser.add_argument('-f', type=float)
+    parser.add_argument('-c', type=float)
+    parser.add_argument('-d', type=float)
+    parser.add_argument('-kappa', type=int)
+    parser.add_argument('-omega', type=int)
+    theta = ParameterExample.from_namespace(parser.parse_args())
+```
+The *transform* argument to this function allows one to instantiate a `Parameter` implementation using names with a suffix or prefix to the parameters themselves:
+```python
+    parser = ArgumentParser()
+    parser.add_argument('-n_sp', type=int)
+    parser.add_argument('-f_sp', type=float)
+    parser.add_argument('-c_sp', type=float)
+    parser.add_argument('-d_sp', type=float)
+    parser.add_argument('-kappa_sp', type=int)
+    parser.add_argument('-omega_sp', type=int)
+    theta = ParameterExample.from_namespace(parser.parse_args(), lambda a: a + '_sp')
+```
+
+
 ### Usage of `kumulaau.model`
 The `model` module holds all functions required to simulate the evolution of a single population. There are two functions available here: `trace` and `evolve`. The former generates the topology associated with a single population and returns a pointer to be passed to the latter. There are six parameter associated with the `trace` function:
 
@@ -90,7 +114,7 @@ To distinguish population samples here, one must specify two items: `SAMPLE_UID`
 
 ### Usage of `kumulaau.distance`
 
-The `distance` module holds all functions associated with finding the average distance and/or likelihood between an observed distribution in (length, frequency) tuple form, and the result of several `kumulaau.evolve` calls. *The following paragraphs explain the mechanics behind our ABC approach for approximating likelihood. The most important functions out of this package are `cosine_delta` and `euclidean_delta` which allow one to use the angular distance or Euclidean distance to quantify difference between an observation and simulation.*
+The `distance` module holds all functions associated with finding the average distance and/or likelihood between an observed distribution in (length, frequency) tuple form, and the result of several `kumulaau.evolve` calls. *The following paragraphs explain the mechanics behind our ABC approach for approximating likelihood. The most important functions (as far as a user is concerned) out of this package are `cosine_delta` and `euclidean_delta` which allow one to use the angular distance or Euclidean distance to quantify difference between an observation and simulation.*
 
 We find the average distance and/or likelihood or some parameter set $\theta$ given observations with two phases: a shape definition phase and a matrix population phase. 
 
@@ -180,7 +204,7 @@ theta_0 = MyParameter(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 
 # Run our MCMC!
 posterior.mcmca.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
-                   theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
+                    theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
 ```
 
 ### Usage of `kumulaau.RecordSQLite`
@@ -207,7 +231,7 @@ It is advised to use this class with a context manager as such, to ensure databa
 MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 with RecordSQLite('data/results', 'MYMODEL', MODEL_SQL, posterior.mcmca.SQL, False) as log:
-	# Record our observations.
+    # Record our observations.
     log.record_observed(observations)
 
     # In order to match the signature of a log function, we use a lambda:
