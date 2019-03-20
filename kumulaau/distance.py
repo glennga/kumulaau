@@ -5,7 +5,7 @@ from typing import List, Callable, Sequence
 from types import SimpleNamespace
 from argparse import Namespace
 from numpy.linalg import norm
-from numba import jit, prange
+from numba import jit
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -102,7 +102,7 @@ def populate_hd(hdo: SimpleNamespace, sample: Callable, delta: Callable, theta_p
     """
     from numpy import array
 
-    # Generate all of our populations and save the generated data we are to compare to.
+    # Generate all of our populations and save the generated data we are to compare to (bottleneck is here!!).
     sample_all = array([sample(theta_proposed, _choose_ell_0(hdo.observations, theta_proposed.kappa,
                                                              theta_proposed.omega)) for _ in range(hdo.h.shape[0])])
 
@@ -141,7 +141,6 @@ def _choose_ell_0(observations: Sequence, kappa: int, omega: int) -> List:
     return [min(omega, max(kappa, choice(tuples_to_pool(observations))))]
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def _delta_matrix(epsilon: float, sample_all: ndarray, observations: ndarray, h: ndarray, d: ndarray,
                   bounds: ndarray, delta: Callable) -> float:
     """ Compute the expected distance for all observations to a set of populations. If the distance between a
@@ -159,7 +158,7 @@ def _delta_matrix(epsilon: float, sample_all: ndarray, observations: ndarray, h:
     """
     # Iterate through all generated samples.
     for i in range(h.shape[0]):
-        for j in prange(observations.shape[0]):
+        for j in range(observations.shape[0]):
             # If our distance is less than a defined epsilon, we mark this as 'matched' with 1. Otherwise, 0.
             d[i, j] = delta(sample_all[i], observations[j], bounds)
             h[i, j] = 1 if d[i, j] < epsilon else 0
