@@ -24,7 +24,7 @@ class Parameter1T0S0I(Parameter):
         """
         super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
-    def _validity(self) -> bool:
+    def validity(self) -> bool:  # TODO: In the redesign, I don't think is being used... Verify this.
         """ Determine if a current parameter set is valid.
 
         :return: True if valid. False otherwise.
@@ -46,6 +46,7 @@ def sample_1T0S0I(theta: Parameter1T0S0I, i_0: Sequence) -> ndarray:
     return model.evolve(model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
 
 
+@Parameter1T0S0I.walkfunction
 def walk_1T0S0I(theta, walk_params) -> Parameter1T0S0I:
     """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
 

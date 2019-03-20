@@ -34,16 +34,16 @@ kumulaau/models/ma1t0s0i/ma1t0s0i.sh ${RESULTS_DATABASE}
 
 ## ABC-MCMC Single Population Example
 ### Usage of `kumulaau.Parameter`
-The `Parameter` class is an ABC which holds all parameters associated with a given model. Two methods must be defined: the constructor and `_validity`. The former defines all parameters a model requires, while the latter defines what a valid parameter set is (returns `True` if the parameter set is valid, `False` otherwise). When defining the child constructor, the base constructor must use keyword arguments to pass the model specific parameters.
+The `Parameter` class is an ABC which holds all parameters associated with a given model. Two methods must be defined: the constructor and `validity`. The former defines all parameters a model requires, while the latter defines what a valid parameter set is (returns `True` if the parameter set is valid, `False` otherwise). When defining the child constructor, the base constructor must use keyword arguments to pass the model specific parameters.
 ```python
 from kumulaau import Parameter
 
-class ParameterExample(Parameter):
+class MyParameter(Parameter):
     def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
         # Requirement: Call of base constructor uses keyword arguments.
         super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)  
 		
-    def _validity(self): 
+    def validity(self): 
         return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
 ```
 
@@ -56,7 +56,7 @@ parser.add_argument('-c', type=float)
 parser.add_argument('-d', type=float)
 parser.add_argument('-kappa', type=int)
 parser.add_argument('-omega', type=int)
-theta = ParameterExample.from_namespace(parser.parse_args())
+theta = MyParameter.from_namespace(parser.parse_args())
 ```
 The *transform* argument to this function allows one to instantiate a `Parameter` implementation using names with a suffix or prefix to the parameters themselves:
 ```python
@@ -67,8 +67,10 @@ parser.add_argument('-c_sp', type=float)
 parser.add_argument('-d_sp', type=float)
 parser.add_argument('-kappa_sp', type=int)
 parser.add_argument('-omega_sp', type=int)
-theta = ParameterExample.from_namespace(parser.parse_args(), lambda a: a + '_sp')
+theta = MyParameter.from_namespace(parser.parse_args(), lambda a: a + '_sp')
 ```
+
+For posterior walk functions (i.e. generating a new point given a current point and a description of its randomness), a decorator is provided: `@Parameter.walkfunction`. This will utilize the `validity` function to ensure that a valid parameter set is always generated.
 
 
 ### Usage of `kumulaau.model`
@@ -171,13 +173,14 @@ class MyParameter(Parameter):
         # Requirement: Call of base constructor uses keyword arguments.
         super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
-    def _validity(self):
+    def validity(self):
         return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
     
 def sample(theta, i_0):
     topology = model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)
     return model.evolve(topology, i_0)  # Must return the result of evolve call.
 
+@MyParameter.walkfunction
 def walk(theta):
     from numpy.random import normal
     from numpy import nextafter

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import Callable
 
 
@@ -51,7 +50,7 @@ class Parameter(ABC):
         return cls(*list(map(lambda a: getattr(arguments, transform(a)), getfullargspec(cls.__init__).args[1:])))
 
     @abstractmethod
-    def _validity(self) -> bool:
+    def validity(self) -> bool:
         """ Determine if a current parameter set is valid.
 
         :return: True if valid. False otherwise.
@@ -59,18 +58,19 @@ class Parameter(ABC):
         raise NotImplementedError
 
     @classmethod
-    def from_walk(cls, theta, pi_sigma, walk: Callable):
-        """ Generate a new point from some walk function. We apply this walk function to each dimension, using the
-        walking parameters specified in 'pi_sigma'. 'walk' must accept two variables, with the first being
-        the point to walk from and second being the parameter to walk with. We must be within bounds.
+    def walkfunction(cls, func: Callable) -> Callable:
+        """ Decorator to apply validity constraints to a given walk function (generating a new point given a current
+        point and variables describing it's randomness.
 
-        :param theta: Current point in our model space. The point we are currently walking from.
-        :param pi_sigma: Walking parameters. These are commonly deviations.
-        :param walk: For some point theta, generate a new one with the corresponding pi_sigma.
-        :return: A new Parameters (point).
+        :param func: Walk function.
+        :return: Function that will generate new points that are valid.
         """
-        while True:
-            theta_proposed = cls(**walk(theta, pi_sigma).__dict__)
+        @wraps(func)
+        def _walkfunction(theta, walk_params):
+            while True:
+                theta_proposed = cls(**func(theta, walk_params).__dict__)
 
-            if theta_proposed._validity():  # Only return if the parameter set is valid.
-                return theta_proposed
+                if theta_proposed.validity():  # Only return if the parameter set is valid.
+                    return theta_proposed
+
+        return _walkfunction

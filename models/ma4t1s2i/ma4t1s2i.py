@@ -36,7 +36,7 @@ class Parameter4T1S2I(Parameter):
 
         super().__init__(c, d, kappa, omega)
 
-    def _validity(self) -> bool:
+    def validity(self) -> bool:
         """ Determine if a current parameter set is valid. We constrain the following:
 
         1. A population size is always positive.
@@ -88,6 +88,7 @@ def sample_1T0S0I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
     return model.evolve(end_top, concatenate((descendant_1, descendant_2)))
 
 
+@Parameter4T1S2I.walkfunction
 def walk_4T1S2I(theta, walk_params) -> Parameter4T1S2I:
     """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
 
