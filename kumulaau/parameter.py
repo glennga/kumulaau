@@ -60,15 +60,15 @@ class Parameter(ABC):
     @classmethod
     def walkfunction(cls, func: Callable) -> Callable:
         """ Decorator to apply validity constraints to a given walk function (generating a new point given a current
-        point and variables describing it's randomness.
+        point and variables describing it's randomness).
 
         :param func: Walk function.
         :return: Function that will generate new points that are valid.
         """
         @wraps(func)
-        def _walkfunction(theta, walk_params):
+        def _walkfunction(*args, **kwargs):
             while True:
-                theta_proposed = cls(**func(theta, walk_params).__dict__)
+                theta_proposed = cls(**func(*args, **kwargs).__dict__)
 
                 if theta_proposed.validity():  # Only return if the parameter set is valid.
                     return theta_proposed
