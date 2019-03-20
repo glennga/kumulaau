@@ -26,7 +26,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
 
     :param walk: Function that accepts some parameter set and returns another parameter set.
     :param sample: Function that produces a collection of repeat lengths (i.e. the model function).
-        :param delta: Function that computes the distance between the result of a sample and an observation.
+    :param delta: Function that computes the distance between the result of a sample and an observation.
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
