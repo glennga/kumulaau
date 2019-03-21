@@ -8,6 +8,30 @@ from numpy.linalg import norm
 from numba import jit
 
 
+class _PoolSingleton(object):
+    class __PoolSingleton(object):
+        def __init__(self, processes=None):
+            """ Constructor for our hidden singleton instance. We create instantiate a pool here.
+
+            :param processes: Number of processes to use.
+            """
+            from multiprocessing import Pool
+
+            self.pool = Pool(processes=processes)
+
+    instance = None  # Location of our singleton.
+
+    def __init__(self, processes=None):
+        """ Handler class constructor for our singleton. Create only one instance.
+
+        :param processes: Number of processes to use.
+        """
+        if not _PoolSingleton.instance:
+            _PoolSingleton.instance = _PoolSingleton.__PoolSingleton(processes)
+        else:
+            pass
+
+
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def cosine_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
     """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
@@ -102,9 +126,14 @@ def populate_hd(hdo: SimpleNamespace, sample: Callable, delta: Callable, theta_p
     """
     from numpy import array
 
+    # We cannot compile this portion below, but we can parallelize it! Create a multiprocessing pool singleton.
+    pool = _PoolSingleton().instance.pool
+
     # Generate all of our populations and save the generated data we are to compare to (bottleneck is here!!).
-    sample_all = array([sample(theta_proposed, _choose_ell_0(hdo.observations, theta_proposed.kappa,
-                                                             theta_proposed.omega)) for _ in range(hdo.h.shape[0])])
+    sample_all = array(pool.starmap(sample, [
+        (theta_proposed, _choose_ell_0(hdo.observations, theta_proposed.kappa, theta_proposed.omega))
+        for _ in range(hdo.h.shape[0])
+    ]))
 
     # Populate the H and D matrices.
     expected_delta = _delta_matrix(epsilon, sample_all, hdo.o, hdo.h, hdo.d, array(hdo.bounds, dtype='int'), delta)
