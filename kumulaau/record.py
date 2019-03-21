@@ -106,7 +106,7 @@ class RecordSQLite(object):
         We are also given the iteration number 'i', as well as a flush_n argument that specifies how often we are to
         record.
 
-        :param x: List of records containing (a) theta and (b) results to log.
+        :param x: List of records containing (a) theta and (b) results to log. This will be modified!!
         :param i: Current iteration of a given run.
         :param flush_n: Number of iterations to run before flushing to disk.
         :return: None.
@@ -114,17 +114,20 @@ class RecordSQLite(object):
         if i % flush_n != 0 or len(x) == 0:  # Record every flush_n iterations.
             return
 
-        # Record to our _MODEL table.
+        # Record to our _MODEL table. Do not log our initial result.
         self.cursor.executemany(f"""
             INSERT INTO {self.model_table}
             VALUES ({','.join('?' for _ in self.model_fields)});
-        """, ((self.run_r, a.time_r) + tuple([getattr(a.theta, b) for b in self.model_fields[2:]]) for a in x))
+        """, ((self.run_r, a.time_r) + tuple([getattr(a.theta, b) for b in self.model_fields[2:]]) for a in x[1:]))
 
-        # Record to our _RESULTS table.
+        # Record to our _RESULTS table. Do not log our initial result.
         self.cursor.executemany(f"""
             INSERT INTO {self.results_table}
             VALUES ({','.join('?' for _ in self.results_fields)});
-        """, ((self.run_r,) + tuple([getattr(a, b) for b in self.results_fields[1:]]) for a in x))
+        """, ((self.run_r,) + tuple([getattr(a, b) for b in self.results_fields[1:]]) for a in x[1:]))
+
+        # Remove every record except the last.
+        x[:] = [x[-1]]
 
     def retrieve_last_theta(self):
         """ Query our _MODEL table for the last recorded parameter set according to TIME_R.

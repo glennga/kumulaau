@@ -193,7 +193,8 @@ def walk(theta):
                        omega=theta.omega)  # No change in omega.
 
 def log_handler(x, i):
-    [print(a) for a in x]
+    [print(a) for a in x[1:]]  # Print every element but first.
+    x[:] = [x[-1]]  # Remove all elements but last.
     
 # Define the UIDs and Loci associated with frequency entries in `data/observed.ell`.
 uid = ['SA001097R', 'SA001098S', 'SA001538R', 'SA001539S', 'SA001540K']

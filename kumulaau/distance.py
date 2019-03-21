@@ -111,10 +111,9 @@ def populate_hd(hdo: SimpleNamespace, sample: Callable, delta: Callable, theta_p
     # We cannot compile this portion below, but we can parallelize it! Create a multiprocessing pool singleton.
     if _pool_singleton is None:
         _pool_singleton = Pool()
-    pool = _pool_singleton
 
     # Generate all of our populations and save the generated data we are to compare to (bottleneck is here!!).
-    sample_all = array(pool.starmap(sample, [
+    sample_all = array(_pool_singleton.starmap(sample, [
         (theta_proposed, _choose_ell_0(hdo.observations, theta_proposed.kappa, theta_proposed.omega))
         for _ in range(hdo.h.shape[0])
     ]))
