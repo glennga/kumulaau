@@ -26,6 +26,9 @@ doc/build.sh
 *.db
 *.texpadtmp
 
+# Ignore Jupyter notebook.
+*.ipynb_checkpoints*
+
 # Ignore the old folder, where we store all the old stuff ():<).
 old/*
 
