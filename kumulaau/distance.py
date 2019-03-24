@@ -209,15 +209,16 @@ if __name__ == '__main__':
     # Collect observations to compare to.
     main_observed = extract_alfred_tuples([[arguments.uid_observed, arguments.locus_observed]], arguments.odb)
 
-    # Determine our delta and sampling functions.
+    # Determine our delta and sampling functions. Lambdas cannot be pickled, so we define a named function here.
+    def main_sampler(theta, i_0):
+        return evolve(trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
     main_delta_function = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
-    main_sampler = lambda a, b: evolve(trace(a.n, a.f, a.c, a.d, a.kappa, a.omega), b)
 
     # A quick and dirty function to generate and populate the HD matrices.
     def main_generate_and_fill_hdo():
         main_hdo = generate_hdo(main_observed, 1000, [3, 30])
-        return populate_hd(main_hdo, main_sampler, main_delta_function,
-                           SimpleNamespace(n=100, f=100.0, c=0.01, d=0.001, kappa=3, omega=30), 0.1)
+        main_theta = SimpleNamespace(n=100, f=100.0, c=0.01, d=0.001, kappa=3, omega=30)
+        return populate_hd(main_hdo, main_sampler, main_delta_function, main_theta, 0.1)
 
     # Run once to remove compile time in elapsed time.
     main_generate_and_fill_hdo()
