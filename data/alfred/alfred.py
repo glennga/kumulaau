@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from kumulaau.observed import Observed
+from kumulaau.observed import create_record_uid_loci_table, record_uid_loci
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # Connect to the database to log to.
     connection = connect(args.f)
     cursor = connection.cursor()
-    Observed.create_table(cursor)
+    create_record_uid_loci_table(cursor)
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
     with open(args.freq_f) as tsv_f:
@@ -29,13 +29,13 @@ if __name__ == '__main__':
         # Perform the insertion. Print out any anomalies.
         for entry in freq_reader:
             try:
-                Observed.single_insert(cursor, (SimpleNamespace(time_r=entry[7],
-                                                                pop_name=entry[0],
-                                                                pop_uid=entry[1],
-                                                                sample_uid=entry[2],
-                                                                sample_size=int(entry[3]),
-                                                                locus=entry[4],
-                                                                ell=int(entry[6]),
-                                                                ell_freq=float(entry[8]))))
+                record_uid_loci(cursor, (SimpleNamespace(time_r=entry[7],
+                                                         pop_name=entry[0],
+                                                         pop_uid=entry[1],
+                                                         sample_uid=entry[2],
+                                                         sample_size=int(entry[3]),
+                                                         locus=entry[4],
+                                                         ell=int(entry[6]),
+                                                         ell_freq=float(entry[8]))))
             except (ValueError, IndexError):
                 print('Error at: {}'.format(entry))
