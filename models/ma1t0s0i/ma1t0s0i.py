@@ -112,7 +112,7 @@ if __name__ == '__main__':
     is_new_run = arguments.n is not None
 
     # Connect to our results database.
-    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, posterior.mcmca.SQL, is_new_run) as lumberjack:
+    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, kumulaau.mcmca.SQL, is_new_run) as lumberjack:
 
         # Record our observations.
         lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
@@ -132,5 +132,5 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        posterior.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
-                            theta_0=theta_0, observed=observations, epsilon=arguments.epsilon, boundaries=boundaries)
+        kumulaau.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+                           theta_0=theta_0, observed=observations, epsilon=arguments.epsilon, boundaries=boundaries)

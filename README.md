@@ -19,12 +19,15 @@ conda list
 5. Install our module. This will build our C extensions.
 ```bash
 conda activate kumulaau
-pip install kumulaau
+pip install kumulaau  # Ensure that this is the 'kumulaau' pip.
+
+# If this fails, using the setup.py script also works.
+python3 setup.py install
 ```
 
 6. Populate the observed database `observed.db` by running the ALFRED script:
 ```bash
-kumulaau/data/alfred/alfred.sh
+kumulaau/data/alfred/alfred.sh ${OBSERVED_DATABASE}
 ```
 
 7. Run one of the examples listed in the `models` folder:
@@ -124,11 +127,11 @@ The shape definition phase is specified by `generate_hdo`, which returns a binar
 
 The matrix population phase fills in the entries of the $H​$ and $D​$ matrices, and is specified by the `populate_hd` call. There are five parameters required here: the result from our `generate_hdo` call, a function that returns the result of a `kumulaau.evolve` call given some parameter set $\theta​$ (*sample*) and common ancestor length $\ell​$, a function that computes the distance between an observed distribution and a `kumulaau.evolve` call (*delta*), the parameter set $\theta​$ of interest (*theta_proposed*), and an $\epsilon​$ term that defines what a match is. What follows is:
 
-1. We collect the result of calling $sample(\theta_{proposed}, \ell)$ *simultation_n* times. $\ell$ is treated as a nuisance parameter and is sampled randomly from the lengths in our observations.
+1. We collect the result of calling $sample(\theta_{proposed}, \ell)$ *simulation_n* times. $\ell$ is treated as a nuisance parameter and is sampled randomly from the lengths in our observations.
 2. We iterate through each generated sample and observed sample, compute the distance to save to $D$, and fill our $H$ matrix accordingly (1 if $D$ entry $< \epsilon​$, 0 otherwise).
 3. The expected distance (mean of all entries in $D$), the $D$ matrix itself, and the $H$ matrix itself are returned in a namespace.
 
-To determine the likelihood is to use the function `likelihood_from_h`, passing the $H$ result from `populated_hd` as a parameter. The average of each column (i.e. observation) is computed, representing the probability of a model matching this specific observation. To compute the likelihood is to take the product of each average. We assume that each probability is indepedent.
+To determine the likelihood is to use the function `likelihood_from_h`, passing the $H$ result from `populated_hd` as a parameter. The average of each column (i.e. observation) is computed, representing the probability of a model matching this specific observation. To compute the likelihood is to take the product of each average. We assume that each probability is independent.
 
 There are currently two implemented distance functions *delta*, but users are free to implement their own. The signature for such a function is given below:
 
@@ -145,10 +148,7 @@ def user_defined_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray)
 
 The two implemented functions, `cosine_delta` and `euclidean_delta` represent the angular distance and Eucledian distance respectively of two vectors in a $|bounds|$-dimensional space with frequency of a repeat length associated with each dimension.
 
-### Usage of `kumulaau.posterior`
-The `posterior` module holds all posterior inferring approachs. As of now, only one is implemented: an ABC MCMC variant in `kumulaau.posterior.mcmca`.
-
-#### Usage of `kumulaau.posterior.mcmca`
+### Usage of `kumulaau.mcmca`
 
 There exists only one method associated with this module: `run`, which defines an ABC-MCMC approach to inferring the likelihood of different parameter sets. There are eight parameters that must be defined here:
 
@@ -207,7 +207,7 @@ observations = observed.extract_alfred_tuples(zip(uid, loci))
 theta_0 = MyParameter(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 
 # Run our MCMC!
-posterior.mcmca.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
+mcmca.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
                     theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
 ```
 
@@ -227,7 +227,7 @@ To use this class, one must specify the following:
 | *results_schema* | Schema of the _RESULTS table, does not include `RUN_R`.      |
 | *is_new_run*     | Flag which indicates if the current run to be logged is new or not. This determines if we should query for old `RUN_R` entries or if we should generate a new one. |
 
-Given that the observations associated with a specific posterior run will never change, there exists a seperate method to record these seperate from the posterior results themselves: `record_observed`. This accepts observations in our base representation and, optionally, a list of IDs to attach to each population sample in our observations. If the second argument is not specifed, then each population is enumerated from 1 to `len(observations)`.
+Given that the observations associated with a specific posterior run will never change, there exists a separate method to record these separate from the posterior results themselves: `record_observed`. This accepts observations in our base representation and, optionally, a list of IDs to attach to each population sample in our observations. If the second argument is not specified, then each population is enumerated from 1 to `len(observations)`.
 
 It is advised to use this class with a context manager as such, to ensure database consistency:
 
@@ -246,5 +246,5 @@ with RecordSQLite('data/results', 'MYMODEL', MODEL_SQL, posterior.mcmca.SQL, Fal
     .
     
     # Run our MCMC!
-    posterior.mcmca.run(..., log_handler=handler, ...)
+    mcmca.run(..., log_handler=handler, ...)
 ```

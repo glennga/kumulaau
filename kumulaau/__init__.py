@@ -5,4 +5,4 @@ from kumulaau.record import RecordSQLite
 import kumulaau.model  # Our modules.
 import kumulaau.observed
 import kumulaau.distance
-import kumulaau.posterior
+import kumulaau.mcmca
