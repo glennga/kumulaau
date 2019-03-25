@@ -142,14 +142,16 @@ def create_alfred_table(cursor: Cursor) -> None:
     );""")
 
 
-def record_to_alfred_table(cursor: Cursor, fields) -> None:
+def record_to_alfred_table(cursor: Cursor, record) -> None:
     """ Given a cursor to the ALFRED database, record some field.
 
     :param cursor: Cursor to the observation database to record to.
-    :param fields: Namespace holding all required fields to record.
+    :param record: Namespace holding all required fields to record.
     :return: None.
     """
+    fields = [b.lower().strip() for b in ALFRED_FIELDS.split(',')]
+
     cursor.execute(f"""
         INSERT INTO {_ALFRED_TABLE_NAME}
-        VALUES ({','.join('?' for _ in fields.__dict__)})
-    """, (getattr(fields, a) for a in [b.strip().lower() for b in ALFRED_FIELDS.split(',')]))
+        VALUES ({','.join('?' for _ in fields)});
+    """, tuple(getattr(record, a) for a in fields))
