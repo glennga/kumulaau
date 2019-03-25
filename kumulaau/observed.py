@@ -11,7 +11,7 @@ _ALFRED_SCHEMA = 'TIME_R TIMESTAMP, POP_NAME TEXT, POP_UID TEXT, SAMPLE_UID TEXT
           LOCUS TEXT, ELL TEXT, ELL_FREQ FLOAT'
 
 # Our table fields for the alfred database.
-_ALFRED_FIELDS = 'TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ'
+ALFRED_FIELDS = 'TIME_R, POP_NAME, POP_UID, SAMPLE_UID, SAMPLE_SIZE, LOCUS, ELL, ELL_FREQ'
 
 
 def _extract_tuples(cursor: Cursor, uid_loci: Iterable) -> List:
@@ -99,7 +99,7 @@ def tuples_to_pool(tuples: Iterable) -> List:
     return list(set([a[0] for b in tuples for a in b]))
 
 
-def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: str):
+def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: str) -> None:
     """ Given a cursor to some database, the name of the table, and the primary key associated with the table, create
     a table with the schema: {pk}, UID TEXT, LOCI TEXT.
 
@@ -114,7 +114,7 @@ def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: 
     );""")
 
 
-def record_uid_loci(cursor: Cursor, table_name: str, pk, uid_loci: Iterable):
+def record_uid_loci(cursor: Cursor, table_name: str, pk, uid_loci: Iterable) -> None:
     """ Given a cursor to some database, the name of the table, and the primary key associated with this insert, insert
     our uid_loci pairs appropriately.
 
@@ -128,3 +128,28 @@ def record_uid_loci(cursor: Cursor, table_name: str, pk, uid_loci: Iterable):
         INSERT INTO {table_name}
         VALUES (?, ?, ?);
     """, ((pk, a[0], a[1]) for a in uid_loci))
+
+
+def create_alfred_table(cursor: Cursor) -> None:
+    """ Given a cursor to ALFRED database, create the ALFRED table.
+
+    :param cursor: Cursor to the observation database to create the table for.
+    :return: None.
+    """
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {_ALFRED_TABLE_NAME} (
+        {_ALFRED_SCHEMA}
+    );""")
+
+
+def record_to_alfred_table(cursor: Cursor, fields) -> None:
+    """ Given a cursor to the ALFRED database, record some field.
+
+    :param cursor: Cursor to the observation database to record to.
+    :param fields: Namespace holding all required fields to record.
+    :return: None.
+    """
+    cursor.execute(f"""
+        INSERT INTO {_ALFRED_TABLE_NAME}
+        VALUES ({','.join('?' for _ in fields.__dict__)})
+    """, (getattr(fields, a) for a in [b.strip().lower() for b in ALFRED_FIELDS.split(',')]))
