@@ -39,3 +39,6 @@ if __name__ == '__main__':
                                                                 ell_freq=float(entry[8]))))
             except (ValueError, IndexError):
                 print('Error at: {}'.format(entry))
+
+    # Commit our changes!! The most important part!
+    connection.commit()
