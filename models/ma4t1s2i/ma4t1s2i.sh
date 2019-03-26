@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ensure that we have only one or two arguments passed.
-if [[ "$#" -ne 1 ]] || [[ "$#" -ne 2 ]]; then
+if [[ "$#" -ne 1 ]] && [[ "$#" -ne 2 ]]; then
     echo "Usage: ma4t1s2i.sh [results database] [observed database]"
     exit 1
 fi
