@@ -32,7 +32,7 @@ kumulaau/data/alfred/alfred.sh ${OBSERVED_DATABASE}
 
 7. Run one of the examples listed in the `models` folder:
 ```bash
-kumulaau/models/ma1t0s0i/ma1t0s0i.sh ${RESULTS_DATABASE}
+kumulaau/models/ma1t0s0i/ma1t0s0i.sh ${RESULTS_DATABASE} ${OBSERVED_DATABASE}
 ```
 
 ## ABC-MCMC Single Population Example

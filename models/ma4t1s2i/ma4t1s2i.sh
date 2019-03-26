@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Ensure that we have only one argument passed.
-if [[ "$#" -ne 1 ]]; then
-    echo "Usage: ma4t1s2i.sh [results database]"
+# Ensure that we have only one or two arguments passed.
+if [[ "$#" -ne 1 ]] || [[ "$#" -ne 2 ]]; then
+    echo "Usage: ma4t1s2i.sh [results database] [observed database]"
     exit 1
 fi
 SCRIPT_DIR=$(dirname "$0")
 
 # Our criteria for the loci and sample IDs to use for this run of MCMC: The Colombian populace.
 sample_uids=(); sample_loci=()
-for r in $(sqlite3 data/observed.db "SELECT DISTINCT SAMPLE_UID, LOCUS \
-                                     FROM OBSERVED_ELL \
-                                     WHERE LOCUS LIKE 'D16S539' \
-                                     AND POP_UID LIKE 'PO000503I';"); do
+for r in $(sqlite3 ${2:-data/observed.db} "SELECT DISTINCT SAMPLE_UID, LOCUS \
+                                           FROM OBSERVED_ELL \
+                                           WHERE LOCUS LIKE 'D16S539' \
+                                           AND POP_UID LIKE 'PO000503I';"); do
     IFS='|' read -r -a array <<< "$r"
     sample_uids+="${array[0]} "; sample_loci+="${array[1]} "
 done
@@ -40,8 +40,8 @@ python3 ${SCRIPT_DIR}/ma4t1s2i.py \
     -omega 30 -omega_sigma 0.0
 echo "MCMC Progress [1/10]."
 
-# Repeat 29 more times.
-for i in {2..30}; do
+# Repeat 9 more times.
+for i in {2..10}; do
     python3 ${SCRIPT_DIR}/ma4t1s2i.py \
 		-mdb "$1" \
 		-simulation_n 100 \
