@@ -20,17 +20,22 @@ done
 # Run once to seed our database. Must break into parts because GC is garbage ):<
 python3 ${SCRIPT_DIR}/ma4t1s2i.py \
 	-mdb "$1" \
-    -simulation_n 100 \  # TODO: Change this to the correct parameters.
+    -simulation_n 100 \
     -epsilon 0.55 \
     -iterations_n 10000 \
     -flush_n 5000 \
     -uid ${sample_uids} \
     -loci ${sample_loci} \
     -delta_f cosine \
-    -n 50 -n_sigma 0.0 \
-    -f 100 -f_sigma 0.0 \
-    -c 0.01067 -c_sigma 0.01003 \
-    -d 0.00255 -d_sigma 0.00108 \
+    -n_b 10 -n_b_sigma 5.0 \
+    -n_s1 10 -n_s1_sigma 5.0 \
+    -n_s2 10 -n_s2_sigma 5.0 \
+    -f_b 100 -f_b_sigma 5.0 \
+    -f_s1 100 -f_s1_sigma 5.0 \
+    -f_e 100 -f_e_sigma 5.0 \
+	-alpha 0.1 -alpha_sigma 0.01 \
+    -c 0.01067 -c_sigma 0.0 \
+    -d 0.00255 -d_sigma 0.0 \
     -kappa 3 -kappa_sigma 0.0 \
     -omega 30 -omega_sigma 0.0
 echo "MCMC Progress [1/10]."
@@ -38,20 +43,25 @@ echo "MCMC Progress [1/10]."
 # Repeat 29 more times.
 for i in {2..30}; do
     python3 ${SCRIPT_DIR}/ma4t1s2i.py \
-    	-mdb "$1" \
-        -simulation_n 100 \
-        -epsilon 0.55 \
-        -iterations_n 10000 \
-        -flush_n 5000 \  # TODO: Change this to the correct parameters.
-        -uid ${sample_uids} \
-        -loci ${sample_loci} \
+		-mdb "$1" \
+		-simulation_n 100 \
+		-epsilon 0.55 \
+		-iterations_n 10000 \
+		-flush_n 5000 \
+		-uid ${sample_uids} \
+		-loci ${sample_loci} \
 		-delta_f cosine \
-        -n_sigma 0.0 \
-        -f_sigma 0.0 \
-        -c_sigma 0.01003 \
-        -d_sigma 0.00108 \
-        -kappa_sigma 0.0 \
-        -omega_sigma 0.0
+		-n_b_sigma 5.0 \
+		-n_s1_sigma 5.0 \
+		-n_s2_sigma 5.0 \
+		-f_b_sigma 5.0 \
+		-f_s1_sigma 5.0 \
+		-f_e_sigma 5.0 \
+		-alpha_sigma 0.01 \
+		-c_sigma 0.0 \
+		-d_sigma 0.0 \
+		-kappa_sigma 0.0 \
+		-omega_sigma 0.0
     echo "MCMC Progress [$i/10]."
 done
 
