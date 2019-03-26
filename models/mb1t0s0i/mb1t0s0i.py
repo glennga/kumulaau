@@ -1,227 +1,136 @@
 #!/usr/bin/env python3
-from kumulaau.model import Parameters1T0S0I
-from sqlite3 import Cursor
-from typing import List, Callable
+from numpy import nextafter, ndarray
+from argparse import Namespace
+from typing import Sequence
+from kumulaau import *
+
+# The model name associated with the results database.
+MODEL_NAME = "MB1T0S0I"
+
+# The model SQL associated with model database.
+MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 
-def create_tables(cursor: Cursor) -> None:
-    """ Create the tables to log the results of our MCMC to.
+class Parameter1T0S0I(Parameter):
+    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+        """ Constructor. Here we set our parameters.
 
-    :param cursor: Cursor to the database file to log to.
-    :return:    None.
+        :param n: Population size, used for determining the number of generations between events.
+        :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
+        :param c: Constant bias for the upward mutation rate.
+        :param d: Linear bias for the downward mutation rate.
+        :param kappa: Lower bound of repeat lengths.
+        :param omega: Upper bound of repeat lengths.
+        """
+        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
+
+    def validity(self) -> bool:
+        """ Determine if a current parameter set is valid.
+
+        :return: True if valid. False otherwise.
+        """
+        return self.n > 0 and \
+            self.f >= 0 and \
+            self.c > 0 and \
+            self.d >= 0 and \
+            0 < self.kappa < self.omega
+
+
+def sample_1T0S0I(theta: Parameter1T0S0I, i_0: Sequence) -> ndarray:
+    """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
+
+    :param theta: Parameter1T0S0I set to use with tree tracing.
+    :param i_0: Seed lengths associated with tree.
+    :return: List of repeat lengths.
     """
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WASTELESS_OBSERVED (
-            TIME_R TIMESTAMP,
-            UID_OBSERVED TEXT,
-            LOCUS_OBSERVED TEXT
-        );""")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS WASTELESS_MODEL (
-            TIME_R TIMESTAMP,
-            N INT,
-            F FLOAT,
-            C FLOAT,
-            D FLOAT,
-            KAPPA INT,
-            OMEGA INT,
-            WAITING_TIME INT,
-            LIKELIHOOD FLOAT,
-            DISTANCE FLOAT,
-            PROPOSED_TIME INT
-        );""")
+    return model.evolve(model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
 
 
-def log_states(cursor: Cursor, uid_observed: List[str], locus_observed: List[str], x: List) -> None:
-    """ Record our states to some database.
+@Parameter1T0S0I.walkfunction
+def walk_1T0S0I(theta, walk_params) -> Parameter1T0S0I:
+    """ Given some parameter set theta and some distribution parameters, generate a new parameter set.
 
-    :param cursor: Cursor to the database file to log to.
-    :param uid_observed: IDs of the observed samples to compare to.
-    :param locus_observed: Loci of the observed samples to compare to.
-    :param x: States and associated times & probabilities collected after running MCMC (our Markov chain).
-    :return: None.
+    :param theta: Current point to walk from.
+    :param walk_params: Parameters associated with a walk.
+    :return: A new parameter set.
     """
-    from datetime import datetime
-    date_string = datetime.now()
-
-    if len(x) == 0:  # We can't record if we have nothing to record!
-        return
-
-    # Record our observed sample log strings and datetime.
-    cursor.executemany("""
-        INSERT INTO WASTELESS_OBSERVED
-        VALUES (?, ?, ?)
-    """, ((date_string, a[0], a[1]) for a in zip(uid_observed, locus_observed)))
-
-    # noinspection SqlInsertValues
-    cursor.executemany(f"""
-        INSERT INTO WASTELESS_MODEL
-        VALUES ({','.join('?' for _ in range(x[0][0].PARAMETER_COUNT + 5))});
-    """, ((date_string,) + tuple(a[0]) + (a[1], a[2], a[3], a[4]) for a in x))
-
-    # Clear our chain except for the last state.
-    x[:] = [x[-1]]
-
-
-def retrieve_last(cursor: Cursor) -> Parameters1T0S0I:
-    """ TODO:
-
-    :param cursor:
-    :return:
-    """
-    a = cursor.execute("""
-        SELECT N, F, C, D, KAPPA, OMEGA
-        FROM WASTELESS_MODEL
-        ORDER BY TIME_R, PROPOSED_TIME DESC
-        LIMIT 1
-    """).fetchone()
-    return Parameters1T0S0I(*a)
-
-
-def compute_exact_likelihood(distances: ndarray):
-    """ TODO: Finish this documentation.
-
-    :param distances:
-    :return:
-    """
-    from numpy import argsort, array, log, sqrt, linspace
-    from numpy.linalg import lstsq
-    from kumulaau.distance import Cosine
-
-    # Obtain the CDF for our distances in descending order. We want this on the log scale.
-    cdf, domain = argsort(-distances), array(range(distances.size)) / float(distances.size)
-    cdf_log = log(cdf)
-
-    # Our weight parameters. At complete_similarity, we are only accepting exact matches.
-    w = linspace(Cosine().COMPLETE_MATCH, Cosine.COMPLETE_DIFFERENCE, cdf_log.size)
-
-    # Perform our regression. We return the intercept, the probability of an exact match with these set of distances.
-    return lstsq(cdf_log * sqrt(w), domain * sqrt(w))[0][1]
-
-
-def mcmc(iterations_n: int, observed_frequencies: List, simulation_n: int,
-         theta_0: Parameters1T0S0I, q_sigma: Parameters1T0S0I) -> List:
-    """ A MCMC algorithm to approximate the posterior distribution of the mutation model, whose acceptance to the
-    chain is determined by the distance between repeat length distributions. My interpretation of this new MCMC approach
-    is given below:
-
-    TODO: Fix this documentation below.
-    1) We start with some initial guess, and simulate a population of size 'n'.
-    2) For each observed frequency distribution...
-        a) We compute a set of iterations_n distances.
-        b) From this set of distances, we perform weighted linear regression
-
-    2) We then compute the average distance between a set of simulated and observed samples.
-        a) If this term is above some defined epsilon or ~U(0, 1) < A, we append this to our chain.
-        b) Otherwise, we reject it and increase the waiting time of our current parameter state by one.
-    3) Repeat for 'iterations_n' iterations.
-
-    :param iterations_n: Number of iterations to run MCMC for.
-    :param observed_frequencies: Dirty observed frequency samples.
-    :param simulation_n: Number of simulations to use to obtain a distance.
-    :param theta_0: Our initial guess for parameters.
-    :param q_sigma: The deviations associated with all parameters to use when generating new parameters.
-    :return: A chain of all states we visited (parameters), their associated waiting times, and the sum total of their
-             acceptance probabilities.
-    """
-    from methoda import choose_i_0
-    from population import Population
     from numpy.random import normal
-    from numpy import nextafter
-    from distance import Cosine
 
-    # There exists two chains -> X: A Markov chain holding our accepted MCMC proposals. Y: The rejected states.
-    x, y, l_prev = [[theta_0, 1, nextafter(0, 1), 0, '']], [], 0
-    walk = lambda a, b: normal(a, b)  # Our proposal function is normally distributed.
+    return Parameter1T0S0I(n=max(round(normal(theta.n, walk_params.n)), 0),
+                           f=max(normal(theta.f, walk_params.f), 0),
+                           c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
+                           d=max(normal(theta.d, walk_params.d), 0),
+                           kappa=max(round(normal(theta.kappa, walk_params.kappa)), 0),
+                           omega=max(round(normal(theta.omega, walk_params.omega)), theta.kappa))
 
-    for iteration in range(1, iterations_n):
-        theta_k, summary = x[-1][0], Cosine()
-        theta_proposed = Parameters1T0S0I.from_walk(theta_k, q_sigma, walk)
 
-        for _ in range(simulation_n):
-            # Generate some population given the current parameter set.
-            population = Population(theta_proposed).evolve(choose_i_0(observed_frequencies))
-            summary.delta_rows(observed_frequencies, population)
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments.
 
-        # Accept our proposal if delta > epsilon and if our acceptance probability condition is met.
-        if acceptance(theta_proposed, theta_k):
-            x = x + [[theta_proposed, 1, summary.average_distance(), iteration]]
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
 
-        # Reject our proposal. We keep our current state, increment our waiting times, and add to the reject chain.
-        else:
-            x[-1][1] += 1
-            y = y + [[theta_proposed, -1, summary.average_distance(), iteration]]
+    parser = ArgumentParser(description='Special MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
 
-    return x[1:] + y  # We return **all** states explored.
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/ma1t0s0i.db', None],
+        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
+        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
+        ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
+        ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
+        ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
+        ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
+        ['-n', 'Starting sample size (population size).', int, None, None, None],
+        ['-f', 'Scaling factor for total mutation rate.', float, None, None, None],
+        ['-c', 'Constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d', 'Linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa', 'Lower bound of repeat lengths.', int, None, None, None],
+        ['-omega', 'Upper bound of repeat lengths.', int, None, None, None],
+        ['-n_sigma', 'Step size of n when changing parameters.', float, None, None, None],
+        ['-f_sigma', 'Step size of f when changing parameters.', float, None, None, None],
+        ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
+        ['-d_sigma', 'Step size of d when changing parameters.', float, None, None, None],
+        ['-kappa_sigma', 'Step size of kappa when changing parameters.', float, None, None, None],
+        ['-omega_sigma', 'Step size of omega when changing parameters.', float, None, None, None]
+    ]))
+
+    return parser.parse_args()
 
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
-    from sqlite3 import connect
+    from importlib import import_module
 
-    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model parameter estimation.')
-    parser.add_argument('-odb', help='Location of the observed database file.', type=str, default='data/observed.db')
-    parser.add_argument('-mdb', help='Location of the database to record to.', type=str, default='data/method-a.db')
-    paa = lambda paa_1, paa_2, paa_3: parser.add_argument(paa_1, help=paa_2, type=paa_3)
+    arguments = get_arguments()  # Parse our arguments.
 
-    parser.add_argument('-uid_observed', help='IDs of observed samples to compare to.', type=str, nargs='+')
-    parser.add_argument('-locus_observed', help='Loci of observed samples (must match with uid).', type=str, nargs='+')
-    paa('-simulation_n', 'Number of simulations to use to obtain a distance.', int)
-    paa('-iterations_n', 'Number of iterations to run MCMC for.', int)
-    paa('-epsilon', "Maximum acceptance value for distance between [0, 1].", float)
+    # Collect observations to compare to.
+    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
 
-    paa('-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int)
-    paa('-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', int)
+    # Determine if we are continuing an MCMC run or starting a new one.
+    is_new_run = arguments.n is not None
 
-    paa('-n', 'Starting sample size (population size).', int)
-    paa('-f', 'Scaling factor for total mutation rate.', float)
-    paa('-c', 'Constant bias for the upward mutation rate.', float)
-    paa('-d', 'Linear bias for the downward mutation rate.', float)
-    paa('-kappa', 'Lower bound of repeat lengths.', int)
-    paa('-omega', 'Upper bound of repeat lengths.', int)
+    # Connect to our results database.
+    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, kumulaau.mcmca.SQL, is_new_run) as lumberjack:
 
-    paa('-n_sigma', 'Step size of n when changing parameters.', float)
-    paa('-f_sigma', 'Step size of f when changing parameters.', float)
-    paa('-c_sigma', 'Step size of c when changing parameters.', float)
-    paa('-d_sigma', 'Step size of d when changing parameters.', float)
-    paa('-kappa_sigma', 'Step size of kappa when changing parameters.', float)
-    paa('-omega_sigma', 'Step size of omega when changing parameters.', float)
-    main_arguments = parser.parse_args()  # Parse our arguments.
+        # Record our observations.
+        lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
 
-    # Connect to all of our databases.
-    connection_o, connection_m = connect(main_arguments.odb), connect(main_arguments.mdb)
-    cursor_o, cursor_m = connection_o.cursor(), connection_m.cursor()
-    create_tables(cursor_m)
+        # Construct the walk, distance, and log functions based on our given arguments.
+        walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
+        delta = getattr(import_module('kumulaau.distance'), arguments.delta_f + '_delta')
+        log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
 
-    main_observed_frequencies = list(map(lambda a, b: cursor_o.execute(""" -- Get frequencies from observed database. --
-        SELECT ELL, ELL_FREQ
-        FROM OBSERVED_ELL
-        WHERE SAMPLE_UID LIKE ?
-        AND LOCUS LIKE ?
-    """, (a, b,)).fetchall(), main_arguments.uid_observed, main_arguments.locus_observed))
+        # Determine our starting point and boundaries.
+        if arguments.n is not None:
+            theta_0 = Parameter1T0S0I.from_namespace(arguments)
+            boundaries = [0, arguments.iterations_n]
+        else:
+            theta_0 = Parameter1T0S0I.from_namespace(**lumberjack.retrieve_last_theta())
+            offset = lumberjack.retrieve_last_result('PROPOSED_TIME')
+            boundaries = [0 + offset, arguments.iterations_n + offset]
 
-    # Parse our starting point. If 'seed' is specified, we use this over any (n, f, c, d, u, ...) given.
-    main_theta_0 = Parameters1T0S0I.from_namespace(main_arguments, False) if main_arguments.seed != 1 else \
-        retrieve_last(cursor_m)
-    main_q_sigma = Parameters1T0S0I.from_namespace(main_arguments, True)
-    main_log = lambda a, b: log_states(cursor_m, main_arguments.uid_observed, main_arguments.locus_observed, a) and \
-        connection_m.commit() if b % main_arguments.flush_n == 0 else None
-
-    main_iterations_start = 0 if main_arguments.seed == 0 else cursor_m.execute("""
-        SELECT PROPOSED_TIME -- Determine our iteration boundaries. --
-        FROM WASTELESS_MODEL
-        ORDER BY PROPOSED_TIME DESC
-        LIMIT 1
-    """).fetchone()[0]
-    main_iterations_bounds = [main_iterations_start, main_arguments.iterations_n + main_iterations_start + 1]
-
-    # Perform the ABC MCMC. Record at every 'flush_n'.
-    mcmc(main_iterations_bounds, main_observed_frequencies, main_arguments.simulation_n,
-         main_arguments.epsilon, main_theta_0, main_q_sigma, main_log)
-
-    # Remove the initial states of our chain.
-    cursor_m.execute("""
-        DELETE FROM WASTELESS_MODEL
-        WHERE PROPOSED_TIME = 0
-    """), connection_m.commit(), connection_o.close(), connection_m.close()
+        # Run our MCMC!
+        kumulaau.mcmcb.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+                           theta_0=theta_0, observed=observations, r=arguments.r, boundaries=boundaries)

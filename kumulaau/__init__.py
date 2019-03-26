@@ -6,3 +6,4 @@ import kumulaau.model  # Our modules.
 import kumulaau.observed
 import kumulaau.distance
 import kumulaau.mcmca
+import kumulaau.mcmcb
