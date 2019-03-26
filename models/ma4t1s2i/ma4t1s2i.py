@@ -98,9 +98,22 @@ def walk_4T1S2I(theta, walk_params) -> Parameter4T1S2I:
     """
     from numpy.random import normal
 
-    # TODO: Figure out how to walk.
-    return Parameter4T1S2I(n=round(normal(theta.n, walk_params.n)),
-                           f=normal(theta.f, walk_params.f),
+    # Generate our population sizes for S_1 and S_2.
+    n_s1 = round(normal(theta.n_s1, walk_params.n_s1))
+    n_s2 = round(normal(theta.n_s2, walk_params.n_s2))
+
+    # Our scaling factors must match between S_1 and S_2.
+    f_s1 = normal(theta.f_s1, walk_params.f_s1)
+    f_s2 = (n_s1 * f_s1) / n_s2
+
+    # Draw from multivariate normal distribution for the rest.
+    return Parameter4T1S2I(n_b=round(normal(theta.n_b, walk_params.n_b)),
+                           n_s1=n_s1, n_s2=n_s2,
+                           n_e=round(normal(theta.n_e, walk_params.n_e)),
+                           f_b=normal(theta.f_b, walk_params.f_b),
+                           f_s1=f_s1, f_s2=f_s2,
+                           f_e=normal(theta.f_e, walk_params.f_e),
+                           alpha=normal(theta.alpha, walk_params.alpha),
                            c=normal(theta.c, walk_params.c),
                            d=normal(theta.d, walk_params.d),
                            kappa=round(normal(theta.kappa, walk_params.kappa)),
@@ -127,10 +140,10 @@ def get_arguments() -> Namespace:
         ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
         ['-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', None, None, None],
-        ['-n_b', 'Sample size for common ancestor.', int, None, None, None],
-        ['-n_s1', 'Sample size for intermediate 1.', int, None, None, None],
-        ['-n_s2', 'Sample size for intermediate 2.', int, None, None, None],
-        ['-n_e', 'Sample size for end population.', int, None, None, None],
+        ['-n_b', 'Population size for common ancestor.', int, None, None, None],
+        ['-n_s1', 'Population size for intermediate 1.', int, None, None, None],
+        ['-n_s2', 'Population size for intermediate 2.', int, None, None, None],
+        ['-n_e', 'Population size for end population.', int, None, None, None],
         ['-f_b', 'Scaling factor for common ancestor mutation rate.', float, None, None, None],
         ['-f_s1', 'Scaling factor for intermediate 1 mutation rate.', float, None, None, None],
         ['-f_s2', 'Scaling factor for intermediate 2 mutation rate.', float, None, None, None],
@@ -146,7 +159,6 @@ def get_arguments() -> Namespace:
         ['-n_e_sigma', 'Step size of n_e when changing parameters.', float, None, None, None],
         ['-f_b_sigma', 'Step size of f_b when changing parameters.', float, None, None, None],
         ['-f_s1_sigma', 'Step size of f_s1 when changing parameters.', float, None, None, None],
-        ['-f_s2_sigma', 'Step size of f_s2 when changing parameters.', float, None, None, None],
         ['-f_e_sigma', 'Step size of f_e when changing parameters.', float, None, None, None],
         ['-alpha_sigma', 'Step size of alpha when changing parameters', float, None, None, None],
         ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
