@@ -22,6 +22,7 @@ python3 ${SCRIPT_DIR}/ma1t0s0i.py \
     -mdb "$1" \
     -simulation_n 100 \
     -epsilon 0.55 \
+    -delta_f cosine \
     -iterations_n 10000 \
     -flush_n 5000 \
     -uid ${sample_uids} \
@@ -40,6 +41,7 @@ for i in {2..10}; do
         -mdb "$1" \
         -simulation_n 100 \
         -epsilon 0.55 \
+        -delta_f cosine \
         -iterations_n 10000 \
         -flush_n 5000 \
         -uid ${sample_uids} \
