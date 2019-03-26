@@ -5,8 +5,8 @@ from typing import Sequence, Iterable, List
 class RecordSQLite(object):
     # Schema for the observed table. This is fixed.
     _OBSERVED_SCHEMA = 'RUN_R TEXT, ' \
-                       'POP_ID TEXT ' \
-                       'ELL INT ' \
+                       'POP_ID TEXT, ' \
+                       'ELL INT, ' \
                        'ELL_FREQ FLOAT '
 
     def __init__(self, filename: str, model_name: str, model_schema: str, results_schema: str, is_new_run: bool):
@@ -148,10 +148,10 @@ class RecordSQLite(object):
         :return: Tuple of result or the sole item itself if the select clause only specifies one field.
         """
         result = self.cursor.execute(f"""
-            SELECT {select_clause} 
-            FROM {self.results_table} 
+            SELECT {select_clause}
+            FROM {self.results_table}
             ORDER BY TIME_R DESC
-            LIMIT 1 
+            LIMIT 1
         """).fetchone()
 
         return result[0] if len(result) == 1 else result
