@@ -37,8 +37,4 @@ dependencies:
   - matplotlib=3.0.2
   - openssl=1.1.1a
   - scipy=1.2.0
-  - pip:
-    - libcxx==4.0.1
-    - libcxxabi==4.0.1
-    - libgfortran==3.0.1
 
