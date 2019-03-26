@@ -41,7 +41,7 @@ class RecordSQLite(object):
         # Create the tables if they do not already exist.
         list(map(lambda a, b: self._create_table(a, b),
                  [self.observed_table, self.model_table, self.results_table],
-                 [self._OBSERVED_SCHEMA, 'RUN_R TEXT, TIME_R TIMESTAMP' + model_schema,
+                 [self._OBSERVED_SCHEMA, 'RUN_R TEXT, TIME_R TIMESTAMP, ' + model_schema,
                   'RUN_R TEXT, ' + results_schema]))
 
         # Determine our fields.
@@ -135,14 +135,14 @@ class RecordSQLite(object):
     def retrieve_last_theta(self):
         """ Query our _MODEL table for the last recorded parameter set according to TIME_R.
 
-        :return: A tuple consisting of the last recorded parameter set.
+        :return: A dictionary consisting of the last recorded parameter set.
         """
-        return self.cursor.execute(f"""
-            SELECT {','.join(a.toupper() for a in self.model_fields)}
+        return dict(zip(self.model_fields[2:], self.cursor.execute(f"""
+            SELECT {','.join(a.upper() for a in self.model_fields[2:])}
             FROM {self.model_table}
             ORDER BY TIME_R DESC
             LIMIT 1
-        """).fetchone()
+        """).fetchone()))
 
     def retrieve_last_result(self, select_clause: str):
         """ Given a select clause, query our _RESULTS table for the last recorded result according to TIME_R.

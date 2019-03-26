@@ -127,7 +127,7 @@ if __name__ == '__main__':
             theta_0 = Parameter1T0S0I.from_namespace(arguments)
             boundaries = [0, arguments.iterations_n]
         else:
-            theta_0 = Parameter1T0S0I.from_namespace(**lumberjack.retrieve_last_theta())
+            theta_0 = Parameter1T0S0I(**lumberjack.retrieve_last_theta())
             offset = lumberjack.retrieve_last_result('PROPOSED_TIME')
             boundaries = [0 + offset, arguments.iterations_n + offset]
 

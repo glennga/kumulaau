@@ -65,25 +65,25 @@ def sample_1T0S0I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
     """
     from numpy.random import normal, shuffle
     from numpy import concatenate
-    
+
     # Create and evolve our common ancestor tree.
     common_ancestors = model.evolve(model.trace(theta.n_b, theta.f_b, theta.c, theta.d, theta.kappa, theta.omega), i_0)
-    
+
     # Determine our descendant inputs. Normally distributed around alpha.
     split_alpha = int(round(abs(normal(theta.alpha, 0.2)) * len(common_ancestors)))
     shuffle(common_ancestors)
-    
+
     # Create the topology for our intermediate populations.
     descendant_1_top = model.trace(theta.n_s1, theta.f_s1, theta.c, theta.d, theta.kappa, theta.omega)
     descendant_2_top = model.trace(theta.n_s2, theta.f_s2, theta.c, theta.d, theta.kappa, theta.omega)
-    
+
     # Evolve our intermediate populations.
     descendant_1 = model.evolve(descendant_1_top, common_ancestors[0:split_alpha])
     descendant_2 = model.evolve(descendant_2_top, common_ancestors[:-split_alpha])
-    
+
     # Create the topology for our end population.
     end_top = model.trace(theta.n_e, theta.f_e, theta.c, theta.d, theta.kappa, theta.omega)
-    
+
     # Evolve and return our end population.
     return model.evolve(end_top, concatenate((descendant_1, descendant_2)))
 
@@ -197,7 +197,7 @@ if __name__ == '__main__':
             theta_0 = Parameter4T1S2I.from_namespace(arguments)
             boundaries = [0, arguments.iterations_n]
         else:
-            theta_0 = Parameter4T1S2I.from_namespace(**lumberjack.retrieve_last_theta())
+            theta_0 = Parameter4T1S2I(**lumberjack.retrieve_last_theta())
             offset = lumberjack.retrieve_last_result('PROPOSED_TIME')
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
