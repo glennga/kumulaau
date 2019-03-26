@@ -129,6 +129,9 @@ class RecordSQLite(object):
         # Remove every record except the last.
         x[:] = [x[-1]]
 
+        # Record our changes on disk.
+        self.connection.commit()
+
     def retrieve_last_theta(self):
         """ Query our _MODEL table for the last recorded parameter set according to TIME_R.
 
