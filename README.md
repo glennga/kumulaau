@@ -7,7 +7,7 @@ This repository holds research toward the modeling and analysis of microsatellit
 git clone https://github.com/glennga/kumulaau.git
 ```
 
-2. This project uses Python 3.7, Matplotlib, Numpy, Numba, Scipy, and GSL. An `environment.yml` file is provided to build a Conda clone of the Python environment used to develop this:
+2. This project uses Python 3.7, Matplotlib, Numpy, Numba, and GSL. An `environment.yml` file is provided to build a Conda clone of the Python environment used to develop this:
 ```bash
 conda env create -f environment.yml
 conda activate kumulaau

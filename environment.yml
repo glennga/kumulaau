@@ -15,7 +15,6 @@ dependencies:
   - setuptools=40.6.3
   - six=1.12.0
   - wheel=0.32.3
-  - scipy=1.2.0
   - numba=0.42.0
   - freetype=2.9.1
   - tk=8.6.8

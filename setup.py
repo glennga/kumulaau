@@ -7,5 +7,5 @@ setup(name='kumulaau',
       author='Glenn Galvizo',
       packages=['kumulaau'],
       ext_modules=[Extension('pop', ['kumulaau/_pop.c'], libraries=["m", "gsl", "gslcblas"])],
-      requires=['numpy', 'numba', 'matplotlib', 'scipy'],
+      requires=['numpy', 'numba', 'matplotlib'],
       scripts=['data/alfred/alfred.sh'])
