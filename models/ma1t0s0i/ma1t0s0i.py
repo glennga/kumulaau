@@ -112,10 +112,11 @@ if __name__ == '__main__':
     is_new_run = arguments.n is not None
 
     # Connect to our results database.
-    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, kumulaau.mcmca.SQL, is_new_run) as lumberjack:
+    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:
 
-        # Record our observations.
+        # Record our observations and experiment parameters.
         lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
+        lumberjack.record_expr(list(vars(arguments).keys()), list(vars(arguments).values()))
 
         # Construct the walk, distance, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))

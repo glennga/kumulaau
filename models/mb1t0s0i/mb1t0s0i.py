@@ -82,6 +82,7 @@ def get_arguments() -> Namespace:
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
+        ['-bin_n', "Number of bins used to construct histogram.", int, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
         ['-n', 'Starting sample size (population size).', int, None, None, None],
         ['-f', 'Scaling factor for total mutation rate.', float, None, None, None],
@@ -112,10 +113,11 @@ if __name__ == '__main__':
     is_new_run = arguments.n is not None
 
     # Connect to our results database.
-    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, kumulaau.mcmca.SQL, is_new_run) as lumberjack:
+    with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:
 
-        # Record our observations.
+        # Record our observations and experiment parameters.
         lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
+        lumberjack.record_expr(list(vars(arguments).keys()), list(vars(arguments).values()))
 
         # Construct the walk, distance, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))

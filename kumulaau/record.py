@@ -9,13 +9,26 @@ class RecordSQLite(object):
                        'ELL INT, ' \
                        'ELL_FREQ FLOAT '
 
-    def __init__(self, filename: str, model_name: str, model_schema: str, results_schema: str, is_new_run: bool):
-        """ There exists three tables here: the observed table, the model table, and the results table.
+    # Schema for the results table. This is fixed.
+    _RESULTS_SCHEMA = 'RUN_R TEXT, ' \
+                      'TIME_R TIMESTAMP, ' \
+                      'WAITING_TIME INT, ' \
+                      'P_PROPOSED FLOAT, ' \
+                      'EXPECTED_DELTA FLOAT, ' \
+                      'PROPOSED_TIME INT '
+
+    # Schema for the experiment table. This is fixed. We are just casting everything to text.
+    _EXPR_SCHEMA = 'RUN_R TEXT, ' \
+                   'FIELD_NAME TEXT ' \
+                   'FIELD_VAL TEXT '
+
+    def __init__(self, filename: str, model_name: str, model_schema: str, is_new_run: bool):
+        """ There exists four tables here: the observed table, the model table, the results table, and the run table.
 
         (a) The first will always maintain the same schema of UID, LOCUS pairing.
         (b) The second is dependent on the model itself, holding all parameters associated with the model.
-        (c) The third is dependent on the posterior method (e.g. MCMC), holding all parameters associated with the
-        **method**.
+        (c) The third is dependent on the Markov chain, holding all results produced.
+        (d) The fourth is dependent on any experiment parameters that is to be added.
 
         All tables have a primary key of RUN_R, a randomly generated 10 character key. The model and results table are
         keyed compositely: (RUN_R, TIME_R).
@@ -23,7 +36,6 @@ class RecordSQLite(object):
         :param filename: Location of the results database to record to.
         :param model_name: Prefix to append to all tables associated with this model.
         :param model_schema: Schema of the _MODEL table.
-        :param results_schema: Schema of the _RESULTS table.
         :param is_new_run: Flag which indicates if the current run to be logged is new or not.
         :return: None.
         """
@@ -37,16 +49,18 @@ class RecordSQLite(object):
         self.observed_table = model_name + '_OBSERVED'
         self.model_table = model_name + '_MODEL'
         self.results_table = model_name + '_RESULTS'
+        self.expr_table = model_name + '_EXPR'
 
         # Create the tables if they do not already exist.
         list(map(lambda a, b: self._create_table(a, b),
-                 [self.observed_table, self.model_table, self.results_table],
-                 [self._OBSERVED_SCHEMA, 'RUN_R TEXT, TIME_R TIMESTAMP, ' + model_schema,
-                  'RUN_R TEXT, ' + results_schema]))
+                 [self.observed_table, self.model_table, self.results_table, self.expr_table],
+                 [self._OBSERVED_SCHEMA, 'RUN_R TEXT, TIME_R TIMESTAMP, ' + model_schema, self._RESULTS_SCHEMA,
+                  self._EXPR_SCHEMA]))
 
         # Determine our fields.
         self.model_fields = self._parse_fields(self.model_table)
         self.results_fields = self._parse_fields(self.results_table)
+        self.expr_fields = self._parse_fields(self.expr_table)
         self.model_name = model_name
 
         # Determine the run key.
@@ -100,6 +114,19 @@ class RecordSQLite(object):
                 INSERT INTO {self.observed_table}
                 VALUES (?, ?, ?, ?);
             """, ((self.run_r, pop_id, a[0], a[1]) for a in population))
+
+    def record_expr(self, field_names: Sequence, field_vals: Sequence):
+        """ Given a set of field names and corresponding values, record these to the _EXPR table. We cast everything to
+        text here.
+
+        :param field_names: Field names to record, whose order matches with field_vals.
+        :param field_vals: Field values to record, whose order matches with field_names.
+        :return: None.
+        """
+        self.cursor.executemany(f"""
+            INSERT INTO {self.expr_table}
+            VALUES (?, ?, ?)
+        """, zip([self.run_r for _ in field_names], [str(a) for a in field_names], [str(a) for a in field_vals]))
 
     def handler(self, x: Sequence, i: int, flush_n: int):
         """ Handler for a sequence of records, of arbitrary type. One of the fields specified must include theta.
