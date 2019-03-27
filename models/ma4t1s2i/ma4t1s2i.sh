@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Ensure that we have only one or two arguments passed.
 if [[ "$#" -ne 1 ]] && [[ "$#" -ne 2 ]]; then
@@ -75,4 +76,4 @@ for i in {2..10}; do
     clean_line
 done
 
-printf "\nMCMC is finished!"
+printf "\nMCMC is finished!\n"
