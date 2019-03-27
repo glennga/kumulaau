@@ -3,37 +3,39 @@ from kumulaau.distance import populate_d
 from typing import Callable, Sequence
 from numpy import ndarray
 
-# The model SQL associated with model database.
-SQL = 'TIME_R TIMESTAMP, WAITING_TIME INT, P_PROPOSED FLOAT, EXPECTED_DELTA FLOAT, PROPOSED_TIME INT'
 
-
-def _generate_v(d: ndarray, r: float) -> ndarray:
+def _generate_v(d: ndarray, r: float, bin_n: int) -> ndarray:
     """ Populate the V vector, a collection of likelihoods found using the populated D matrix and our weighted linear
-    regression likelihood approximator approach.
+    regression likelihood approximator approach. WLSR approach found here:
+
+    https://stackoverflow.com/questions/27128688/how-to-use-least-squares-with-weight-matrix-in-python
 
     :param d: **Populated** D matrix, holding all distances between a generated and observed population.
     :param r: Exponential decay rate for weight vector used in regression (a=1).
+    :param bin_n: Number of bins used to construct histogram.
     :return: None.
     """
-    from numpy import sort, log, zeros, fromiter, linspace, vstack, ones, exp
-    from numpy.linalg import lstsq
+    from numpy import zeros, fromiter, linspace, histogram, cumsum, polyfit, log, zeros_like, inf
 
-    # Our resulting V vector.
-    v = zeros(d.shape[1])
+    v = zeros(d.shape[1])  # Our resulting V vector.
 
     # Generate our weights using an exponential decay function. We weigh distances closer to 0 more.
-    domain = fromiter(linspace(0, 1, d.shape[0]), float, d.shape[0])  # Normalized to [0, 1].
-    big_a = vstack([domain, ones(d.shape[0])]).T
-    w = fromiter(map(lambda a: (1 - r)**a, domain), float, d.shape[0])
+    domain = fromiter(linspace(0, 1, bin_n), float, bin_n)  # Normalized to [0, 1].
+    w = fromiter(map(lambda a: (1 - r) ** a, domain), float, bin_n)
 
     # Iterate through our columns (w/ transpose of D).
     for i, distances in enumerate(d.T):
-        cdf_log = log(sort(distances))  # We want this on the log scale.
+        hist, edges = histogram(distances, bins=bin_n, range=(0.0, 1.0), density=True)
+        cdf = cumsum(hist) * (edges[1] - edges[0])
+        log_cdf = log(cdf, out=zeros_like(cdf) + inf, where=(cdf != 0))
 
-        # Perform our regression. Intercept = the probability of an exact match with these set of distances.
-        v[i] = lstsq(big_a, cdf_log * w, rcond=-1)[0][1]
+        # Remove all invalid points (i.e. where cdf is inf at this step).
+        cdf_c, domain_c, w_c = list(zip(*[a for a in zip(log_cdf, domain, w) if a[0] != inf]))
 
-    return exp(v)  # Convert back from log scale.
+        # Perform our WLSR. We fit to the equation y = A + Blogx, where A represents our intercept.
+        v[i] = max(polyfit(cdf_c, domain_c, 1, w=w_c)[0], 0)
+
+    return v
 
 
 def _likelihood_from_v(v: ndarray) -> float:
