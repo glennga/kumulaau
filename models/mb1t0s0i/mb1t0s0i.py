@@ -133,4 +133,5 @@ if __name__ == '__main__':
 
         # Run our MCMC!
         kumulaau.mcmcb.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
-                           theta_0=theta_0, observed=observations, r=arguments.r, boundaries=boundaries)
+                           theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
+                           boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)

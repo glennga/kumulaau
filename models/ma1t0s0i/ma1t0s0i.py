@@ -132,5 +132,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
-                           theta_0=theta_0, observed=observations, epsilon=arguments.epsilon, boundaries=boundaries)
+        kumulaau.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log, theta_0=theta_0,
+                           observed=observations, simulation_n=arguments.simulation_n, boundaries=boundaries,
+                           epsilon=arguments.epsilon)

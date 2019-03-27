@@ -50,7 +50,7 @@ def _likelihood_from_v(v: ndarray) -> float:
 
 
 def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0, observed: Sequence,
-        r: float, boundaries: Sequence) -> None:
+        simulation_n: int, boundaries: Sequence, r: float, bin_n: int) -> None:
     """ Our approach: a weighted regression-based likelihood approximator using MCMC to walk around our posterior
     distribution. My interpretation of this approach is given below:
 
@@ -70,8 +70,10 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param r: Exponential decay rate for weight vector used in regression (a=1).
+    :param simulation_n: Number of simulations to use to obtain a distance.
     :param boundaries: Starting and ending iteration for this specific MCMC run.
+    :param r: Exponential decay rate for weight vector used in regression (a=1).
+    :param bin_n: Number of bins used to construct histogram.
     :return: None.
     """
     from types import SimpleNamespace
@@ -91,11 +93,11 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
         theta_proposed = walk(x[-1].theta)  # Walk from our previous state.
 
         # Generate our D matrix.
-        d = zeros((boundaries[1] - boundaries[0], len(observed)), dtype='float64')
+        d = zeros((simulation_n, len(observed)), dtype='float64')
         populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
 
         # Compute our likelihood vector.
-        v = _generate_v(d, r)
+        v = _generate_v(d, r, bin_n)
 
         # Accept our proposal according to our alpha value.
         p_proposed, p_k = _likelihood_from_v(v), x[-1].p_proposed

@@ -4,10 +4,6 @@ from typing import Callable, Sequence
 from numpy import ndarray
 
 
-# The model SQL associated with model database.
-SQL = 'TIME_R TIMESTAMP, WAITING_TIME INT, P_PROPOSED FLOAT, EXPECTED_DELTA FLOAT, PROPOSED_TIME INT'
-
-
 def _populate_h(h: ndarray, d: ndarray, epsilon: float) -> None:
     """ If the distance between a observation and generated sample falls below epsilon, we count this as a matched
     (marked 1 in the matrix H). Otherwise, we count this as a zero. This is the ABC portion.
@@ -37,7 +33,7 @@ def _likelihood_from_h(h: ndarray) -> float:
 
 
 def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0, observed: Sequence,
-        epsilon: float, boundaries: Sequence) -> None:
+        simulation_n: int, boundaries: Sequence, epsilon: float) -> None:
     """ A MCMC algorithm to approximate the posterior distribution of a generic model, whose acceptance to the
     chain is determined by some distance between repeat length distributions. My interpretation of this
     ABC-MCMC approach is given below:
@@ -59,8 +55,9 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param epsilon: Maximum acceptance value for distance between [0, 1].
+    :param simulation_n: Number of simulations to use to obtain a distance.
     :param boundaries: Starting and ending iteration for this specific MCMC run.
+    :param epsilon: Maximum acceptance value for distance between [0, 1].
     :return: None.
     """
     from types import SimpleNamespace
@@ -80,8 +77,8 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
         theta_proposed = walk(x[-1].theta)  # Walk from our previous state.
 
         # Prepare our H and D matrices.
-        h = zeros((boundaries[1] - boundaries[0], len(observed)), dtype='int8')
-        d = zeros((boundaries[1] - boundaries[0], len(observed)), dtype='float64')
+        h = zeros((simulation_n, len(observed)), dtype='int8')
+        d = zeros((simulation_n, len(observed)), dtype='float64')
 
         # Populate D, then H.
         populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
