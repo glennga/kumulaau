@@ -24,7 +24,7 @@ class Parameter1T0S0I(Parameter):
         """
         super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
-    def validity(self) -> bool:  # TODO: In the redesign, I don't think is being used... Verify this.
+    def validity(self) -> bool:
         """ Determine if a current parameter set is valid.
 
         :return: True if valid. False otherwise.
@@ -56,12 +56,12 @@ def walk_1T0S0I(theta, walk_params) -> Parameter1T0S0I:
     """
     from numpy.random import normal
 
-    return Parameter1T0S0I(n=max(round(normal(theta.n, walk_params.n)), 0),
-                           f=max(normal(theta.f, walk_params.f), 0),
-                           c=max(normal(theta.c, walk_params.c), nextafter(0, 1)),
-                           d=max(normal(theta.d, walk_params.d), 0),
-                           kappa=max(round(normal(theta.kappa, walk_params.kappa)), 0),
-                           omega=max(round(normal(theta.omega, walk_params.omega)), theta.kappa))
+    return Parameter1T0S0I(n=round(normal(theta.n, walk_params.n)),
+                           f=normal(theta.f, walk_params.f),
+                           c=normal(theta.c, walk_params.c),
+                           d=normal(theta.d, walk_params.d),
+                           kappa=round(normal(theta.kappa, walk_params.kappa)),
+                           omega=round(normal(theta.omega, walk_params.omega)))
 
 
 def get_arguments() -> Namespace:
