@@ -184,6 +184,9 @@ class RecordSQLite(object):
             LIMIT 1
         """).fetchone()
 
+        if result is None:  # Ensure that we have results to start with.
+            raise RuntimeError("Unable to retrieve last result. Is the database seeded?")
+
         return result[0] if len(result) == 1 else result
 
     def _create_table(self, name: str, schema: str) -> None:
