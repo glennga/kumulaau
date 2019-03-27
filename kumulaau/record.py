@@ -19,7 +19,7 @@ class RecordSQLite(object):
 
     # Schema for the experiment table. This is fixed. We are just casting everything to text.
     _EXPR_SCHEMA = 'RUN_R TEXT, ' \
-                   'FIELD_NAME TEXT ' \
+                   'FIELD_NAME TEXT, ' \
                    'FIELD_VAL TEXT '
 
     def __init__(self, filename: str, model_name: str, model_schema: str, is_new_run: bool):
