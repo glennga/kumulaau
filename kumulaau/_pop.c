@@ -147,7 +147,7 @@ void _trace_tree (int *coalescent_tree, int n, const gsl_rng *r) {
     for (int tau = 0; tau < 2 * n - 1; tau++) {
         int tau_0 = _triangle(tau), tau_1 = _triangle(tau + 1); // Start at 2nd coalescence.
 
-        // We save the indices of our ancestors to our descendants. TODO: Parallelize this.
+        // We save the indices of our ancestors to our descendants.
         for (int k = 0; k < tau_1 - tau_0; k++) {
             _trace_no_branch_nodes(coalescent_tree, tau_0, tau_1, k);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
@@ -216,7 +216,7 @@ void _evolve_event (PopulationTree *p, _mutate_f mutate) {
         t_coalescence = MAX(1, _round_num(gsl_ran_exponential(p->r, expected_time)));
 
         // Iterate through each of the descendants (currently indices) and determine each ancestor.
-        for (int k = 0; k < descendants_size; k++) { // TODO: Parallelize this process.
+        for (int k = 0; k < descendants_size; k++) {
             _evolve_individual(k, descendants, t_coalescence, mutate, p);
 #ifdef _DEBUGGING_POPULATION_ENABLED_
             // Verify that evolution has occured.

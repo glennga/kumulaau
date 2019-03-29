@@ -85,7 +85,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
         populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
         _populate_h(h, d, epsilon)
 
-        # Accept our proposal according to our alpha value.
+        # Accept our proposal according to our alpha value. Metropolis sampling.
         p_proposed, p_k = _likelihood_from_h(h), x[-1].p_proposed
         if p_proposed / p_k > uniform(0, 1):
             x = x + [a_record(theta_proposed, datetime.now(), 1, p_proposed, mean(d), i)]

@@ -38,7 +38,7 @@ def cosine_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> fl
     return 2.0 * arccos(dot(generated, observation) / (norm(generated) * norm(observation))) / pi
 
 
-@jit(nopython=True, nogil=True, target='cpu', parallel=True)  # TODO: Actually test this metric...
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
 def euclidean_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
     """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
     determine the differences in distribution for each different simulated sample. All vectors passed MUST be of
