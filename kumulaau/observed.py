@@ -43,7 +43,11 @@ def extract_alfred_tuples(uid_loci: Iterable, filename: str = 'data/observed.db'
     cursor = connection.cursor()
 
     # Verify that the ALFRED script has been run.
-    if not does_alfred_exist(cursor):
+    if not bool(cursor.execute(f"""
+        SELECT NAME
+        FROM sqlite_master
+        WHERE type='table' AND NAME='{_ALFRED_TABLE_NAME}'
+    """).fetchone()):
         raise LookupError(f"'{_ALFRED_TABLE_NAME}' not found in observation database.")
 
     # Extract our tuples from our database.
@@ -148,19 +152,6 @@ def record_to_alfred_table(cursor: Cursor, record) -> None:
     fields = [b.lower().strip() for b in ALFRED_FIELDS.split(',')]
 
     cursor.execute(f"""
-        INSERT INTO {_ALFRED_TABLE_NAME}
+        INSERT OR REPLACE INTO {_ALFRED_TABLE_NAME}
         VALUES ({','.join('?' for _ in fields)});
     """, tuple(getattr(record, a) for a in fields))
-
-
-def does_alfred_exist(cursor: Cursor) -> bool:
-    """ Function to check if the ALFRED table exists in the given database.
-
-    :param cursor: Cursor to the observation database to check.
-    :return: True if the ALFRED table exists. False otherwise.
-    """
-    return bool(cursor.execute(f"""
-        SELECT NAME
-        FROM sqlite_master
-        WHERE type='table' AND NAME='{_ALFRED_TABLE_NAME}'
-    """).fetchone())
