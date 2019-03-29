@@ -79,10 +79,14 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
     :param bin_n: Number of bins used to construct histogram.
     :return: None.
     """
-    from numpy import zeros, mean, nextafter
+    from numpy import zeros, mean, nextafter, RankWarning
     from types import SimpleNamespace
+    from warnings import simplefilter
     from numpy.random import uniform
     from datetime import datetime
+
+    # We need to filter out all of the rank warnings.
+    simplefilter('ignore', RankWarning)
 
     # Save our results according to the namespace below.
     a_record = lambda a_1, b_1, c_1, d_1, e_1, f_1: SimpleNamespace(theta=a_1, time_r=b_1, waiting_time=c_1,
