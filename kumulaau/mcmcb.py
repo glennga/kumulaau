@@ -48,7 +48,8 @@ def _likelihood_from_v(v: ndarray) -> float:
     from numpy import log, exp
 
     # Avoid floating point error, use logarithms. Avoid log(0) errors.
-    return exp(sum(map(lambda a: 0 if a == 0 else log(a), v)))
+    col_sum = sum(map(lambda a: 0 if a == 0 else log(a), v))
+    return 0 if col_sum == 0 else exp(col_sum)
 
 
 def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0, observed: Sequence,
