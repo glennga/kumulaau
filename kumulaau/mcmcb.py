@@ -79,10 +79,10 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
     :param bin_n: Number of bins used to construct histogram.
     :return: None.
     """
+    from numpy import zeros, mean, nextafter
     from types import SimpleNamespace
     from numpy.random import uniform
     from datetime import datetime
-    from numpy import zeros, mean
 
     # Save our results according to the namespace below.
     a_record = lambda a_1, b_1, c_1, d_1, e_1, f_1: SimpleNamespace(theta=a_1, time_r=b_1, waiting_time=c_1,
@@ -90,7 +90,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
                                                                     proposed_time=f_1)
 
     # Seed our Markov chain with our initial guess.
-    x = [a_record(theta_0, 0, 1, 1.0e-10, 1.0e-10, 0)]
+    x = [a_record(theta_0, 0, 1, nextafter(0, 1), nextafter(0, 1), 0)]
 
     for i in range(boundaries[0] + 1, boundaries[1]):
         theta_proposed = walk(x[-1].theta)  # Walk from our previous state.
