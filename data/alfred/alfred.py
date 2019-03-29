@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from kumulaau.observed import create_alfred_table, record_to_alfred_table
 
 if __name__ == '__main__':
+    from kumulaau.observed import create_alfred_table, record_to_alfred_table, does_alfred_exist
     from argparse import ArgumentParser
     from types import SimpleNamespace
     from sqlite3 import connect
@@ -19,7 +19,12 @@ if __name__ == '__main__':
     # Connect to the database to log to.
     connection = connect(args.f)
     cursor = connection.cursor()
-    create_alfred_table(cursor)
+
+    # Check if the observed table already exists. If so, do not proceed.
+    if does_alfred_exist(cursor):
+        exit(0)
+    else:
+        create_alfred_table(cursor)
 
     # Open the TSV file. Skip the header. Read the rest of the entries.
     with open(args.freq_f) as tsv_f:
