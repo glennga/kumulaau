@@ -15,7 +15,7 @@ def _generate_v(d: ndarray, r: float, bin_n: int) -> ndarray:
     :param bin_n: Number of bins used to construct histogram.
     :return: None.
     """
-    from numpy import zeros, fromiter, linspace, histogram, cumsum, polyfit, log, zeros_like, inf
+    from numpy import zeros, fromiter, linspace, histogram, cumsum, polyfit, log, zeros_like, inf, exp
 
     v = zeros(d.shape[1])  # Our resulting V vector.
 
@@ -27,13 +27,14 @@ def _generate_v(d: ndarray, r: float, bin_n: int) -> ndarray:
     for i, distances in enumerate(d.T):
         hist, edges = histogram(distances, bins=bin_n, range=(0.0, 1.0), density=True)
         cdf = cumsum(hist) * (edges[1] - edges[0])
-        log_cdf = log(cdf, out=zeros_like(cdf) + inf, where=(cdf != 0))
+        log_cdf = log(cdf, out=zeros_like(cdf) + inf, where=(cdf != 0))  # Reduce this to the log scale.
 
         # Remove all invalid points (i.e. where cdf is inf at this step).
         cdf_c, domain_c, w_c = list(zip(*[a for a in zip(log_cdf, domain, w) if a[0] != inf]))
 
-        # Perform our WLSR. We fit to the equation y = A + Blogx, where A represents our intercept.
-        v[i] = max(polyfit(cdf_c, domain_c, 1, w=w_c)[0], 0)
+        # Perform our WLSR, get the intercept of this line, and bring this out of log scale if necessary.
+        a_term = max(polyfit(domain_c, cdf_c, 1, w=w_c)[1], 0)
+        v[i] = 0 if a_term == 0 else exp(a_term)
 
     return v
 
