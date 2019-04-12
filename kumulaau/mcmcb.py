@@ -32,9 +32,10 @@ def _generate_v(d: ndarray, r: float, bin_n: int) -> ndarray:
         # Remove all invalid points (i.e. where cdf is inf at this step).
         cdf_c, domain_c, w_c = list(zip(*[a for a in zip(log_cdf, domain, w) if a[0] != inf]))
 
-        # Perform our WLSR, get the intercept of this line, and bring this out of log scale if necessary.
-        a_term = max(polyfit(domain_c, cdf_c, 1, w=w_c)[1], 0)
-        v[i] = 0 if a_term == 0 else exp(a_term)
+        if len(cdf_c) > 1:  # Perform our WLSR, get the intercept of this line, and bring out of log scale.
+            v[i] = exp(polyfit(domain_c, cdf_c, 1, w=w_c)[1])
+        else:  # Enforce that we have enough points to make a prediction.
+            v[i] = 0
 
     return v
 
