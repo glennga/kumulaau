@@ -15,12 +15,11 @@ remaining() { for ((remain=$i; remain < ${DURATION}; remain++)); do printf " "; 
 percentage() { printf "| %s%%" $(( ($i*100)/${DURATION}*100/100 )); }
 clean_line() { printf "\r"; }
 
-# Our criteria for the loci and sample IDs to use for this run of MCMC: The Colombian populace.
+# Our criteria for the loci and sample IDs to use for this run of MCMC: The Italian populace.
 sample_uids=(); sample_loci=()
 for r in $(sqlite3 ${2:-data/observed.db} "SELECT DISTINCT SAMPLE_UID, LOCUS \
                                            FROM OBSERVED_ELL \
-                                           WHERE LOCUS LIKE 'D16S539' \
-                                           AND POP_UID LIKE 'PO000503I';"); do
+                                           WHERE POP_NAME LIKE 'Italians';"); do
     IFS='|' read -r -a array <<< "$r"
     sample_uids+="${array[0]} "; sample_loci+="${array[1]} "
 done

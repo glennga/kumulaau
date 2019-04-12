@@ -20,9 +20,7 @@ sample_uids=(); sample_loci=()
 for r in $(sqlite3 ${2:-data/observed.db} "SELECT DISTINCT SAMPLE_UID, LOCUS \
                                            FROM OBSERVED_ELL \
                                            WHERE LOCUS LIKE 'D16S539' \
-                                           AND POP_UID LIKE 'PO000503I' \
-                                           AND SAMPLE_UID NOT LIKE 'SA001544O' \
-                                           AND SAMPLE_UID NOT LIKE 'SA001945T';"); do
+                                           AND POP_UID LIKE 'PO000503I';"); do
     IFS='|' read -r -a array <<< "$r"
     sample_uids+="${array[0]} "; sample_loci+="${array[1]} "
 done
