@@ -104,7 +104,7 @@ def walk_4T1S2I(theta, walk_params) -> Parameter4T1S2I:
 
     # Our scaling factors must match between S_1 and S_2.
     f_s1 = normal(theta.f_s1, walk_params.f_s1)
-    f_s2 = (n_s1 * f_s1) / n_s2
+    f_s2 = (n_s1 * f_s1) / n_s2 if n_s2 > 0 else 0  # Avoid DBZ error, decorator will generate new parameters anyway.
 
     # Draw from multivariate normal distribution for the rest.
     return Parameter4T1S2I(n_b=round(normal(theta.n_b, walk_params.n_b)),
@@ -159,6 +159,7 @@ def get_arguments() -> Namespace:
         ['-n_e_sigma', 'Step size of n_e when changing parameters.', float, None, None, None],
         ['-f_b_sigma', 'Step size of f_b when changing parameters.', float, None, None, None],
         ['-f_s1_sigma', 'Step size of f_s1 when changing parameters.', float, None, None, None],
+        ['-f_s2_sigma', '*Unused*.', float, None, 0.0, None],  # Required for 'from_namespace' to work.
         ['-f_e_sigma', 'Step size of f_e when changing parameters.', float, None, None, None],
         ['-alpha_sigma', 'Step size of alpha when changing parameters', float, None, None, None],
         ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
 
     # Determine if we are continuing an MCMC run or starting a new one.
-    is_new_run = arguments.n is not None
+    is_new_run = arguments.n_b is not None
 
     # Connect to our results database.
     with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:
@@ -194,7 +195,7 @@ if __name__ == '__main__':
         log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
 
         # Determine our starting point and boundaries.
-        if arguments.n is not None:
+        if arguments.n_b is not None:
             theta_0 = Parameter4T1S2I.from_namespace(arguments)
             boundaries = [0, arguments.iterations_n]
         else:
