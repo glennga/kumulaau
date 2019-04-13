@@ -28,6 +28,7 @@ doc/build.sh
 
 # Ignore Jupyter notebook.
 *.ipynb_checkpoints*
+*.ipynb
 
 # Ignore the old folder, where we store all the old stuff ():<).
 old/*
