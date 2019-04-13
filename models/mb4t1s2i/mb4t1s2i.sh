@@ -3,7 +3,7 @@ set -e
 
 # Ensure that we have only one or two arguments passed.
 if [[ "$#" -ne 1 ]] && [[ "$#" -ne 2 ]]; then
-    echo "Usage: ma4t1s2i.sh [results database] [observed database]"
+    echo "Usage: mb4t1s2i.sh [results database] [observed database]"
     exit 1
 fi
 SCRIPT_DIR=$(dirname "$0")
@@ -26,10 +26,11 @@ done
 
 # Run once to seed our database. Must break into parts because GC is garbage ):<
 already_done; remaining; percentage
-python3 ${SCRIPT_DIR}/ma4t1s2i.py \
+python3 ${SCRIPT_DIR}/mb4t1s2i.py \
 	-mdb "$1" \
     -simulation_n 100 \
-    -epsilon 0.55 \
+    -r 0.5 \
+    -bin_n 500 \
     -iterations_n 1000 \
     -flush_n 500 \
     -uid ${sample_uids} \
@@ -52,10 +53,11 @@ clean_line
 # Repeat 9 more times.
 for i in {2..10}; do
 	already_done; remaining; percentage
-    python3 ${SCRIPT_DIR}/ma4t1s2i.py \
+    python3 ${SCRIPT_DIR}/mb4t1s2i.py \
 		-mdb "$1" \
 		-simulation_n 100 \
-		-epsilon 0.55 \
+    	-r 0.5 \
+    	-bin_n 500 \
 		-iterations_n 1000 \
 		-flush_n 500 \
 		-uid ${sample_uids} \

@@ -5,7 +5,7 @@ from numpy import ndarray
 from kumulaau import *
 
 # The model name associated with the results database.
-MODEL_NAME = "MA4T1S2I"
+MODEL_NAME = "MB4T1S2I"
 
 # The model SQL associated with model database.
 MODEL_SQL = "N_B INT, N_S1 INT, N_S2 INT, N_E INT, " \
@@ -127,17 +127,18 @@ def get_arguments() -> Namespace:
     """
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model 4T1S2I parameter estimation.')
+    parser = ArgumentParser(description='"XYZ" MCMC for microsatellite mutation model 4T1S2I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/ma1t0s0i.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/mb4t1s2i.db', None],
         ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
-        ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
+        ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
+        ['-bin_n', "Number of bins used to construct histogram.", int, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
         ['-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', None, None, None],
         ['-n_b', 'Population size for common ancestor.', int, None, None, None],
@@ -203,6 +204,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.mcmca.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+        kumulaau.mcmcb.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
                            theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
-                           boundaries=boundaries, epsilon=arguments.epsilon)
+                           boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)
