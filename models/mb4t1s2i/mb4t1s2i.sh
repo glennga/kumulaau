@@ -44,8 +44,8 @@ python3 ${SCRIPT_DIR}/mb4t1s2i.py \
     -f_s1 100 -f_s1_sigma 5.0 \
     -f_e 100 -f_e_sigma 5.0 \
 	-alpha 0.1 -alpha_sigma 0.01 \
-    -c 0.01067 -c_sigma 0.0 \
-    -d 0.00255 -d_sigma 0.0 \
+    -c 0.00600 -c_sigma 0.0 \
+    -d 0.00046 -d_sigma 0.0 \
     -kappa 3 -kappa_sigma 0.0 \
     -omega 30 -omega_sigma 0.0
 clean_line

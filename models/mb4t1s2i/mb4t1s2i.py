@@ -140,7 +140,6 @@ def get_arguments() -> Namespace:
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
         ['-bin_n', "Number of bins used to construct histogram.", int, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
-        ['-seed', '1 -> last recorded "mdb" position is used (TIME_R, PROPOSED_TIME).', None, None, None],
         ['-n_b', 'Population size for common ancestor.', int, None, None, None],
         ['-n_s1', 'Population size for intermediate 1.', int, None, None, None],
         ['-n_s2', 'Population size for intermediate 2.', int, None, None, None],
