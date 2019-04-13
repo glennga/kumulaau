@@ -71,11 +71,11 @@ def get_arguments() -> Namespace:
     """
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description='Special MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
+    parser = ArgumentParser(description='"XYZ" MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/ma1t0s0i.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/mb1t0s0i.db', None],
         ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
