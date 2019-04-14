@@ -53,7 +53,7 @@ class Parameter4T1S2I(Parameter):
             self.c > 0 and self.d >= 0 and \
             0 < self.kappa < self.omega and \
             self.alpha > 0 and \
-            self.n_e < self.n_s1 + self.n_s2 < self.n_e
+            self.n_b < self.n_s1 + self.n_s2 < self.n_e
 
 
 def sample_1T0S0I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
