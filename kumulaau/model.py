@@ -28,10 +28,6 @@ def evolve(p, i_0: Sequence) -> ndarray:
     :param i_0: Array of starting lengths.
     :return: Array of repeat lengths.
     """
-    # Verify that number of seed lengths passed is a triangle number.
-    if 0.5 * (sqrt(8 * len(i_0) + 1) - 1) % 1 != 0:
-        raise ValueError("i_0 is not a triangle number.")
-
     return asarray(pop.evolve(p, [i for i in i_0]))
 
 

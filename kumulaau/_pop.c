@@ -240,7 +240,7 @@ void _evolve_event (PopulationTree *p, _mutate_f mutate) {
 void _evolve (int *i_0, int i_0_size, PopulationTree *p) {
     // Determine our offset, and seed our ancestors for the tree.
     p->offset = i_0_size - 1;
-    for (int k = 0; k < i_0_size; k++) {
+    for (int k = _triangle(p->offset); k < _triangle(p->offset + 1); k++) {
         p->coalescent_tree[k] = i_0[k];
     }
 #ifdef _DEBUGGING_POPULATION_ENABLED_
