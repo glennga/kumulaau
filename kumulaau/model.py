@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from numpy import ndarray, asarray, sqrt
+from numpy import ndarray, asarray
 from argparse import Namespace
 from typing import Sequence
 import pop
