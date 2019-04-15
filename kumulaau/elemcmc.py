@@ -6,7 +6,8 @@ from numpy import ndarray
 
 def _generate_v(d: ndarray, r: float, bin_n: int) -> ndarray:
     """ Populate the V vector, a collection of likelihoods found using the populated D matrix and our weighted linear
-    regression likelihood approximator approach. WLSR approach found here:
+    regression likelihood approximator approach (dubbed ELE: Efficient Likelihood Extrapolator). WLSR approach found
+    here:
 
     https://stackoverflow.com/questions/27128688/how-to-use-least-squares-with-weight-matrix-in-python
 

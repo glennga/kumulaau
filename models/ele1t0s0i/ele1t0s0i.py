@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-from numpy import nextafter, ndarray
 from argparse import Namespace
 from typing import Sequence
+from numpy import ndarray
 from kumulaau import *
 
 # The model name associated with the results database.
-MODEL_NAME = "MB1T0S0I"
+MODEL_NAME = "ELET0S0I"
 
 # The model SQL associated with model database.
 MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
@@ -71,11 +71,11 @@ def get_arguments() -> Namespace:
     """
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description='"XYZ" MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
+    parser = ArgumentParser(description='ELE MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/mb1t0s0i.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/ele1t0s0i.db', None],
         ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
@@ -134,6 +134,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.mcmcb.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
-                           theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
-                           boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)
+        kumulaau.elemcmc.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+                             theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
+                             boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)

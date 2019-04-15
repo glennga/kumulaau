@@ -5,12 +5,12 @@ from numpy import ndarray
 from kumulaau import *
 
 # The model name associated with the results database.
-MODEL_NAME = "MB4T1S2I"
+MODEL_NAME = "ELE4T1S2I"
 
 # The model SQL associated with model database.
 MODEL_SQL = "N_B INT, N_S1 INT, N_S2 INT, N_E INT, " \
-    "F_B FLOAT, F_S1 FLOAT, F_S2 FLOAT, F_E FLOAT " \
-    "ALPHA FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+            "F_B FLOAT, F_S1 FLOAT, F_S2 FLOAT, F_E FLOAT " \
+            "ALPHA FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 
 class Parameter4T1S2I(Parameter):
@@ -43,7 +43,7 @@ class Parameter4T1S2I(Parameter):
         2. Scaling parameters are always greater than / equal to zero.
         3. Mutation model parameters are never negative.
         4. Kappa (our lower bound) is between 0 and our upper bound, omega.
-        5. Our admixture parameter is always positive.
+        5. Our admixture parameter is always between 0 and 0.5, prevent symmetry between split.
         6. n_e < n_s1 + n_s2 < n_e (we cannot have detached common ancestors).
 
         :return: True if valid. False otherwise.
@@ -52,7 +52,7 @@ class Parameter4T1S2I(Parameter):
             self.f_b >= 0 and self.f_s1 >= 0 and self.f_s2 >= 0 and self.f_e >= 0 and \
             self.c > 0 and self.d >= 0 and \
             0 < self.kappa < self.omega and \
-            self.alpha > 0 and \
+            0 < self.alpha < 0.5 and \
             self.n_b < self.n_s1 + self.n_s2 < self.n_e
 
 
@@ -127,11 +127,11 @@ def get_arguments() -> Namespace:
     """
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description='"XYZ" MCMC for microsatellite mutation model 4T1S2I parameter estimation.')
+    parser = ArgumentParser(description='ELE MCMC for microsatellite mutation model 4T1S2I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/mb4t1s2i.db', None],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/ele4t1s2i.db', None],
         ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
@@ -204,6 +204,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.mcmcb.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
-                           theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
-                           boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)
+        kumulaau.elemcmc.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+                             theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
+                             boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)
