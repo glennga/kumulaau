@@ -35,6 +35,9 @@ OBSERVATIONS=$(python3 ${SCRIPT_DIR}/abc1t0s0i.gen \
 	-omega $(sqlite3 ${MDB} "SELECT CAST(AVG(OMEGA) AS INTEGER) FROM ABC1T0S0I_MODEL;"))
 
 # Repeat MCMC_CHAINS times.
-for ((j=2; j<${MCMC_CHAINS}; j++)); do
+for ((j=2; j<=${MCMC_CHAINS}; j++)); do
     source ${SCRIPT_DIR}/abc1t0s0i.sh
 done
+
+# Clean up the output.
+printf "\n"
