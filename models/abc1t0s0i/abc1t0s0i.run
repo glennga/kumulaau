@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$(dirname "$0")
+
+# Load all of our configurations.
+source ${SCRIPT_DIR}/abc1t0s0i.expr
+
+SAMPLE_UIDS=(); SAMPLE_LOCI=()
+for r in $(sqlite3 ${ODB} "${OBSERVATION_STARTING_SQL}"); do
+    IFS='|' read -r -a array <<< "$r"
+    SAMPLE_UIDS+="${array[0]} "; SAMPLE_LOCI+="${array[1]} "
+done
+
+# Obtain our observations from ALFRED.
+OBSERVATIONS=$(python3 kumulaau/observed.py \
+	-odb ${ODB} \
+	-uid ${SAMPLE_UIDS} \
+	-loci ${SAMPLE_LOCI})
+
+i_run=1  # Run once to get parameters to use for following runs.
+source ${SCRIPT_DIR}/abc1t0s0i.sh
+
+# Generate new observations to use, using the MLE from the past run.
+OBSERVATIONS=$(python3 ${SCRIPT_DIR}/abc1t0s0i.gen \
+	-odb ${ODB} \
+	-uid ${SAMPLE_UIDS} \
+	-loci ${SAMPLE_LOCI} \
+	-observation_n ${OBSERVATION_N} \
+	-n $(sqlite3 ${MDB} "SELECT AVG(N) FROM ABC1T0S0I_MODEL;") \
+	-f $(sqlite3 ${MDB} "SELECT AVG(F) FROM ABC1T0S0I_MODEL;") \
+	-c $(sqlite3 ${MDB} "SELECT AVG(C) FROM ABC1T0S0I_MODEL;") \
+	-d $(sqlite3 ${MDB} "SELECT AVG(D) FROM ABC1T0S0I_MODEL;") \
+	-kappa $(sqlite3 ${MDB} "SELECT AVG(KAPPA) FROM ABC1T0S0I_MODEL;") \
+	-omega $(sqlite3 ${MDB} "SELECT AVG(OMEGA) FROM ABC1T0S0I_MODEL;"))
+
+# Repeat MCMC_CHAINS times.
+for ((j=2; j<${MCMC_CHAINS}; j++)); do
+    source ${SCRIPT_DIR}/abc1t0s0i.sh
+done

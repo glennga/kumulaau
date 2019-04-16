@@ -74,21 +74,19 @@ def get_arguments() -> Namespace:
     parser = ArgumentParser(description='ABC MCMC for microsatellite mutation model 1T0S0I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
-        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
         ['-mdb', 'Location of the database to record to.', str, None, 'data/abc1t0s0i.db', None],
-        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
-        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+        ['-observations', 'String of tuple representation of observations.', str, None, None, None],
         ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
-        ['-n', 'Starting sample size (population size).', int, None, None, None],
-        ['-f', 'Scaling factor for total mutation rate.', float, None, None, None],
-        ['-c', 'Constant bias for the upward mutation rate.', float, None, None, None],
-        ['-d', 'Linear bias for the downward mutation rate.', float, None, None, None],
-        ['-kappa', 'Lower bound of repeat lengths.', int, None, None, None],
-        ['-omega', 'Upper bound of repeat lengths.', int, None, None, None],
+        ['-n_start', 'Starting sample size (population size).', int, None, None, None],
+        ['-f_start', 'Starting scaling factor for total mutation rate.', float, None, None, None],
+        ['-c_start', 'Starting constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d_start', 'Starting linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa_start', 'Starting lower bound of repeat lengths.', int, None, None, None],
+        ['-omega_start', 'Start upper bound of repeat lengths.', int, None, None, None],
         ['-n_sigma', 'Step size of n when changing parameters.', float, None, None, None],
         ['-f_sigma', 'Step size of f when changing parameters.', float, None, None, None],
         ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
@@ -102,20 +100,19 @@ def get_arguments() -> Namespace:
 
 if __name__ == '__main__':
     from importlib import import_module
+    from ast import literal_eval
 
     arguments = get_arguments()  # Parse our arguments.
-
-    # Collect observations to compare to.
-    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
+    observations = literal_eval(arguments.observations)
 
     # Determine if we are continuing an MCMC run or starting a new one.
-    is_new_run = arguments.n is not None
+    is_new_run = arguments.n_start is not None
 
     # Connect to our results database.
     with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:
 
         if is_new_run:  # Record our observations and experiment parameters.
-            lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
+            lumberjack.record_observed(observations)
             lumberjack.record_expr(list(vars(arguments).keys()), list(vars(arguments).values()))
 
         # Construct the walk, distance, and log functions based on our given arguments.
@@ -124,8 +121,8 @@ if __name__ == '__main__':
         log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
 
         # Determine our starting point and boundaries.
-        if arguments.n is not None:
-            theta_0 = Parameter1T0S0I.from_namespace(arguments)
+        if is_new_run:
+            theta_0 = Parameter1T0S0I.from_namespace(arguments, lambda a: a + '_start')
             boundaries = [0, arguments.iterations_n]
         else:
             theta_0 = Parameter1T0S0I(**lumberjack.retrieve_last_theta())
@@ -133,6 +130,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.abcmcmc.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log, theta_0=theta_0,
-                             observed=observations, simulation_n=arguments.simulation_n, boundaries=boundaries,
-                             epsilon=arguments.epsilon)
+        kumulaau.abc.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log, theta_0=theta_0,
+                         observed=observations, simulation_n=arguments.simulation_n, boundaries=boundaries,
+                         epsilon=arguments.epsilon)
