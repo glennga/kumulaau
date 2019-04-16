@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from models.abc1t0s0i.abc1t0s0i import sample_1T0S0I, Parameter1T0S0I
+from .abc1t0s0i import sample_1T0S0I, Parameter1T0S0I
 from argparse import Namespace
 from kumulaau import *
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -e
 SCRIPT_DIR=$(dirname "$0")
 
 # Load all of our configurations.

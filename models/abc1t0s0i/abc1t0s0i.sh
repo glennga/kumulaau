@@ -12,7 +12,7 @@ clean_line() { printf "\r"; }
 # Run once to seed our database. Must break into parts because GC is garbage ):<
 already_done; remaining; percentage
 python3 ${SCRIPT_DIR}/abc1t0s0i.py \
-    -mdb "$1" \
+    -mdb "${MDB}" \
     -observations "${OBSERVATIONS}" \
     -simulation_n ${SIMULATION_N} \
     -epsilon ${EPSILON} \
@@ -31,7 +31,7 @@ clean_line
 for ((i=2; i<${MCMC_LINKS}; i++)); do
     already_done; remaining; percentage
     python3 ${SCRIPT_DIR}/abc1t0s0i.py \
-        -mdb "$1" \
+        -mdb "${MDB}" \
         -observations "${OBSERVATIONS}" \
 		-simulation_n ${SIMULATION_N} \
 		-epsilon ${EPSILON} \
