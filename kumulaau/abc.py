@@ -65,6 +65,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
     from types import SimpleNamespace
     from numpy.random import uniform
     from datetime import datetime
+    from math import isclose
 
     # Save our results according to the namespace below.
     a_record = lambda a_1, b_1, c_1, d_1, e_1, f_1: SimpleNamespace(theta=a_1, time_r=b_1, waiting_time=c_1,
@@ -72,7 +73,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
                                                                     proposed_time=f_1)
 
     # Seed our Markov chain with our initial guess.
-    x = [a_record(theta_0, 0, 1, nextafter(0, 1), nextafter(0, 1), 0)]
+    x = [a_record(theta_0, 0, 1, 0, 0, 0)]
 
     for i in range(boundaries[0] + 1, boundaries[1]):
         theta_proposed = walk(x[-1].theta)  # Walk from our previous state.
@@ -87,7 +88,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
 
         # Accept our proposal according to our alpha value. Metropolis sampling.
         p_proposed, p_k = _likelihood_from_h(h), x[-1].p_proposed
-        if p_proposed / p_k > uniform(0, 1):
+        if abs(0 - p_k) < nextafter(0, 1) or p_proposed / p_k > uniform(0, 1):
             x = x + [a_record(theta_proposed, datetime.now(), 1, p_proposed, mean(d), i)]
 
         # Reject our proposal. We keep our current state and increment our waiting times.

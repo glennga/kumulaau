@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-from typing import List, Iterable, Sequence
+from typing import List, Iterable, Sequence, Callable
 from numpy import ndarray, array
+from argparse import Namespace
 from sqlite3 import Cursor
 
 # The name of the tables in the alfred and record databases.
@@ -56,6 +57,20 @@ def extract_alfred_tuples(uid_loci: Iterable, filename: str = 'data/observed.db'
     # Return a 2D list of (length, frequency) tuples.
     connection.close()
     return tuples
+
+
+def generate_tuples(generator: Callable, observation_n: int) -> List:
+    """ Given a function that generates repeat lengths (e.g. a model's sample function), repeat this process
+    observation_n times and transform all resulting runs into the tuple representation.
+
+    :param generator: Function that generates a collection of repeat lengths.
+    :param observation_n: Number of times to run generator for.
+    :return: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
+    """
+    from collections import Counter
+
+    to_tuples = lambda a: [(b[0], b[1] / len(a)) for b in Counter(a).items()]
+    return [to_tuples(generator()) for _ in range(observation_n)]
 
 
 def tuples_to_dictionaries(tuples: Iterable) -> ndarray:
@@ -155,3 +170,27 @@ def record_to_alfred_table(cursor: Cursor, record) -> None:
         INSERT OR REPLACE INTO {_ALFRED_TABLE_NAME}
         VALUES ({','.join('?' for _ in fields)});
     """, tuple(getattr(record, a) for a in fields))
+
+
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments.
+
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description='Observation parser for ALFRED database.')
+
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
+        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
+        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+    ]))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    arguments = get_arguments()  # Parse our arguments.
+
+    print(extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb))
