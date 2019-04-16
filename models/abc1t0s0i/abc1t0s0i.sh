@@ -4,8 +4,8 @@ set -e
 SCRIPT_DIR=$(dirname "$0")
 
 i=1  # Setup our progress bar.
-already_done() { for ((done=0; done < $i; done++)); do printf "▉"; done }
-remaining() { for ((remain=$i; remain < ${MCMC_LINKS}; remain++)); do printf " "; done }
+already_done() { for ((done=0; done < $(( ($i*100 / ${MCMC_LINKS}*100)*70/10000 )); done++)); do printf "▉"; done }
+remaining() { for ((remain=$(( ($i*100 / ${MCMC_LINKS}*100)*70/10000 )); remain < 70; remain++)); do printf " "; done }
 percentage() { printf "| #${j:-1}, %s%%" $(( ($i*100)/${MCMC_LINKS}*100/100 )); }
 clean_line() { printf "\r"; }
 
@@ -46,4 +46,6 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
 		-omega_sigma ${OMEGA_SIGMA}
     clean_line
 done
-printf "\n"
+
+# Finish the output.
+already_done; remaining; percentage; printf "\n"
