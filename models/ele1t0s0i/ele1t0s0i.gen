@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+from ele1t0s0i import sample_1T0S0I, Parameter1T0S0I
+from argparse import Namespace
+from kumulaau import *
+
+
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments.
+
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description='Observation generator for 1T0S0I model.')
+
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
+        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
+        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+        ['-observation_n', 'Number of observations to generate.', int, None, None, None],
+        ['-n', 'Starting sample size (population size).', int, None, None, None],
+        ['-f', 'Starting scaling factor for total mutation rate.', float, None, None, None],
+        ['-c', 'Starting constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d', 'Starting linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa', 'Starting lower bound of repeat lengths.', int, None, None, None],
+        ['-omega', 'Start upper bound of repeat lengths.', int, None, None, None]
+    ]))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    from random import choice
+
+    arguments = get_arguments()  # Parse our arguments.
+
+    # Again, we treat the starting length as a nuisance parameter and choose from some existing set of observations.
+    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
+    choose_ell_0 = lambda: [min(arguments.omega, max(arguments.kappa, choice(observed.tuples_to_pool(observations))))]
+    generator = lambda: sample_1T0S0I(Parameter1T0S0I.from_namespace(arguments), choose_ell_0())
+    print(observed.generate_tuples(generator, arguments.observation_n))
