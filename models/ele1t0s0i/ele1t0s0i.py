@@ -5,7 +5,7 @@ from numpy import ndarray
 from kumulaau import *
 
 # The model name associated with the results database.
-MODEL_NAME = "ELET0S0I"
+MODEL_NAME = "ELE1T0S0I"
 
 # The model SQL associated with model database.
 MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"

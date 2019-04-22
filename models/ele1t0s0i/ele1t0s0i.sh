@@ -28,10 +28,10 @@ python3 ${SCRIPT_DIR}/ele1t0s0i.py \
     -omega_start ${OMEGA_START} -omega_sigma ${OMEGA_SIGMA}
 clean_line
 
-# Repeat 99 more times.
-for ((i=2; i<${DURATION_SH}; i++)); do
+# Repeat MCMC_LINKS - 1 more times.
+for ((i=2; i<${MCMC_LINKS}; i++)); do
     already_done; remaining; percentage
-    python3 ${SCRIPT_DIR}/abc1t0s0i.py \
+    python3 ${SCRIPT_DIR}/ele1t0s0i.py \
         -mdb "${MDB}" \
         -observations "${OBSERVATIONS}" \
 		-simulation_n ${SIMULATION_N} \

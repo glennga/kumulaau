@@ -11,20 +11,21 @@ OBSERVATION_STARTING_SQL="
 	SELECT DISTINCT SAMPLE_UID, LOCUS
 	FROM OBSERVED_ELL
 	WHERE LOCUS LIKE 'D16S539'
-	AND POP_UID LIKE 'PO000503I';
+	AND POP_UID LIKE 'PO000503I'
+	LIMIT 5;
 "
 
 # Number of observations to generate after finding a MLE.
-OBSERVATION_N=20
+OBSERVATION_N=5
 
 # Number of times to run entire **bash** script (number of samples for experiment).
-MCMC_CHAINS=20
+MCMC_CHAINS=10
 
 # Number of times to run entire MCMC python script.
-MCMC_LINKS=100
+MCMC_LINKS=50
 
 # Number of generated samples to produce per MCMC iteration.
-SIMULATION_N=200
+SIMULATION_N=100
 
 # Exponential decay rate for weight vector used in regression (a=1).
 R=0.5
@@ -36,7 +37,7 @@ BIN_N=500
 DELTA_F=cosine
 
 # Number of iterations to run a single MCMC python script for.
-ITERATIONS_N=2501
+ITERATIONS_N=1001
 
 # Number of iterations to run MCMC for before flushing to disk.
 FLUSH_N=500

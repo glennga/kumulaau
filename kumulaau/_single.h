@@ -61,8 +61,7 @@ typedef int (*_mutate_f) (int, int, float, float, int, int, const gsl_rng *);
 
 /**
  * Given a repeat length 'ell', we mutate this repeat length up or down dependent on our parameters c (upward
- * constant bias) and d (downward linear bias). If we reach our lower bound kappa, we do not mutate further. The
- * mutation model gives us the following focal bias:
+ * constant bias) and d (downward linear bias). The mutation model gives us the following focal bias:
  *
  * \hat{L} = \frac{-c}{-d}.
  *
@@ -79,9 +78,6 @@ typedef int (*_mutate_f) (int, int, float, float, int, int, const gsl_rng *);
  */
 int _mutate_generation (int t, int ell, float c, float d, int kappa, int omega, const gsl_rng *r) {
     for (int k = 0; k < t; k++) {
-        // If we reached some value kappa, we do not mutate any further.
-        if (ell == kappa) return kappa;
-
         // Compute our upward mutation rate. We are bounded by omega.
         ell = (gsl_ran_flat(r, 0, 1) < c) ? MIN(omega, ell + 1) : ell;
 
@@ -95,8 +91,7 @@ int _mutate_generation (int t, int ell, float c, float d, int kappa, int omega, 
 
 /**
  * Given a repeat length 'ell', we mutate this repeat length up or down dependent on our parameters c (upward
- * constant bias) and d (downward linear bias). If we reach our lower bound kappa, we do not mutate further. The
- * mutation model gives us the following focal bias:
+ * constant bias) and d (downward linear bias). The mutation model gives us the following focal bias:
  *
  * \hat{L} = \frac{-c}{-d}.
  *
@@ -113,10 +108,6 @@ int _mutate_generation (int t, int ell, float c, float d, int kappa, int omega, 
  * @return: A mutated repeat length.
  */
 int _mutate_draw (int t, int ell, float c, float d, int kappa, int omega, const gsl_rng *r) {
-    // If we reached some value kappa, we do not mutate any further.
-    if (ell == kappa) return ell;
-
-    // Otherwise, compute the difference between our upward draw and downward draw.
     return MIN((unsigned) omega, MAX((unsigned) kappa, ell + gsl_ran_poisson(r, t * c) -
                                                        gsl_ran_poisson(r, t * ell * d)));
 }
