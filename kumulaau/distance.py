@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from numpy import ndarray, dot, arccos, pi, zeros
+from numpy import ndarray, dot, arccos, pi, zeros, sqrt, log2, sum, isnan
 from typing import List, Callable, Sequence
 from argparse import Namespace
 from numpy.linalg import norm
@@ -8,6 +8,51 @@ from numba import jit
 
 # Location of the pool singleton.
 _pool_singleton = None
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def _kl_divergence(p: ndarray, q: ndarray) -> float:
+    """ TODO
+
+    :param p:
+    :param q:
+    :return:
+    """
+    divergence = 0
+    for v in p * log2(p / q):
+        if not isnan(v):
+            divergence += v
+    return divergence
+
+
+@jit(nopython=True, nogil=True, target='cpu', parallel=True)
+def js_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
+    """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
+    determine the differences in distribution for each different simulated sample. All vectors passed MUST be of
+    appropriate size and must be zeroed out before use. We assume both vectors are always positive. Optimized by Numba.
+
+    :param sample_g: Generated sample vector, which holds the sampled simulated population.
+    :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
+    :param bounds: Lower and upper bound (in that order) of the repeat unit space.
+    :return: The distance between the generated and observed population.
+    """
+    kappa, omega = bounds  # Unpack our bounds.
+
+    # Prepare the storage vector for our generated frequency vector.
+    generated = zeros(omega - kappa + 1)
+
+    # Fit the simulated population into a sparse vector of frequencies.
+    for repeat_unit in range(kappa, omega + 1):
+        ell_count = 0
+        for ell in sample_g:  # Ugly code, but I'm trying to avoid dynamic memory allocation. ):
+            ell_count += 1 if ell == repeat_unit else 0
+        generated[repeat_unit - kappa] = ell_count / float(sample_g.size)
+
+    m = 0.5 * (generated + observation)
+    divergence = 0.5 * (_kl_divergence(generated, m) + _kl_divergence(observation, m))
+
+    # Determine the Jensen-Shannon distance. 0 = identical, 1 = maximally dissimilar.
+    return sqrt(divergence) if divergence > 0 else 1
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -127,7 +172,7 @@ def get_arguments() -> Namespace:
     parser = ArgumentParser(description='Sample a simulated population and compare this to an observed data set.')
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], default=a[3], choices=a[4]), [
         ['-odb', 'Location of the observed database file.', str, 'data/observed.db', None],
-        ['-function', 'Distance function to use.', str, None, ['cosine', 'euclidean']],
+        ['-function', 'Distance function to use.', str, None, ['cosine', 'euclidean', 'js']],
         ['-uid_observed', 'ID of the observed sample to compare to.', str, None, None],
         ['-locus_observed', 'Locus of the observed sample to compare to.', str, None, None]
     ]))
@@ -141,7 +186,7 @@ if __name__ == '__main__':
     from kumulaau.model import trace, evolve
     from importlib import import_module
     from types import SimpleNamespace
-    from numpy import array, mean
+    from numpy import array, mean, std
 
     arguments = get_arguments()  # Parse our arguments.
 
@@ -156,7 +201,7 @@ if __name__ == '__main__':
     # A quick and dirty function to generate and populate the HD matrices.
     def main_generate_and_fill_d():
         d = zeros((1000, len(main_observed)), dtype='float64')
-        main_theta = SimpleNamespace(n=100, f=100.0, c=0.01, d=0.001, kappa=3, omega=30)
+        main_theta = SimpleNamespace(n=100, f=100.0, c=0.0001, d=0.00001, kappa=3, omega=30)
         populate_d(d, main_observed, main_sampler, main_delta_function, main_theta, [3, 30])
         return d
 
@@ -169,5 +214,5 @@ if __name__ == '__main__':
     print('Time Elapsed (1000x): [\n\t' + str(end_t - start_t) + '\n]')
 
     # Display our results to console, and record to our simulated database.
-    print('Expected Distance: [\n\t' + str(mean(main_d)) + '\n]')
+    print('Expected Distance: [\n\t' + str(mean(main_d)) + ' +/- ' + str(std(main_d)) + '\n]')
     print('End Matrix D: [\n\t' + str(main_d) + '\n]')
