@@ -134,7 +134,7 @@ def get_arguments() -> Namespace:
         ['-mdb', 'Location of the database to record to.', str, None, 'data/ele4t1s2i.db', None],
         ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
-        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
+        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean', 'js']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],

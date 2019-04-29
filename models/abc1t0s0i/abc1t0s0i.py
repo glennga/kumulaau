@@ -76,7 +76,7 @@ def get_arguments() -> Namespace:
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-mdb', 'Location of the database to record to.', str, None, 'data/abc1t0s0i.db', None],
         ['-observations', 'String of tuple representation of observations.', str, None, None, None],
-        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
+        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean', 'js']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
