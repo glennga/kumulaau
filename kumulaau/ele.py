@@ -55,8 +55,8 @@ def _likelihood_from_v(v: ndarray) -> float:
     return 0 if col_sum == 0 else exp(col_sum)
 
 
-def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0, observed: Sequence,
-        simulation_n: int, boundaries: Sequence, r: float, bin_n: int) -> None:
+def run(walk: Callable, sample: Callable, summarize: Callable, s_weights: ndarray, log_handler: Callable, theta_0,
+        observed: Sequence, simulation_n: int, boundaries: Sequence, r: float, bin_n: int) -> None:
     """ Our approach: a weighted regression-based likelihood approximator using MCMC to walk around our posterior
     distribution. My interpretation of this approach is given below:
 
@@ -72,7 +72,8 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
 
     :param walk: Function that accepts some parameter set and returns another parameter set.
     :param sample: Function that produces a collection of repeat lengths (i.e. the model function).
-    :param delta: Function that computes the distance between the result of a sample and an observation.
+    :param summarize: Function that computes a vector of summary statistics to describe a sample.
+    :param s_weights: Weights associated with the resulting 'summarize' vector.
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
@@ -104,7 +105,7 @@ def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable
 
         # Generate our D matrix.
         d = zeros((simulation_n, len(observed)), dtype='float64')
-        populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
+        populate_d(d, observed, sample, summarize, s_weights, theta_proposed)
 
         # Compute our likelihood vector.
         v = _generate_v(d, r, bin_n)

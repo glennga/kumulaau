@@ -33,8 +33,12 @@ R=0.5
 # Number of bins used to construct histogram.
 BIN_N=500
 
-# Distance function to use.
-DELTA_F=cosine
+# Summary statistics to use.
+SUMMARY=(
+	"mean"
+	"deviation"
+	"frequency"
+)
 
 # Number of iterations to run a single MCMC python script for.
 ITERATIONS_N=1001

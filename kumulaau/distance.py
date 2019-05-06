@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-from numpy import ndarray, dot, arccos, pi, zeros, sqrt, log2, sum, isnan
+from numpy import ndarray, zeros, mean, std, sqrt, sum, nonzero
 from typing import List, Callable, Sequence
 from argparse import Namespace
-from numpy.linalg import norm
 from numba import jit
 
 
@@ -11,119 +10,115 @@ _pool_singleton = None
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _kl_divergence(p: ndarray, q: ndarray) -> float:
-    """ TODO
+def _mean_length(sample: ndarray, kappa: int, omega: int) -> float:
+    """ Given individuals from a population of microsatellites, determine the average repeat length.
 
-    :param p:
-    :param q:
-    :return:
+    :param sample: Vector of repeat lengths to determine the average of.
+    :param kappa: Repeat length lower bound.
+    :param omega: Repeat length upper bound.
+    :return: Mean length of sample.
     """
-    divergence = 0
-    for v in p * log2(p / q):
-        if not isnan(v):
-            divergence += v
-    return divergence
+    return mean(sample) / float(omega - kappa)
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def js_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
-    """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
-    determine the differences in distribution for each different simulated sample. All vectors passed MUST be of
-    appropriate size and must be zeroed out before use. We assume both vectors are always positive. Optimized by Numba.
+def _deviation_length(sample: ndarray, kappa: int, omega: int) -> float:
+    """ Given individuals from a population of microsatellites, determine the deviation of repeat lengths.
 
-    :param sample_g: Generated sample vector, which holds the sampled simulated population.
-    :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-    :param bounds: Lower and upper bound (in that order) of the repeat unit space.
-    :return: The distance between the generated and observed population.
+    :param sample: Vector of repeat lengths to determine the deviation of.
+    :param kappa: Repeat length lower bound.
+    :param omega: Repeat length upper bound.
+    :return: Deviation of sample.
     """
-    kappa, omega = bounds  # Unpack our bounds.
-
-    # Prepare the storage vector for our generated frequency vector.
-    generated = zeros(omega - kappa + 1)
-
-    # Fit the simulated population into a sparse vector of frequencies.
-    for repeat_unit in range(kappa, omega + 1):
-        ell_count = 0
-        for ell in sample_g:  # Ugly code, but I'm trying to avoid dynamic memory allocation. ):
-            ell_count += 1 if ell == repeat_unit else 0
-        generated[repeat_unit - kappa] = ell_count / float(sample_g.size)
-
-    m = 0.5 * (generated + observation)
-    divergence = 0.5 * (_kl_divergence(generated, m) + _kl_divergence(observation, m))
-
-    # Determine the Jensen-Shannon distance. 0 = identical, 1 = maximally dissimilar.
-    return sqrt(divergence) if divergence > 0 else 1
+    return std(sample) / float(omega - kappa)
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def cosine_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
-    """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
-    determine the differences in distribution for each different simulated sample. All vectors passed MUST be of
-    appropriate size and must be zeroed out before use. In order to transform this into a proper distance, we
-    compute the angular cosine distance. We assume both vectors are always positive. Optimized by Numba.
+def _frequency_length(sample: ndarray, ell: int) -> float:
+    """ Given a sample of repeat lengths a repeat length, determine the frequency of that repeat length.
 
-    :param sample_g: Generated sample vector, which holds the sampled simulated population.
-    :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-    :param bounds: Lower and upper bound (in that order) of the repeat unit space.
-    :return: The distance between the generated and observed population.
+    :param sample: Vector of repeat lengths.
+    :param ell: Repeat length to determine frequency of.
+    :return: Frequency of ell in sample.
     """
-    kappa, omega = bounds  # Unpack our bounds.
+    return len(nonzero(sample == ell)) / float(sample.size)
 
-    # Prepare the storage vector for our generated frequency vector.
-    generated = zeros(omega - kappa + 1)
 
-    # Fit the simulated population into a sparse vector of frequencies.
-    for repeat_unit in range(kappa, omega + 1):
-        ell_count = 0
-        for ell in sample_g:  # Ugly code, but I'm trying to avoid dynamic memory allocation. ):
-            ell_count += 1 if ell == repeat_unit else 0
-        generated[repeat_unit - kappa] = ell_count / float(sample_g.size)
+def summary_factory(summary: List, bounds: Sequence = None):
+    """ Factory method for our summary statistics. If frequency_length is specified, then we must create a
+    weight vector weighing each frequency less to reduce the impact of increasing our dimensionality.
 
-    # Determine the angular distance. 0 = identical, 1 = maximally dissimilar.
-    return 2.0 * arccos(dot(generated, observation) / (norm(generated) * norm(observation))) / pi
+    :param summary: Collection of summary statistics in space ['mean', 'deviation', 'frequency'].
+    :param bounds: Two element sequence containing kappa, followed by omega.
+    :return: Two element list of the summarizer method and the weights to apply to the resulting vector.
+    """
+    from numpy import concatenate, array
+
+    # If frequency length is specify, we weight sum of frequencies as equally as other stats.
+    w, kappa, omega, is_frequency_passed = 1.0 / len(summary), bounds[0], bounds[1], 'frequency' in summary
+    if not is_frequency_passed:
+        weights = array(list(map(lambda a: w, range(0, len(summary)))))
+    else:
+        weights = array(list(map(lambda a: w, range(0, len(summary) - 1))))
+        weights = concatenate([weights, list(map(  # Frequency statistics come last in vector.
+            lambda a: w / float(omega - kappa), range(0, omega - kappa)
+        ))])
+
+    summary_funcs = array([a for a in [  # We need reduce this to integers for Numba.
+        0 if 'mean' in summary else None,
+        1 if 'deviation' in summary else None,
+        2 if 'frequency' in summary else None
+    ] if a is not None])
+
+    @jit(nopython=True, nogil=True, target='cpu', parallel=True)
+    def _summarizer(sample: ndarray) -> ndarray:
+        freq_offset, summary_vector = 0, zeros(
+            len(summary_funcs) if not is_frequency_passed else len(summary_funcs) - 1 + omega - kappa
+        )
+
+        for func in summary_funcs:
+            if func == 0:  # 0 maps to mean.
+                summary_vector[freq_offset] = _mean_length(sample, kappa, omega)
+                freq_offset += 1
+            elif func == 1:  # 1 maps to deviation.
+                summary_vector[freq_offset] = _deviation_length(sample, kappa, omega)
+                freq_offset += 1
+
+        if is_frequency_passed:
+            for j in range(0, omega - kappa + 1):
+                summary_vector[j + freq_offset] = _frequency_length(sample, j)
+
+        return summary_vector
+    return [_summarizer, weights]
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def euclidean_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
-    """ Given individuals from the simulated population and the frequencies of individuals from an observed sample,
-    determine the differences in distribution for each different simulated sample. All vectors passed MUST be of
-    appropriate size and must be zeroed out before use. Treating each distribution as a point, we compute the
-    Euclidean distance between both points. Optimized by Numba.
+def _distance_from_summary(sample_g: ndarray, summarize: Callable, observed_s: ndarray, weights: ndarray) -> float:
+    """ Obtain a weighted Euclidean distance from a summarized generated vector and observed vector.
 
     :param sample_g: Generated sample vector, which holds the sampled simulated population.
-    :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-    :param bounds: Lower and upper bound (in that order) of the repeat unit space.
-    :return: The distance between the generated and observed population.
+    :param summarize: Summary function, used to produced observed_s.
+    :param observed_s: Summary vector, a resulting of putting a 'sample_g' like object through summarize.
+    :param weights: Weights to associate with distance.
+    :return: Distance between our generated and observed sample.
     """
-    kappa, omega = bounds  # Unpack our bounds.
-
-    # Prepare the storage vector for our generated frequency vector.
-    generated = zeros(omega - kappa + 1)
-
-    # Fit the simulated population into a sparse vector of frequencies.
-    for repeat_unit in range(kappa, omega + 1):
-        ell_count = 0
-        for ell in sample_g:  # Ugly code, but I'm trying to avoid dynamic memory allocation. ):
-            ell_count += 1 if ell == repeat_unit else 0
-        generated[repeat_unit - kappa] = ell_count / float(sample_g.size)
-
-    # Determine the Euclidean distance. 0 = identical, 1 = maximally dissimilar.
-    return norm(generated - observation)
+    q = weights * (summarize(sample_g) - observed_s)
+    return sqrt(sum(q * q.T))
 
 
-def populate_d(d: ndarray, observations: Sequence, sample: Callable, delta: Callable, theta_proposed,
-               bounds: Sequence) -> None:
+def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: Callable, weights: ndarray,
+               theta_proposed) -> None:
     """ Compute the expected distance for all observations to a model generated by our proposed parameter set.
 
     :param d: D matrix to populate. Columns must match the length of observations. Rows indicate simulations.
     :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
     :param sample: Function such that a population is produced with some parameter set and common ancestor.
-    :param delta: Frequency distribution distance function. 0 = exact match, 1 = maximally dissimilar.
+    :param summarize: Summary function for a single distribution, generates summary vector. Must be jit compatible.
+    :param weights: Weights to apply to resulting summary statistic vector.
     :param theta_proposed: The parameters associated with this matrix instance.
-    :param bounds: Upper and lower bound (in that order) of the repeat unit space.
     :return: None.
     """
-    from kumulaau.observed import tuples_to_sparse_matrix
+    from kumulaau.observed import tuples_to_distribution_vector
     from multiprocessing import Pool
     from numpy import array
     global _pool_singleton
@@ -138,13 +133,13 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, delta: Call
         for _ in range(d.shape[0])
     ]))
 
-    # Generate the sparse matrix from our observations.
-    sparse_matrix = tuples_to_sparse_matrix(observations, bounds)
+    # Collect the observed summary statistics into a single vector.
+    observed_sv = [summarize(a) for a in tuples_to_distribution_vector(observations, sample_all[0].size)]
 
     # Iterate through all generated samples.
     for i in range(d.shape[0]):
         for j in range(d.shape[1]):
-            d[i, j] = delta(sample_all[i], sparse_matrix[j], array(bounds))
+            d[i, j] = _distance_from_summary(sample_all[i], summarize, observed_sv[j], weights)
 
 
 def _choose_ell_0(observations: Sequence, kappa: int, omega: int) -> List:
@@ -170,11 +165,11 @@ def get_arguments() -> Namespace:
     from argparse import ArgumentParser
 
     parser = ArgumentParser(description='Sample a simulated population and compare this to an observed data set.')
-    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], default=a[3], choices=a[4]), [
-        ['-odb', 'Location of the observed database file.', str, 'data/observed.db', None],
-        ['-function', 'Distance function to use.', str, None, ['cosine', 'euclidean', 'js']],
-        ['-uid_observed', 'ID of the observed sample to compare to.', str, None, None],
-        ['-locus_observed', 'Locus of the observed sample to compare to.', str, None, None]
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], default=a[3], choices=a[4], nargs=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, 'data/observed.db', None, None],
+        ['-summary', 'Summary statistics to use.', str, None, ['mean', 'deviation', 'frequency'], '*'],
+        ['-uid_observed', 'ID of the observed sample to compare to.', str, None, None, None],
+        ['-locus_observed', 'Locus of the observed sample to compare to.', str, None, None, None]
     ]))
 
     return parser.parse_args()
@@ -184,9 +179,8 @@ if __name__ == '__main__':
     from kumulaau.observed import extract_alfred_tuples
     from timeit import default_timer as timer
     from kumulaau.model import trace, evolve
-    from importlib import import_module
     from types import SimpleNamespace
-    from numpy import array, mean, std
+    from numpy import array
 
     arguments = get_arguments()  # Parse our arguments.
 
@@ -196,13 +190,13 @@ if __name__ == '__main__':
     # Determine our delta and sampling functions. Lambdas cannot be pickled, so we define a named function here.
     def main_sampler(theta, i_0):
         return evolve(trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
-    main_delta_function = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
+    main_summarizer, main_weights = summary_factory(arguments.summary, [3, 30])
 
     # A quick and dirty function to generate and populate the HD matrices.
     def main_generate_and_fill_d():
         d = zeros((1000, len(main_observed)), dtype='float64')
-        main_theta = SimpleNamespace(n=100, f=100.0, c=0.0001, d=0.00001, kappa=3, omega=30)
-        populate_d(d, main_observed, main_sampler, main_delta_function, main_theta, [3, 30])
+        main_theta = SimpleNamespace(n=100, f=100.0, c=0.00001, d=0.000001, kappa=3, omega=30)
+        populate_d(d, main_observed, main_sampler, main_summarizer, main_weights, main_theta)
         return d
 
     # Run once to remove compile time in elapsed time.

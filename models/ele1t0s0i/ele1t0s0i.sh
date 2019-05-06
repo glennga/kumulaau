@@ -17,7 +17,7 @@ python3 ${SCRIPT_DIR}/ele1t0s0i.py \
 	-simulation_n ${SIMULATION_N} \
     -r ${R} \
     -bin_n ${BIN_N} \
-    -delta_f ${DELTA_F} \
+    -summary ${SUMMARY[*]} \
     -iterations_n ${ITERATIONS_N} \
     -flush_n ${FLUSH_N} \
     -n_start ${N_START} -n_sigma ${N_SIGMA} \
@@ -37,7 +37,7 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
 		-simulation_n ${SIMULATION_N} \
     	-r ${R} \
     	-bin_n ${BIN_N} \
-		-delta_f ${DELTA_F} \
+    	-summary ${SUMMARY[*]} \
 		-iterations_n ${ITERATIONS_N} \
 		-flush_n ${FLUSH_N} \
 		-n_sigma ${N_SIGMA} \

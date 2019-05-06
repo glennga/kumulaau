@@ -30,8 +30,12 @@ SIMULATION_N=100
 # Maximum acceptance value for distance between [0, 1].
 EPSILON=0.6
 
-# Distance function to use.
-DELTA_F=cosine
+# Summary statistics to use.
+SUMMARY=(
+	"mean"
+	"deviation"
+	"frequency"
+)
 
 # Number of iterations to run a single MCMC python script for.
 ITERATIONS_N=1001

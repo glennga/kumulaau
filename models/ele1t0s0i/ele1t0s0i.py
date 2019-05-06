@@ -76,7 +76,7 @@ def get_arguments() -> Namespace:
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-mdb', 'Location of the database to record to.', str, None, 'data/ele1t0s0i.db', None],
         ['-observations', 'String of tuple representation of observations.', str, None, None, None],
-        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean', 'js']],
+        ['-summary', 'Summary statistics to use.', str, '*', None, ['mean', 'deviation', 'frequency']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
@@ -100,7 +100,6 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
-    from importlib import import_module
     from ast import literal_eval
 
     arguments = get_arguments()  # Parse our arguments.
@@ -118,7 +117,7 @@ if __name__ == '__main__':
 
         # Construct the walk, distance, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
-        delta = getattr(import_module('kumulaau.distance'), arguments.delta_f + '_delta')
+        summarize, s_weights = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa, arguments.omega])
         log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
 
         # Determine our starting point and boundaries.
@@ -131,6 +130,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.ele.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+        kumulaau.ele.run(walk=walk, sample=sample_1T0S0I, summarize=summarize, s_weights=s_weights, log_handler=log,
                          theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
                          boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)

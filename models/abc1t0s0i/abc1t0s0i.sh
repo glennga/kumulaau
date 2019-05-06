@@ -16,7 +16,7 @@ python3 ${SCRIPT_DIR}/abc1t0s0i.py \
     -observations "${OBSERVATIONS}" \
     -simulation_n ${SIMULATION_N} \
     -epsilon ${EPSILON} \
-    -delta_f ${DELTA_F} \
+    -summary ${SUMMARY[*]} \
     -iterations_n ${ITERATIONS_N} \
     -flush_n ${FLUSH_N} \
     -n_start ${N_START} -n_sigma ${N_SIGMA} \
@@ -35,7 +35,7 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
         -observations "${OBSERVATIONS}" \
 		-simulation_n ${SIMULATION_N} \
 		-epsilon ${EPSILON} \
-		-delta_f ${DELTA_F} \
+    	-summary ${SUMMARY[*]} \
 		-iterations_n ${ITERATIONS_N} \
 		-flush_n ${FLUSH_N} \
 		-n_sigma ${N_SIGMA} \
