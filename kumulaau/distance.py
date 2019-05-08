@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-from numpy import ndarray, zeros, mean, std, sqrt, sum, nonzero
+from numpy import ndarray, zeros, mean, std, sqrt, sum, nonzero, int8
+from numpy.linalg import norm
 from typing import List, Callable, Sequence
 from argparse import Namespace
 from numba import jit
 
-
 # Location of the pool singleton.
 _pool_singleton = None
+
+# Location of the observed summary statistics vector (only accessed if cache flag is raised).
+_observed_sv = None
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -16,7 +19,7 @@ def _mean_length(sample: ndarray, kappa: int, omega: int) -> float:
     :param sample: Vector of repeat lengths to determine the average of.
     :param kappa: Repeat length lower bound.
     :param omega: Repeat length upper bound.
-    :return: Mean length of sample.
+    :return: Mean length of sample, normalized to the repeat length space.
     """
     return mean(sample) / float(omega - kappa)
 
@@ -28,41 +31,30 @@ def _deviation_length(sample: ndarray, kappa: int, omega: int) -> float:
     :param sample: Vector of repeat lengths to determine the deviation of.
     :param kappa: Repeat length lower bound.
     :param omega: Repeat length upper bound.
-    :return: Deviation of sample.
+    :return: Deviation of sample, normalized to the repeat length space.
     """
     return std(sample) / float(omega - kappa)
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _frequency_length(sample: ndarray, ell: int) -> float:
-    """ Given a sample of repeat lengths a repeat length, determine the frequency of that repeat length.
+def _frequency_length(sample: ndarray) -> float:
+    """ Given a sample of repeat lengths, determine the frequency of the **mean** repeat length.
 
     :param sample: Vector of repeat lengths.
-    :param ell: Repeat length to determine frequency of.
-    :return: Frequency of ell in sample.
+    :return: Frequency of the mean repeat length in sample.
     """
-    return len(nonzero(sample == ell)) / float(sample.size)
+    return len(sample[nonzero(sample == int(round(mean(sample))))]) / float(sample.size)
 
 
-def summary_factory(summary: List, bounds: Sequence = None):
-    """ Factory method for our summary statistics. If frequency_length is specified, then we must create a
-    weight vector weighing each frequency less to reduce the impact of increasing our dimensionality.
+def summary_factory(summary: List, bounds: Sequence = None) -> Callable:
+    """ Factory method for our summary statistics.
 
     :param summary: Collection of summary statistics in space ['mean', 'deviation', 'frequency'].
     :param bounds: Two element sequence containing kappa, followed by omega.
-    :return: Two element list of the summarizer method and the weights to apply to the resulting vector.
+    :return: The summarizer method.
     """
-    from numpy import concatenate, array
-
-    # If frequency length is specify, we weight sum of frequencies as equally as other stats.
-    w, kappa, omega, is_frequency_passed = 1.0 / len(summary), bounds[0], bounds[1], 'frequency' in summary
-    if not is_frequency_passed:
-        weights = array(list(map(lambda a: w, range(0, len(summary)))))
-    else:
-        weights = array(list(map(lambda a: w, range(0, len(summary) - 1))))
-        weights = concatenate([weights, list(map(  # Frequency statistics come last in vector.
-            lambda a: w / float(omega - kappa), range(0, omega - kappa)
-        ))])
+    from numpy import array
+    kappa, omega = bounds[0], bounds[1]
 
     summary_funcs = array([a for a in [  # We need reduce this to integers for Numba.
         0 if 'mean' in summary else None,
@@ -72,56 +64,51 @@ def summary_factory(summary: List, bounds: Sequence = None):
 
     @jit(nopython=True, nogil=True, target='cpu', parallel=True)
     def _summarizer(sample: ndarray) -> ndarray:
-        freq_offset, summary_vector = 0, zeros(
-            len(summary_funcs) if not is_frequency_passed else len(summary_funcs) - 1 + omega - kappa
-        )
+        index, summary_vector = 0, zeros(len(summary_funcs))
 
         for func in summary_funcs:
             if func == 0:  # 0 maps to mean.
-                summary_vector[freq_offset] = _mean_length(sample, kappa, omega)
-                freq_offset += 1
+                summary_vector[index] = _mean_length(sample, kappa, omega)
             elif func == 1:  # 1 maps to deviation.
-                summary_vector[freq_offset] = _deviation_length(sample, kappa, omega)
-                freq_offset += 1
-
-        if is_frequency_passed:
-            for j in range(0, omega - kappa + 1):
-                summary_vector[j + freq_offset] = _frequency_length(sample, j)
-
+                summary_vector[index] = _deviation_length(sample, kappa, omega)
+            elif func == 2:  # 2 maps to frequency.
+                summary_vector[index] = _frequency_length(sample)
+            index += 1
         return summary_vector
-    return [_summarizer, weights]
+
+    return _summarizer
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
-def _distance_from_summary(sample_g: ndarray, summarize: Callable, observed_s: ndarray, weights: ndarray) -> float:
-    """ Obtain a weighted Euclidean distance from a summarized generated vector and observed vector.
+def _compute_d_entry(generated_s: ndarray, observed_s: ndarray, var_gsv: ndarray) -> float:
+    """ Compute an entry of our D matrix given an observed summary statistics vector and simulated summary statistics
+    vector. Vectors are normalized using the standard deviation of our simulated data.
 
-    :param sample_g: Generated sample vector, which holds the sampled simulated population.
-    :param summarize: Summary function, used to produced observed_s.
-    :param observed_s: Summary vector, a resulting of putting a 'sample_g' like object through summarize.
-    :param weights: Weights to associate with distance.
+    :param generated_s: Generated summary statistics vector.
+    :param observed_s: Observed summary statistics vector.
+    :param var_gsv: Column-wise variations of our simulated summary statistics matrix.
     :return: Distance between our generated and observed sample.
     """
-    q = weights * (summarize(sample_g) - observed_s)
-    return sqrt(sum(q * q.T))
+    return norm(generated_s - observed_s)
+    # return sqrt(sum(((generated_s - observed_s) ** 2) / var_gsv))
 
 
-def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: Callable, weights: ndarray,
-               theta_proposed) -> None:
+def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: Callable, theta_proposed,
+               is_cache_observed_summary: bool = True) -> None:
     """ Compute the expected distance for all observations to a model generated by our proposed parameter set.
 
     :param d: D matrix to populate. Columns must match the length of observations. Rows indicate simulations.
     :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
     :param sample: Function such that a population is produced with some parameter set and common ancestor.
     :param summarize: Summary function for a single distribution, generates summary vector. Must be jit compatible.
-    :param weights: Weights to apply to resulting summary statistic vector.
     :param theta_proposed: The parameters associated with this matrix instance.
+    :param is_cache_observed_summary: Indicates whether or not we should cache the summary statistics for observations.
     :return: None.
     """
     from kumulaau.observed import tuples_to_distribution_vector
     from multiprocessing import Pool
-    from numpy import array
-    global _pool_singleton
+    from numpy import array, var
+    global _pool_singleton, _observed_sv
 
     # We cannot compile this portion below, but we can parallelize it! Create a multiprocessing pool singleton.
     if _pool_singleton is None:
@@ -131,15 +118,23 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: 
     sample_all = array(_pool_singleton.starmap(sample, [
         (theta_proposed, _choose_ell_0(observations, theta_proposed.kappa, theta_proposed.omega))
         for _ in range(d.shape[0])
-    ]))
+    ]), dtype=int8)
 
-    # Collect the observed summary statistics into a single vector.
-    observed_sv = [summarize(a) for a in tuples_to_distribution_vector(observations, sample_all[0].size)]
+    # Collect the observed summary statistics into a single vector. Pull / load from cache if desired.
+    if _observed_sv is None and is_cache_observed_summary:
+        _observed_sv = array([summarize(a) for a in tuples_to_distribution_vector(observations, sample_all[0].size)])
+    observed_sv = _observed_sv if is_cache_observed_summary else array([
+        summarize(a) for a in tuples_to_distribution_vector(observations, sample_all[0].size)
+    ])
 
-    # Iterate through all generated samples.
+    # Collect our generated summary statistics into a single vector, and compute the appropriate statistics.
+    generated_sv = array([summarize(a) for a in sample_all])
+    var_gsv = var(generated_sv, axis=0, ddof=1)
+
+    # Compute our D matrix.
     for i in range(d.shape[0]):
         for j in range(d.shape[1]):
-            d[i, j] = _distance_from_summary(sample_all[i], summarize, observed_sv[j], weights)
+            d[i, j] = _compute_d_entry(generated_sv[i], observed_sv[j], var_gsv)
 
 
 def _choose_ell_0(observations: Sequence, kappa: int, omega: int) -> List:
@@ -190,13 +185,13 @@ if __name__ == '__main__':
     # Determine our delta and sampling functions. Lambdas cannot be pickled, so we define a named function here.
     def main_sampler(theta, i_0):
         return evolve(trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
-    main_summarizer, main_weights = summary_factory(arguments.summary, [3, 30])
+    main_summarizer = summary_factory(arguments.summary, [3, 30])
 
     # A quick and dirty function to generate and populate the HD matrices.
     def main_generate_and_fill_d():
         d = zeros((1000, len(main_observed)), dtype='float64')
         main_theta = SimpleNamespace(n=100, f=100.0, c=0.00001, d=0.000001, kappa=3, omega=30)
-        populate_d(d, main_observed, main_sampler, main_summarizer, main_weights, main_theta)
+        populate_d(d, main_observed, main_sampler, main_summarizer, main_theta)
         return d
 
     # Run once to remove compile time in elapsed time.

@@ -117,9 +117,7 @@ if __name__ == '__main__':
         # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
         log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
-        summarize, s_weights = kumulaau.distance.summary_factory(
-            arguments.summary, [arguments.kappa_start, arguments.omega_start]
-        )
+        summarize = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa_start, arguments.omega_start])
 
         # Determine our starting point and boundaries.
         if is_new_run:
@@ -131,6 +129,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.abc.run(walk=walk, sample=sample_1T0S0I, summarize=summarize, s_weights=s_weights, log_handler=log,
+        kumulaau.abc.run(walk=walk, sample=sample_1T0S0I, summarize=summarize, log_handler=log,
                          theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
                          boundaries=boundaries, epsilon=arguments.epsilon)
