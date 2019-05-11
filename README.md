@@ -19,9 +19,7 @@ conda list
 5. Install our module. This will build our C extensions.
 ```bash
 conda activate kumulaau
-pip install kumulaau  # Ensure that this is the 'kumulaau' pip.
-
-# If this fails, using the setup.py script also works.
+python3 setup.py build
 python3 setup.py install
 ```
 
@@ -32,7 +30,7 @@ kumulaau/data/alfred/alfred.sh ${OBSERVED_DATABASE}
 
 7. Run one of the examples listed in the `models` folder:
 ```bash
-kumulaau/models/ma1t0s0i/ma1t0s0i.sh ${RESULTS_DATABASE} ${OBSERVED_DATABASE}
+kumulaau/models/abc1t0s0i/abc1t0s0i.sh ${RESULTS_DATABASE} ${OBSERVED_DATABASE}
 ```
 
 ## ABC-MCMC Single Population Example
@@ -119,9 +117,15 @@ To distinguish population samples here, one must specify two items: `SAMPLE_UID`
 
 ### Usage of `kumulaau.distance`
 
-The `distance` module holds all functions associated with finding the average distance and/or likelihood between an observed distribution in (length, frequency) tuple form, and the result of several `kumulaau.evolve` calls. *The following paragraphs explain the mechanics behind our ABC approach for approximating likelihood. The most important functions (as far as a user is concerned) out of this package are `cosine_delta` and `euclidean_delta` which allow one to use the angular distance or Euclidean distance to quantify difference between an observation and simulation.*
+The `distance` module holds all functions associated with describing the different between two populations of microsatellites. We offer three different statistics: `mean`, `deviation`, and `frequency`. The latter statistic describes the frequency of the mean repeat length. The method of importance here is `summary_factory`, which creates a compiled function to compute a vector of summary statistics to use to compare two populations.
 
-We find the average distance and/or likelihood or some parameter set $\theta$ given observations with two phases: a shape definition phase and a matrix population phase. 
+```python
+from kumulaau import distance
+
+summarizer = distance.summary_factory(['mean', 'deviation', 'frequency'], [3, 30])
+```
+
+*The following paragraphs describe the internals behind finding the likelihood of some parameter set $\theta$ given observations.* This is split into two phases: a shape definition phase and a matrix population phase. 
 
 The shape definition phase is specified by `generate_hdo`, which returns a binary match matrix $H$ (rows = `kumulaau.evolve` result, columns = observed distribution, enter 1 if the computed distance falls below some $\epsilon$, otherwise 0), a distance matrix $D$ (rows = `kumulaau.evolve` result, columns = observed distribution, enter distance between a simulation and observation), and a sparse observation matrix $O$ (rows = repeat length, columns = observation, enter frequency of repeat length associated with that observation). In this phase, only the $O$ matrix is populated while the $H$ and $D$ matrices's shape is defined. This call accepts our observations in base representation, the number of `kumulaau.evolve` instances desired (*simulation_n*), and the bounds of our repeat length space (*bounds*). This call returns a namespace holding all matrices, as well as the observations and bounds used to create these matrices.
 
@@ -131,24 +135,9 @@ The matrix population phase fills in the entries of the $H​$ and $D​$ matric
 2. We iterate through each generated sample and observed sample, compute the distance to save to $D$, and fill our $H$ matrix accordingly (1 if $D$ entry $< \epsilon​$, 0 otherwise).
 3. The expected distance (mean of all entries in $D$), the $D$ matrix itself, and the $H$ matrix itself are returned in a namespace.
 
-To determine the likelihood is to use the function `likelihood_from_h`, passing the $H$ result from `populated_hd` as a parameter. The average of each column (i.e. observation) is computed, representing the probability of a model matching this specific observation. To compute the likelihood is to take the product of each average. We assume that each probability is independent.
+Likelihood determination varies on usage of ABC or ELE.
 
-There are currently two implemented distance functions *delta*, but users are free to implement their own. The signature for such a function is given below:
-
-```python
-def user_defined_delta(sample_g: ndarray, observation: ndarray, bounds: ndarray) -> float:
-    """ ...
-    
-    :param sample_g: Generated sample vector, which holds the sampled simulated population.
-    :param observation: Observed frequency sample as a sparse frequency vector indexed by repeat length.
-    :param bounds: Lower and upper bound (in that order) of the repeat unit space.
-    :return: A number between 0 and 1. 0 = maximally similar, 1 = maximally dissimilar
-    """
-```
-
-The two implemented functions, `cosine_delta` and `euclidean_delta` represent the angular distance and Eucledian distance respectively of two vectors in a $|bounds|$-dimensional space with frequency of a repeat length associated with each dimension.
-
-### Usage of `kumulaau.mcmca`
+### Usage of `kumulaau.abc`
 
 There exists only one method associated with this module: `run`, which defines an ABC-MCMC approach to inferring the likelihood of different parameter sets. There are eight parameters that must be defined here:
 
@@ -156,7 +145,7 @@ There exists only one method associated with this module: `run`, which defines a
 | ------------- | ------------------------------------------------------------ |
 | *walk*        | Function that accepts some parameter set and returns another parameter set. This is used to jump between different parameter sets, and the sensitivity is to be specified by the user. This must have a signature of `walk(theta)`. |
 | *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$ and some common ancestor $\ell$. This must have a signature of `sample(theta, i_0: Sequence)`. |
-| *delta*       | Function that computes the distance between the result of a sample and an observation. See above for function signature. |
+| *summarize*       | Function that computes a summary vector of some population. |
 | *log_handler* | Function that handles what occurs with the Markov chain and results at a specific iteration $i$. This must have a signature of `log_handler(x: List, i: int)`. |
 | *theta\_0*    | Initial starting point to use with MCMC.                     |
 | *observed*    | Observations in base representation.                         |
@@ -206,9 +195,40 @@ observations = observed.extract_alfred_tuples(zip(uid, loci))
 # Define our starting point.
 theta_0 = MyParameter(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 
+# Create our summarizer using the mean and deviation.
+summarize = kumulaau.distance.summary_factory(['mean', 'deviation'], [3, 30])
+
 # Run our MCMC!
-mcmca.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
-                    theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
+abc.run(walk=walk, sample=sample, summarize=summarize, log_handler=log_handler,
+        theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
+```
+
+Continuing from the `kumulaau.distance` section, to determine the likelihood is to use the function `likelihood_from_h`, passing the $H$ result from `populated_hd` as a parameter. The average of each column (i.e. observation) is computed, representing the probability of a model matching this specific observation. To compute the likelihood is to take the product of each average. We assume that each probability is independent.
+
+### Usage of `kumulaau.ele`
+
+There exists only one method associated with this module: `run`, which defines a weighted logarithmic regression approach to determine likelihood instead of using a cutoff $\epsilon$ in `kumulaau.abc`. There are nine parameters that must be defined here:
+
+| Parameter     | Description                                                  |
+| ------------- | ------------------------------------------------------------ |
+| *walk*        | Function that accepts some parameter set and returns another parameter set. This is used to jump between different parameter sets, and the sensitivity is to be specified by the user. This must have a signature of `walk(theta)`. |
+| *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$ and some common ancestor $\ell$. This must have a signature of `sample(theta, i_0: Sequence)`. |
+| *summarize*       | Function that computes a summary vector of some population. |
+| *log_handler* | Function that handles what occurs with the Markov chain and results at a specific iteration $i$. This must have a signature of `log_handler(x: List, i: int)`. |
+| *theta\_0*    | Initial starting point to use with MCMC.                     |
+| *observed*    | Observations in base representation.                         |
+| *r*     | Exponential decay rate for weight vector used in regression.         |
+| *bin_n*     | Number of bins used to construct CDF.         |
+| *boundaries*  | Starting and ending iteration for this specific MCMC run. Used to continue MCMC runs and specify when to stop the MCMC. |
+
+```python
+.
+.
+.
+
+# Run our MCMC!
+ele.run(walk=walk, sample=sample, summarize=summarize, log_handler=log_handler,
+        theta_0=theta_0, observed=observations, r=0.4, bin_n=500, boundaries=[0, 1000])
 ```
 
 ### Usage of `kumulaau.RecordSQLite`
@@ -224,7 +244,6 @@ To use this class, one must specify the following:
 | *filename*       | Location of the SQLite database to save to.                  |
 | *model\_name*    | Prefix to append to all tables associated with this specific posterior run. |
 | *model_schema*   | Schema of the _MODEL table, does not include `RUN_R, TIME_R`. |
-| *results_schema* | Schema of the _RESULTS table, does not include `RUN_R`.      |
 | *is_new_run*     | Flag which indicates if the current run to be logged is new or not. This determines if we should query for old `RUN_R` entries or if we should generate a new one. |
 
 Given that the observations associated with a specific posterior run will never change, there exists a separate method to record these separate from the posterior results themselves: `record_observed`. This accepts observations in our base representation and, optionally, a list of IDs to attach to each population sample in our observations. If the second argument is not specified, then each population is enumerated from 1 to `len(observations)`.
@@ -233,8 +252,9 @@ It is advised to use this class with a context manager as such, to ensure databa
 
 ```python
 MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+MODEL_NAME = "ABC1T0S0I"
 
-with RecordSQLite('data/results', 'MYMODEL', MODEL_SQL, posterior.mcmca.SQL, False) as log:
+with RecordSQLite('data/results', MODEL_NAME, MODEL_SQL, False) as log:
     # Record our observations.
     log.record_observed(observations)
 
@@ -246,5 +266,5 @@ with RecordSQLite('data/results', 'MYMODEL', MODEL_SQL, posterior.mcmca.SQL, Fal
     .
     
     # Run our MCMC!
-    mcmca.run(..., log_handler=handler, ...)
+    mcmca.abc.run(..., log_handler=handler, ...)
 ```
