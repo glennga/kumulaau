@@ -233,7 +233,7 @@ ele.run(walk=walk, sample=sample, summarize=summarize, log_handler=log_handler,
 
 ### Usage of `kumulaau.RecordSQLite`
 
-The `RecordSQLite` class is a convenience class to record the results of a `run` method in the `posterior` module. Instead of the basic print-to-console `log_handler` defined in the *Usage of `kumulaau.posterior.mcmca`* section, we pass the handler specified in a `RecordSQLite` instance.
+The `RecordSQLite` class is a convenience class to record the results of a `run` method in the `posterior` module. Instead of the basic print-to-console `log_handler` defined in the *Usage of `kumulaau.abc`* section, we pass the handler specified in a `RecordSQLite` instance.
 
 There exists three tables we log to here: a `_OBSERVED` table which holds all observations associated with a specific posterior run, a `_MODEL` table which holds the sequence of our parameters, and a `_RESULTS` which holds the posterior specific results associated with the parameter sequence. All tables are keyed by `RUN_R`, a randomly generated 10-digit alphanumeric string that distinguishes different posteriors runs from one another. The `_MODEL` and `_RESULTS` share a composite key of `(RUN_R, TIME_R)`, with `TIME_R` being the datetime associated with a specific parameter-result set.
 
@@ -266,5 +266,5 @@ with RecordSQLite('data/results', MODEL_NAME, MODEL_SQL, False) as log:
     .
     
     # Run our MCMC!
-    mcmca.abc.run(..., log_handler=handler, ...)
+    abc.run(..., log_handler=handler, ...)
 ```
