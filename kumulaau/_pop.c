@@ -22,7 +22,6 @@ static PyObject *trace (PyObject *self, PyObject *args) {
     // Put our population object on the heap, to be shared between the trace and evolve steps.
     PopulationTree *p = (PopulationTree *) malloc(sizeof(PopulationTree));
 
-    // Parse our arguments.
     if (!PyArg_ParseTuple(args, "ifffii", &p->theta.n, &p->theta.f, &p->theta.c, &p->theta.d,
                           &p->theta.kappa, &p->theta.omega))
         return NULL;
@@ -44,15 +43,7 @@ static PyObject *trace (PyObject *self, PyObject *args) {
 
     // Trace our tree. We do not perform repeat length determination at this step.
     _trace_tree(p->coalescent_tree, p->theta.n, p->r);
-#ifdef _DEBUGGING_POPULATION_ENABLED_
-    // Verify that our tree has been generated. Look at the indices of our array representation.
-    printf("\nContents of tree trace: ");
-    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-        printf("[%d]", p->coalescent_tree[k]);
-    }
-    printf("\n");
-#endif
-    // Return our pointer to our tree to evolve. This is meant to be passed to the call of "evolve".
+
     return PyCapsule_New(p, NULL, NULL);
 }
 
@@ -82,19 +73,11 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
         return NULL;
 
     // Parse the population object generated from the trace call.
-    if (!(p = (PopulationTree *) PyCapsule_GetPointer(p_capsule, NULL)))
-        return NULL;
-#ifdef _DEBUGGING_POPULATION_ENABLED_
-    // Check if our tree still exists.
-    printf("\nContents of tree import: ");
-    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-        printf ("[%d]", p->coalescent_tree[k]);
-    }
-    printf("\n");
-#endif
+    if (!(p = (PopulationTree *) PyCapsule_GetPointer(p_capsule, NULL))) return NULL;
+
     // Verify that our list is not empty.
     int i_0_size = PyObject_Length(i_0_list);
-    if (i_0_size < 0) return NULL;
+    if (i_0_size <= 0) return NULL;
 
     // Reserve space for our seed array.
     int *i_0 = (int *) malloc(i_0_size * sizeof(int));
@@ -103,48 +86,26 @@ static PyObject *evolve (PyObject *self, PyObject *args) {
     for (int k = 0; k < i_0_size; k++) {
         i_0[k] = PyLong_AsLong(PyList_GetItem(i_0_list, k));
     }
-#ifdef _DEBUGGING_POPULATION_ENABLED_
-    // Verify that our seed lengths were properly imported.
-    printf("\nContents of seed length argument: ");
-    for (int k = 0; k < i_0_size; k++) {
-        printf ("[%d]", i_0[k]);
-    }
-    printf("\n");
-#endif
+
     // Evolve our population.
     _evolve(i_0, i_0_size, p);
     int *i_evolved = &(p->coalescent_tree[_triangle(2 * p->theta.n) - 2 * p->theta.n]);
-#ifdef _DEBUGGING_POPULATION_ENABLED_
-    // Peer into the contents of the repeat length determination step.
-    printf("\nResults of evolution: ");
-    for (int k = 0; k < _triangle(2 * p->theta.n); k++) {
-        printf ("[%d]", p->coalescent_tree[k]);
-    }
-    printf("\n");
-#endif
+
     // Store our evolved generation of ancestors in a Python list.
     PyObject *i_evolved_list = PyList_New(2 * p->theta.n);
     for (size_t k = 0; k != (size_t) 2 * p->theta.n; ++k) {
         PyList_SET_ITEM(i_evolved_list, k, PyLong_FromLong(i_evolved[k]));
     }
 
-    // Cleanup, and return our result.
     _cleanup(p);
     return i_evolved_list;
 }
 
-/**
- * Array of Python methods available for use in this module. A trace method and an evolve method.
- */
 static PyMethodDef popMethods[] = {
         {"trace",  trace,  METH_VARARGS, "Creates an evolutionary tree."},
         {"evolve", evolve, METH_VARARGS, "Evolves a given evolutionary tree."},
         {NULL,     NULL,   0,            NULL}
 };
-
-/**
- * A structure describing the module itself.
- */
 static struct PyModuleDef popModule = {
         PyModuleDef_HEAD_INIT,
         "pop",
@@ -152,10 +113,6 @@ static struct PyModuleDef popModule = {
         -1,
         popMethods
 };
-
-/**
- * Our initialization function for the module.
- */
 PyMODINIT_FUNC PyInit_pop (void) {
     return PyModule_Create(&popModule);
 }

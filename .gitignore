@@ -30,8 +30,8 @@ doc/build.sh
 *.ipynb_checkpoints*
 *.ipynb
 
-# Ignore the old folder, where we store all the old stuff ():<).
-old/*
+# Ignore the scratch folder, where we store all the old stuff ():<).
+scratch/*
 
 # Ignore the build folder.
 build/*
