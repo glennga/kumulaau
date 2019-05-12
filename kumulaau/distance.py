@@ -5,11 +5,9 @@ from typing import List, Callable, Sequence
 from argparse import Namespace
 from numba import jit
 
-# Location of the pool singleton.
 _pool_singleton = None
-
-# Location of the observed summary statistics vector (only accessed if cache flag is raised).
 _observed_sv = None
+_observed_v = None
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -116,7 +114,7 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: 
 
     # Generate all of our populations and save the generated data we are to compare to (bottleneck is here!!).
     sample_all = array(_pool_singleton.starmap(sample, [
-        (theta_proposed, _choose_ell_0(observations, theta_proposed.kappa, theta_proposed.omega))
+        (theta_proposed, _choose_ell_0(observations, theta_proposed.kappa, theta_proposed.omega, d.shape[0]))
         for _ in range(d.shape[0])
     ]), dtype=int8)
 
@@ -137,19 +135,24 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: 
             d[i, j] = _compute_d_entry(generated_sv[i], observed_sv[j], var_gsv)
 
 
-def _choose_ell_0(observations: Sequence, kappa: int, omega: int) -> List:
+def _choose_ell_0(observations: Sequence, kappa: int, omega: int, sample_n: int) -> List:
     """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
     from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
 
     :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
     :param kappa: Lower bound of our repeat length space.
     :param omega: Upper bound of our repeat length space.
+    :param sample_n: Number of samples to generate per distribution.
     :return: A single repeat length, wrapped in a list.
     """
     from kumulaau.observed import tuples_to_pool
     from numpy.random import choice
+    global _observed_v
 
-    return [min(omega, max(kappa, choice(tuples_to_pool(observations))))]
+    if _observed_v is None:
+        _observed_v = tuples_to_pool(observations, sample_n)
+
+    return [min(omega, max(kappa, choice(_observed_v)))]
 
 
 def get_arguments() -> Namespace:

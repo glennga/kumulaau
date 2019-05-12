@@ -97,13 +97,14 @@ def tuples_to_distribution_vector(tuples: Iterable, sample_n: int) -> ndarray:
                   for observation in tuples_to_dictionaries(tuples)])
 
 
-def tuples_to_pool(tuples: Iterable) -> List:
+def tuples_to_pool(tuples: Iterable, sample_n: int) -> List:
     """ Using the tuples representation, parse all repeat lengths that exist in this specific observation.
 
     :param tuples: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
+    :param sample_n: Number of samples to generate per distribution.
     :return: A 1D list of all repeat lengths associated with this observation.
     """
-    return list(set([a[0] for b in tuples for a in b]))
+    return [a for b in tuples_to_distribution_vector(tuples, sample_n) for a in b]
 
 
 def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: str) -> None:

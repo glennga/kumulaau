@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
         # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
-        log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
+        log = lumberjack.handler_factory(arguments.flush_n)
         summarize = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa_start, arguments.omega_start])
 
         # Determine our starting point and boundaries.

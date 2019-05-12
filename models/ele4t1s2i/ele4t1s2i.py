@@ -56,7 +56,7 @@ class Parameter4T1S2I(Parameter):
             self.n_b < self.n_s1 + self.n_s2 < self.n_e
 
 
-def sample_1T0S0I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
+def sample_4T1S2I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
     """ Generate a list of lengths of our 4T (four total) 1S (one splits) 2I (two intermediates) model.
 
     :param theta: Parameter4T1S2I set to use with tree tracing.
@@ -172,31 +172,29 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
-    from importlib import import_module
+    from ast import literal_eval
 
     arguments = get_arguments()  # Parse our arguments.
-
-    # Collect observations to compare to.
-    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
+    observations = literal_eval(arguments.observations)
 
     # Determine if we are continuing an MCMC run or starting a new one.
-    is_new_run = arguments.n_b is not None
+    is_new_run = arguments.n_start is not None
 
     # Connect to our results database.
     with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:
 
         if is_new_run:  # Record our observations and experiment parameters.
-            lumberjack.record_observed(observations, map(lambda a, b: a + b, arguments.uid, arguments.loci))
+            lumberjack.record_observed(observations)
             lumberjack.record_expr(list(vars(arguments).keys()), list(vars(arguments).values()))
 
-        # Construct the walk, distance, and log functions based on our given arguments.
+        # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_4T1S2I(a, Parameter4T1S2I.from_namespace(arguments, lambda b: b + '_sigma'))
-        delta = getattr(import_module('kumulaau.distance'), arguments.delta_f + '_delta')
-        log = lambda a, b: lumberjack.handler(a, b, arguments.flush_n)
+        log = lumberjack.handler_factory(arguments.flush_n)
+        summarize = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa_start, arguments.omega_start])
 
         # Determine our starting point and boundaries.
-        if arguments.n_b is not None:
-            theta_0 = Parameter4T1S2I.from_namespace(arguments)
+        if is_new_run:
+            theta_0 = Parameter4T1S2I.from_namespace(arguments, lambda a: a + '_start')
             boundaries = [0, arguments.iterations_n]
         else:
             theta_0 = Parameter4T1S2I(**lumberjack.retrieve_last_theta())
@@ -204,6 +202,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.ele.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
+        kumulaau.ele.run(walk=walk, sample=sample_4T1S2I, summarize=summarize, log_handler=log,
                          theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
                          boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)
