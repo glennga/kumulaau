@@ -4,7 +4,7 @@ set -e
 SCRIPT_DIR=$(dirname "$0")
 
 # Load all of our configurations.
-source ${SCRIPT_DIR}/ele1t0s0i.expr
+source ${SCRIPT_DIR}/ele4t1s2i.expr
 
 SAMPLE_UIDS=(); SAMPLE_LOCI=()
 for r in $(sqlite3 ${ODB} "${OBSERVATION_STARTING_SQL}"); do
@@ -19,17 +19,24 @@ OBSERVATIONS=$(python3 kumulaau/observed.py \
 	-loci ${SAMPLE_LOCI})
 
 i_run=1  # Run once to get parameters to use for following runs.
-source ${SCRIPT_DIR}/ele1t0s0i.sh
+source ${SCRIPT_DIR}/ele4t1s2i.sh
 
 # Generate new observations to use, using the MLE from the past run.
-OBSERVATIONS=$(python3 ${SCRIPT_DIR}/ele1t0s0i.gen \
+OBSERVATIONS=$(python3 ${SCRIPT_DIR}/ele4t1s2i.gen \
 	-odb ${ODB} \
 	-uid ${SAMPLE_UIDS} \
 	-loci ${SAMPLE_LOCI} \
 	-observation_n ${OBSERVATION_N} \
 	-simulation_n ${SIMULATION_N} \
-	-n $(sqlite3 ${MDB} "SELECT CAST(AVG(N) AS INTEGER) FROM ELE1T0S0I_MODEL;") \
-	-f $(sqlite3 ${MDB} "SELECT AVG(F) FROM ELE1T0S0I_MODEL;") \
+	-n_b $(sqlite3 ${MDB} "SELECT CAST(AVG(N_B) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-n_s1 $(sqlite3 ${MDB} "SELECT CAST(AVG(N_S1) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-n_s2 $(sqlite3 ${MDB} "SELECT CAST(AVG(N_S2) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-n_e $(sqlite3 ${MDB} "SELECT CAST(AVG(N_E) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-f_b $(sqlite3 ${MDB} "SELECT CAST(AVG(F_B) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-f_s1 $(sqlite3 ${MDB} "SELECT CAST(AVG(F_S1) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-f_s2 0.0 \
+	-f_e $(sqlite3 ${MDB} "SELECT CAST(AVG(F_E) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
+	-alpha $(sqlite3 ${MDB} "SELECT CAST(AVG(ALPHA) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
 	-c $(sqlite3 ${MDB} "SELECT AVG(C) FROM ELE1T0S0I_MODEL;") \
 	-d $(sqlite3 ${MDB} "SELECT AVG(D) FROM ELE1T0S0I_MODEL;") \
 	-kappa $(sqlite3 ${MDB} "SELECT CAST(AVG(KAPPA) AS INTEGER) FROM ELE1T0S0I_MODEL;") \
@@ -37,7 +44,7 @@ OBSERVATIONS=$(python3 ${SCRIPT_DIR}/ele1t0s0i.gen \
 
 # Repeat MCMC_CHAINS times.
 for ((j=2; j<=${MCMC_CHAINS}; j++)); do
-    source ${SCRIPT_DIR}/ele1t0s0i.sh
+    source ${SCRIPT_DIR}/ele4t1s2i.sh
 done
 
 # Clean up the output.

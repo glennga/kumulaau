@@ -130,11 +130,9 @@ def get_arguments() -> Namespace:
     parser = ArgumentParser(description='ELE MCMC for microsatellite mutation model 4T1S2I parameter estimation.')
 
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
-        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
-        ['-mdb', 'Location of the database to record to.', str, None, 'data/ele4t1s2i.db', None],
-        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
-        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
-        ['-delta_f', 'Distance function to use.', str, None, None, ['cosine', 'euclidean', 'js']],
+        ['-mdb', 'Location of the database to record to.', str, None, 'data/abc1t0s0i.db', None],
+        ['-observations', 'String of tuple representation of observations.', str, None, None, None],
+        ['-summary', 'Summary statistics to use.', str, '*', None, ['mean', 'deviation', 'frequency']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
@@ -178,7 +176,7 @@ if __name__ == '__main__':
     observations = literal_eval(arguments.observations)
 
     # Determine if we are continuing an MCMC run or starting a new one.
-    is_new_run = arguments.n_start is not None
+    is_new_run = arguments.n_b_start is not None
 
     # Connect to our results database.
     with RecordSQLite(arguments.mdb, MODEL_NAME, MODEL_SQL, is_new_run) as lumberjack:

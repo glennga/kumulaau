@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+from ele4t1s2i import sample_4T1S2I, Parameter4T1S2I
+from argparse import Namespace
+from kumulaau import *
+
+
+def get_arguments() -> Namespace:
+    """ Create the CLI and parse the arguments.
+
+    :return: Namespace of all values.
+    """
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description='Observation generator for 4T1S2I model.')
+
+    list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
+        ['-odb', 'Location of the observed database file.', str, None, 'data/observed.db', None],
+        ['-uid', 'IDs of observed samples to compare to.', str, '+', None, None],
+        ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
+        ['-observation_n', 'Number of observations to generate.', int, None, None, None],
+        ['-simulation_n', 'Number of simulations used to obtain a distance.', int, None, None, None],
+        ['-n_b', 'Population size for common ancestor.', int, None, None, None],
+        ['-n_s1', 'Population size for intermediate 1.', int, None, None, None],
+        ['-n_s2', 'Population size for intermediate 2.', int, None, None, None],
+        ['-n_e', 'Population size for end population.', int, None, None, None],
+        ['-f_b', 'Scaling factor for common ancestor mutation rate.', float, None, None, None],
+        ['-f_s1', 'Scaling factor for intermediate 1 mutation rate.', float, None, None, None],
+        ['-f_s2', '**not used**, but must be specified.', float, None, None, None],
+        ['-f_e', 'Scaling factor for end population mutation rate.', float, None, None, None],
+        ['-alpha', 'Admixture factor between S1 and S2, between [0, 1].', float, None, None, None],
+        ['-c', 'Constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d', 'Linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa', 'Lower bound of repeat lengths.', int, None, None, None],
+        ['-omega', 'Upper bound of repeat lengths.', int, None, None, None],
+    ]))
+
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    from random import choice
+
+    arguments = get_arguments()  # Parse our arguments.
+
+    # Again, we treat the starting length as a nuisance parameter and choose from some existing set of observations.
+    observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
+    choose_ell_0 = lambda: [choice(observed.tuples_to_pool(observations, arguments.simulation_n))]
+    theta = Parameter4T1S2I.from_namespace(arguments)
+    theta.f_s2 = (theta.n_s1 * theta.f_s1) / theta.n_s2  # We assume n_s2 is positive.
+
+    print(observed.generate_tuples(lambda: sample_4T1S2I(theta, choose_ell_0()), arguments.observation_n))

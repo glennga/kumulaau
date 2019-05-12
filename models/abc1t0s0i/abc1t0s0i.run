@@ -27,6 +27,7 @@ OBSERVATIONS=$(python3 ${SCRIPT_DIR}/abc1t0s0i.gen \
 	-uid ${SAMPLE_UIDS} \
 	-loci ${SAMPLE_LOCI} \
 	-observation_n ${OBSERVATION_N} \
+	-simulation_n ${SIMULATION_N} \
 	-n $(sqlite3 ${MDB} "SELECT CAST(AVG(N) AS INTEGER) FROM ABC1T0S0I_MODEL;") \
 	-f $(sqlite3 ${MDB} "SELECT AVG(F) FROM ABC1T0S0I_MODEL;") \
 	-c $(sqlite3 ${MDB} "SELECT AVG(C) FROM ABC1T0S0I_MODEL;") \

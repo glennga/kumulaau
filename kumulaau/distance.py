@@ -114,7 +114,7 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: 
 
     # Generate all of our populations and save the generated data we are to compare to (bottleneck is here!!).
     sample_all = array(_pool_singleton.starmap(sample, [
-        (theta_proposed, _choose_ell_0(observations, theta_proposed.kappa, theta_proposed.omega, d.shape[0]))
+        (theta_proposed, _choose_ell_0(observations, d.shape[0]))
         for _ in range(d.shape[0])
     ]), dtype=int8)
 
@@ -135,13 +135,11 @@ def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: 
             d[i, j] = _compute_d_entry(generated_sv[i], observed_sv[j], var_gsv)
 
 
-def _choose_ell_0(observations: Sequence, kappa: int, omega: int, sample_n: int) -> List:
+def _choose_ell_0(observations: Sequence, sample_n: int) -> List:
     """ We treat the starting repeat length ancestor as a nuisance parameter. We randomly choose a repeat length
-    from our observed samples. If this choice exceeds our bounds, we choose our bounds instead.
+    from our observed samples.
 
     :param observations: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param kappa: Lower bound of our repeat length space.
-    :param omega: Upper bound of our repeat length space.
     :param sample_n: Number of samples to generate per distribution.
     :return: A single repeat length, wrapped in a list.
     """
@@ -152,7 +150,7 @@ def _choose_ell_0(observations: Sequence, kappa: int, omega: int, sample_n: int)
     if _observed_v is None:
         _observed_v = tuples_to_pool(observations, sample_n)
 
-    return [min(omega, max(kappa, choice(_observed_v)))]
+    return [choice(_observed_v)]
 
 
 def get_arguments() -> Namespace:

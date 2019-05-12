@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+# Location of the observed database.
+ODB="data/observed.db"
+
+# Location of the database to save our results to.
+MDB="data/ele4t1s2i.db"
+
+# SQL to obtain UID, LOCI of starting observations.
+OBSERVATION_STARTING_SQL="
+	SELECT DISTINCT SAMPLE_UID, LOCUS
+	FROM OBSERVED_ELL
+	WHERE LOCUS LIKE 'D16S539'
+	AND POP_UID LIKE 'PO000503I'
+	LIMIT 5;
+"
+
+# Number of observations to generate after finding a MLE.
+OBSERVATION_N=5
+
+# Number of times to run entire **bash** script (number of samples for experiment).
+MCMC_CHAINS=10
+
+# Number of times to run entire MCMC python script.
+MCMC_LINKS=50
+
+# Number of generated samples to produce per MCMC iteration.
+SIMULATION_N=100
+
+# Exponential decay rate for weight vector used in regression (a=1).
+R=0.5
+
+# Number of bins used to construct histogram.
+BIN_N=500
+
+# Summary statistics to use.
+SUMMARY=(
+	"mean"
+	"deviation"
+	"frequency"
+)
+
+# Number of iterations to run a single MCMC python script for.
+ITERATIONS_N=1001
+
+# Number of iterations to run MCMC for before flushing to disk.
+FLUSH_N=500
+
+# Starting parameters for our MCMC given below (kept same across all MCMCs).
+N_B_START=10  # Starting population size for ancestor.
+N_S1_START=10  # Starting population size for split 1.
+N_S2_START=10  # Starting population size for split 2.
+N_E_START=100  # Starting population size for resultant.
+F_B_START=100  # Scaling factor for ancestor.
+F_S1_START=100  # Scaling factor for split 1.
+F_S2_START=$(echo "(${N_S1_START} * ${F_S1_START} / ${N_S2_START})" | bc)  # Not used.
+F_E_START=50  # Scaling factor for resultant.
+ALPHA_START=0.5  # Admixture factor.
+C_START=0.00010  # Constant bias for the upward mutation rate.
+D_START=0.00001  # Linear bias for the downward mutation rate.
+KAPPA_START=3  # Lower bound of repeat lengths.
+OMEGA_START=30  # Upper bound of repeat lengths.
+
+# Step size parameters for MCMC walking (kept same across all MCMCs).
+N_B_SIGMA=5.0  # Starting population size for ancestor.
+N_S1_SIGMA=5.0  # Starting population size for split 1.
+N_S2_SIGMA=5.0  # Starting population size for split 2.
+N_E_SIGMA=5.0  # Starting population size for resultant.
+F_B_SIGMA=5.0  # Scaling factor for ancestor.
+F_S1_SIGMA=5.0  # Scaling factor for split 1.
+F_S2_SIGMA=0  # Not used.
+F_E_SIGMA=5.0  # Scaling factor for resultant.
+ALPHA_SIGMA=0.1  # Admixture factor.
+C_SIGMA=0.0  # Constant bias for the upward mutation rate.
+D_SIGMA=0.0  # Linear bias for the downward mutation rate.
+KAPPA_SIGMA=0.0  # Lower bound of repeat lengths.
+OMEGA_SIGMA=0.0  # Upper bound of repeat lengths.
