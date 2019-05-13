@@ -19,7 +19,7 @@ def _mean_length(sample: ndarray, kappa: int, omega: int) -> float:
     :param omega: Repeat length upper bound.
     :return: Mean length of sample, normalized to the repeat length space.
     """
-    return mean(sample) / float(omega - kappa)
+    return mean(sample) # / float(omega - kappa)
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -31,7 +31,7 @@ def _deviation_length(sample: ndarray, kappa: int, omega: int) -> float:
     :param omega: Repeat length upper bound.
     :return: Deviation of sample, normalized to the repeat length space.
     """
-    return std(sample) / float(omega - kappa)
+    return std(sample) # / float(omega - kappa)
 
 
 @jit(nopython=True, nogil=True, target='cpu', parallel=True)
@@ -41,7 +41,7 @@ def _frequency_length(sample: ndarray) -> float:
     :param sample: Vector of repeat lengths.
     :return: Frequency of the mean repeat length in sample.
     """
-    return len(sample[nonzero(sample == int(round(mean(sample))))]) / float(sample.size)
+    return len(sample[nonzero(sample == int(round(mean(sample))))]) # / float(sample.size)
 
 
 def summary_factory(summary: List, bounds: Sequence = None) -> Callable:
@@ -87,8 +87,8 @@ def _compute_d_entry(generated_s: ndarray, observed_s: ndarray, var_gsv: ndarray
     :param var_gsv: Column-wise variations of our simulated summary statistics matrix.
     :return: Distance between our generated and observed sample.
     """
-    return norm(generated_s - observed_s)
-    # return sqrt(sum(((generated_s - observed_s) ** 2) / var_gsv))
+    # return norm(generated_s - observed_s)
+    return sqrt(sum(((generated_s - observed_s) ** 2) / var_gsv)) / 10.0
 
 
 def populate_d(d: ndarray, observations: Sequence, sample: Callable, summarize: Callable, theta_proposed,
