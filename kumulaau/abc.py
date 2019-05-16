@@ -33,7 +33,7 @@ def _likelihood_from_h(h: ndarray) -> float:
     return 0 if col_sum == 0 else exp(col_sum)
 
 
-def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Callable, theta_0,
+def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0,
         observed: Sequence, simulation_n: int, boundaries: Sequence, epsilon: float) -> None:
     """ A MCMC algorithm to approximate the posterior distribution of a generic model, whose acceptance to the
     chain is determined by some distance between repeat length distributions. My interpretation of this
@@ -52,7 +52,7 @@ def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Call
 
     :param walk: Function that accepts some parameter set and returns another parameter set.
     :param sample: Function that produces a collection of repeat lengths (i.e. the model function).
-    :param summarize: Function that computes a vector of summary statistics to describe a sample.
+    :param delta: Frequency distribution distance function. 0 = exact match, 1 = maximally dissimilar.
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
@@ -82,7 +82,7 @@ def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Call
         d = zeros((simulation_n, len(observed)), dtype='float64')
 
         # Populate D, then H.
-        populate_d(d, observed, sample, summarize, theta_proposed)
+        populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
         _populate_h(h, d, epsilon)
 
         # Accept our proposal according to our alpha value. Metropolis sampling.

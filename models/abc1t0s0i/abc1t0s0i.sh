@@ -16,9 +16,10 @@ python3 ${SCRIPT_DIR}/abc1t0s0i.py \
 	-observations "${OBSERVATIONS}" \
 	-simulation_n ${SIMULATION_N} \
 	-epsilon ${EPSILON} \
-	-summary ${SUMMARY[*]} \
+	-delta ${DELTA} \
 	-iterations_n ${ITERATIONS_N} \
 	-flush_n ${FLUSH_N} \
+	-i_0_start ${I_0_START} -i_0_sigma ${I_0_SIGMA} \
 	-n_start ${N_START} -n_sigma ${N_SIGMA} \
 	-f_start ${F_START} -f_sigma ${F_SIGMA} \
 	-c_start ${C_START} -c_sigma ${C_SIGMA} \
@@ -35,15 +36,16 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
         -observations "${OBSERVATIONS}" \
 		-simulation_n ${SIMULATION_N} \
 		-epsilon ${EPSILON} \
-		-summary ${SUMMARY[*]} \
+		-delta ${DELTA} \
 		-iterations_n ${ITERATIONS_N} \
 		-flush_n ${FLUSH_N} \
+		-i_0_sigma ${I_0_SIGMA} \
 		-n_sigma ${N_SIGMA} \
 		-f_sigma ${F_SIGMA} \
 		-c_sigma ${C_SIGMA} \
 		-d_sigma ${D_SIGMA} \
-		-kappa_start ${KAPPA_START} -kappa_sigma ${KAPPA_SIGMA} \
-		-omega_start ${OMEGA_START} -omega_sigma ${OMEGA_SIGMA}
+		-kappa_sigma ${KAPPA_SIGMA} \
+		-omega_sigma ${OMEGA_SIGMA}
     clean_line
 done
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from argparse import Namespace
-from typing import Sequence
 from numpy import ndarray
 from kumulaau import *
 
@@ -8,16 +7,17 @@ from kumulaau import *
 MODEL_NAME = "ELE4T1S2I"
 
 # The model SQL associated with model database.
-MODEL_SQL = "N_B INT, N_S1 INT, N_S2 INT, N_E INT, " \
+MODEL_SQL = "I_0 INT, N_B INT, N_S1 INT, N_S2 INT, N_E INT, " \
             "F_B FLOAT, F_S1 FLOAT, F_S2 FLOAT, F_E FLOAT " \
             "ALPHA FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 
 class Parameter4T1S2I(Parameter):
-    def __init__(self, n_b: int, n_s1: int, n_s2: int, n_e: int, f_b: float, f_s1: float, f_s2: float, f_e: float,
-                 alpha: float, c: float, d: float, kappa: int, omega: int):
+    def __init__(self, i_0: int, n_b: int, n_s1: int, n_s2: int, n_e: int, f_b: float, f_s1: float, f_s2: float,
+                 f_e: float, alpha: float, c: float, d: float, kappa: int, omega: int):
         """ Constructor. This is just meant to be a data class for the 4T1S2I model.
 
+        :param i_0: Common ancestor repeat length (where to start mutating from).
         :param n_b: Population size of common ancestor population.
         :param n_s1: Population size of common ancestor descendant one.
         :param n_s2: Population size of common ancestor descendant two.
@@ -34,7 +34,7 @@ class Parameter4T1S2I(Parameter):
         self.n_b, self.n_s1, self.n_s2, self.n_e, self.f_b, self.f_s1, self.f_s2, self.f_e, self.alpha = \
             round(n_b), round(n_s1), round(n_s2), round(n_e), f_b, f_s1, f_s2, f_e, alpha
 
-        super().__init__(c, d, kappa, omega)
+        super().__init__(i_0, c, d, kappa, omega)
 
     def validity(self) -> bool:
         """ Determine if a current parameter set is valid. We constrain the following:
@@ -51,23 +51,25 @@ class Parameter4T1S2I(Parameter):
         return self.n_b > 0 and self.n_s1 > 0 and self.n_s2 > 0 and self.n_e > 0 and \
             self.f_b >= 0 and self.f_s1 >= 0 and self.f_s2 >= 0 and self.f_e >= 0 and \
             self.c > 0 and self.d >= 0 and \
-            0 < self.kappa < self.omega and \
+            0 < self.kappa <= self.i_0 <= self.omega and \
             0 < self.alpha < 0.5 and \
             self.n_b < self.n_s1 + self.n_s2 < self.n_e
 
 
-def sample_4T1S2I(theta: Parameter4T1S2I, i_0: Sequence) -> ndarray:
+def sample_4T1S2I(theta: Parameter4T1S2I) -> ndarray:
     """ Generate a list of lengths of our 4T (four total) 1S (one splits) 2I (two intermediates) model.
 
     :param theta: Parameter4T1S2I set to use with tree tracing.
-    :param i_0: Seed lengths associated with tree.
     :return: List of repeat lengths.
     """
     from numpy.random import normal, shuffle
     from numpy import concatenate
 
     # Create and evolve our common ancestor tree.
-    common_ancestors = model.evolve(model.trace(theta.n_b, theta.f_b, theta.c, theta.d, theta.kappa, theta.omega), i_0)
+    common_ancestors = model.evolve(
+        model.trace(theta.n_b, theta.f_b, theta.c, theta.d, theta.kappa, theta.omega),
+        theta.i_0
+    )
 
     # Determine our descendant inputs. Normally distributed around alpha.
     split_alpha = int(round(abs(normal(theta.alpha, 0.2)) * len(common_ancestors)))
@@ -107,7 +109,8 @@ def walk_4T1S2I(theta, walk_params) -> Parameter4T1S2I:
     f_s2 = (n_s1 * f_s1) / n_s2 if n_s2 > 0 else 0  # Avoid DBZ error, decorator will generate new parameters anyway.
 
     # Draw from multivariate normal distribution for the rest.
-    return Parameter4T1S2I(n_b=round(normal(theta.n_b, walk_params.n_b)),
+    return Parameter4T1S2I(i_0=round(normal(theta.i_0, walk_params.i_0)),
+                           n_b=round(normal(theta.n_b, walk_params.n_b)),
                            n_s1=n_s1, n_s2=n_s2,
                            n_e=round(normal(theta.n_e, walk_params.n_e)),
                            f_b=normal(theta.f_b, walk_params.f_b),
@@ -132,25 +135,27 @@ def get_arguments() -> Namespace:
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-mdb', 'Location of the database to record to.', str, None, 'data/abc1t0s0i.db', None],
         ['-observations', 'String of tuple representation of observations.', str, None, None, None],
-        ['-summary', 'Summary statistics to use.', str, '*', None, ['mean', 'deviation', 'frequency']],
+        ['-delta', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-r', "Exponential decay rate for weight vector used in regression (a=1).", float, None, None, None],
         ['-bin_n', "Number of bins used to construct histogram.", int, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
-        ['-n_b', 'Population size for common ancestor.', int, None, None, None],
-        ['-n_s1', 'Population size for intermediate 1.', int, None, None, None],
-        ['-n_s2', 'Population size for intermediate 2.', int, None, None, None],
-        ['-n_e', 'Population size for end population.', int, None, None, None],
-        ['-f_b', 'Scaling factor for common ancestor mutation rate.', float, None, None, None],
-        ['-f_s1', 'Scaling factor for intermediate 1 mutation rate.', float, None, None, None],
-        ['-f_s2', 'Scaling factor for intermediate 2 mutation rate.', float, None, None, None],
-        ['-f_e', 'Scaling factor for end population mutation rate.', float, None, None, None],
-        ['-alpha', 'Admixture factor between S1 and S2, between [0, 1].', float, None, None, None],
-        ['-c', 'Constant bias for the upward mutation rate.', float, None, None, None],
-        ['-d', 'Linear bias for the downward mutation rate.', float, None, None, None],
-        ['-kappa', 'Lower bound of repeat lengths.', int, None, None, None],
-        ['-omega', 'Upper bound of repeat lengths.', int, None, None, None],
+        ['-i_0_start', 'Starting ancestor repeat length.', int, None, None, None],
+        ['-n_b_start', 'Population size for common ancestor.', int, None, None, None],
+        ['-n_s1_start', 'Population size for intermediate 1.', int, None, None, None],
+        ['-n_s2_start', 'Population size for intermediate 2.', int, None, None, None],
+        ['-n_e_start', 'Population size for end population.', int, None, None, None],
+        ['-f_b_start', 'Scaling factor for common ancestor mutation rate.', float, None, None, None],
+        ['-f_s1_start', 'Scaling factor for intermediate 1 mutation rate.', float, None, None, None],
+        ['-f_s2_start', 'Scaling factor for intermediate 2 mutation rate.', float, None, None, None],
+        ['-f_e_start', 'Scaling factor for end population mutation rate.', float, None, None, None],
+        ['-alpha_start', 'Admixture factor between S1 and S2, between [0, 1].', float, None, None, None],
+        ['-c_start', 'Constant bias for the upward mutation rate.', float, None, None, None],
+        ['-d_start', 'Linear bias for the downward mutation rate.', float, None, None, None],
+        ['-kappa_start', 'Lower bound of repeat lengths.', int, None, None, None],
+        ['-omega_start', 'Upper bound of repeat lengths.', int, None, None, None],
+        ['-i_0_sigma', 'Step size of i_0 when changing parameters.', float, None, None, None],
         ['-n_b_sigma', 'Step size of n_b when changing parameters.', float, None, None, None],
         ['-n_s1_sigma', 'Step size of n_s1 when changing parameters.', float, None, None, None],
         ['-n_s2_sigma', 'Step size of n_s2 when changing parameters.', float, None, None, None],
@@ -170,6 +175,7 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
+    from importlib import import_module
     from ast import literal_eval
 
     arguments = get_arguments()  # Parse our arguments.
@@ -188,7 +194,7 @@ if __name__ == '__main__':
         # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_4T1S2I(a, Parameter4T1S2I.from_namespace(arguments, lambda b: b + '_sigma'))
         log = lumberjack.handler_factory(arguments.flush_n)
-        summarize = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa_start, arguments.omega_start])
+        delta = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
 
         # Determine our starting point and boundaries.
         if is_new_run:
@@ -200,6 +206,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.ele.run(walk=walk, sample=sample_4T1S2I, summarize=summarize, log_handler=log,
+        kumulaau.ele.run(walk=walk, sample=sample_4T1S2I, delta=delta, log_handler=log,
                          theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
                          boundaries=boundaries, r=arguments.r, bin_n=arguments.bin_n)

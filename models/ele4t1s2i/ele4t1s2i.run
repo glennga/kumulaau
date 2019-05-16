@@ -28,6 +28,7 @@ OBSERVATIONS=$(python3 ${SCRIPT_DIR}/ele4t1s2i.gen \
 	-loci ${SAMPLE_LOCI} \
 	-observation_n ${OBSERVATION_N} \
 	-simulation_n ${SIMULATION_N} \
+	-i_0 $(sqlite3 ${MDB} "SELECT CAST(AVG(I_0) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
 	-n_b $(sqlite3 ${MDB} "SELECT CAST(AVG(N_B) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
 	-n_s1 $(sqlite3 ${MDB} "SELECT CAST(AVG(N_S1) AS INTEGER) FROM ELE4T1S2I_MODEL;") \
 	-n_s2 $(sqlite3 ${MDB} "SELECT CAST(AVG(N_S2) AS INTEGER) FROM ELE4T1S2I_MODEL;") \

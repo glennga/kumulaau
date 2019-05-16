@@ -19,6 +19,7 @@ def get_arguments() -> Namespace:
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-observation_n', 'Number of observations to generate.', int, None, None, None],
         ['-simulation_n', 'Number of simulations used to obtain a distance.', int, None, None, None],
+        ['-i_0', 'Starting ancestor repeat length.', int, None, None, None],
         ['-n', 'Starting sample size (population size).', int, None, None, None],
         ['-f', 'Starting scaling factor for total mutation rate.', float, None, None, None],
         ['-c', 'Starting constant bias for the upward mutation rate.', float, None, None, None],
@@ -31,12 +32,8 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
-    from random import choice
-
     arguments = get_arguments()  # Parse our arguments.
 
-    # Again, we treat the starting length as a nuisance parameter and choose from some existing set of observations.
     observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
-    choose_ell_0 = lambda: [choice(observed.tuples_to_pool(observations, arguments.simulation_n))]
-    generator = lambda: sample_1T0S0I(Parameter1T0S0I.from_namespace(arguments), choose_ell_0())
+    generator = lambda: sample_1T0S0I(Parameter1T0S0I.from_namespace(arguments))
     print(observed.generate_tuples(generator, arguments.observation_n))

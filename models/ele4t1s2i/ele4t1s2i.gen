@@ -19,6 +19,7 @@ def get_arguments() -> Namespace:
         ['-loci', 'Loci of observed samples (must match with uid).', str, '+', None, None],
         ['-observation_n', 'Number of observations to generate.', int, None, None, None],
         ['-simulation_n', 'Number of simulations used to obtain a distance.', int, None, None, None],
+        ['-i_0', 'Starting ancestor repeat length.', int, None, None, None],
         ['-n_b', 'Population size for common ancestor.', int, None, None, None],
         ['-n_s1', 'Population size for intermediate 1.', int, None, None, None],
         ['-n_s2', 'Population size for intermediate 2.', int, None, None, None],
@@ -38,14 +39,10 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
-    from random import choice
-
     arguments = get_arguments()  # Parse our arguments.
 
-    # Again, we treat the starting length as a nuisance parameter and choose from some existing set of observations.
     observations = observed.extract_alfred_tuples(zip(arguments.uid, arguments.loci), arguments.odb)
-    choose_ell_0 = lambda: [choice(observed.tuples_to_pool(observations, arguments.simulation_n))]
     theta = Parameter4T1S2I.from_namespace(arguments)
     theta.f_s2 = (theta.n_s1 * theta.f_s1) / theta.n_s2  # We assume n_s2 is positive.
 
-    print(observed.generate_tuples(lambda: sample_4T1S2I(theta, choose_ell_0()), arguments.observation_n))
+    print(observed.generate_tuples(lambda: sample_4T1S2I(theta), arguments.observation_n))

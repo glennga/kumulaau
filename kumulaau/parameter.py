@@ -5,18 +5,18 @@ from typing import Callable
 
 
 class Parameter(ABC):
-    def __init__(self, c: float, d: float, kappa: int, omega: int, **kwargs):
-        """ Every model involves the same mutation model (for now). This involves the parameters c, d, and our bounds
-        [kappa, omega]. Model specific parameters are specified in the kwargs argument. Call of base constructor must
-        use keyword arguments.
+    def __init__(self, i_0: int, c: float, d: float, kappa: int, omega: int, **kwargs):
+        """ Every model involves the same mutation model (for now). This involves the parameters i_0, c, d, and
+        our bounds [kappa, omega]. Model specific parameters are specified in the kwargs argument. Call of base
+        constructor must use keyword arguments.
 
+        :param i_0: Common ancestor repeat length (where to start mutating from).
         :param c: Constant bias for the upward mutation rate.
         :param d: Linear bias for the downward mutation rate.
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        # Set our mutation model parameters.
-        self.c, self.d, self.kappa, self.omega = c, d, kappa, omega
+        self.i_0, self.c, self.d, self.kappa, self.omega = i_0, c, d, kappa, omega
 
         # Set our model specific parameters.
         self.__dict__.update(kwargs)

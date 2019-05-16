@@ -40,17 +40,18 @@ The `Parameter` class is an ABC which holds all parameters associated with a giv
 from kumulaau import Parameter
 
 class MyParameter(Parameter):
-    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+    def __init__(self, i_0:int, n: int, f: float, c: float, d: float, kappa: int, omega: int):
         # Requirement: Call of base constructor uses keyword arguments.
-        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)  
+        super().__init__(i_0=i_0, n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)  
 		
     def validity(self): 
-        return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
+        return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa <= self.i_0 <= self.omega
 ```
 
 Aside from holding the parameters, an implementation of `Parameter` also allows one to construct an instance of this implementation given a namespace and some transformation function. This allows one to use a package like `argparse` with ease:
 ```python
 parser = ArgumentParser()
+parser.add_argument('-i_0', type=int)
 parser.add_argument('-n', type=int)
 parser.add_argument('-f', type=float)
 parser.add_argument('-c', type=float)
@@ -62,6 +63,7 @@ theta = MyParameter.from_namespace(parser.parse_args())
 The *transform* argument to this function allows one to instantiate a `Parameter` implementation using names with a suffix or prefix to the parameters themselves:
 ```python
 parser = ArgumentParser()
+parser.add_argument('-n_i_0_sp', type=int)
 parser.add_argument('-n_sp', type=int)
 parser.add_argument('-f_sp', type=float)
 parser.add_argument('-c_sp', type=float)
@@ -79,6 +81,7 @@ The `model` module holds all functions required to simulate the evolution of a s
 
 | Parameter          | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
+| i_0                | Starting ancestor repeat length.                             |
 | n                  | Starting population size.                                    |
 | f                  | Scaling factor for total mutation rate.                      |
 | c                  | Constant bias for the upward mutation rate.                  |
@@ -86,7 +89,7 @@ The `model` module holds all functions required to simulate the evolution of a s
 | kappa              | Lower bound of repeat lengths.                               |
 | omega              | Upper bound of repeat lengths.                               |
 
-The second function, `evolve` accepts two parameters: the first is the result of the `trace` call and the second is an iterable of seed lengths (i.e. ancestors). The length of this iterable must be a triangle number, to avoid misshapen topologies.
+The second function, `evolve` accepts two parameters: the first is the result of the `trace` call and the second is an iterable of seed lengths (i.e. ancestors). 
 
 ### Usage of `kumulaau.observed`
 
@@ -117,21 +120,13 @@ To distinguish population samples here, one must specify two items: `SAMPLE_UID`
 
 ### Usage of `kumulaau.distance`
 
-The `distance` module holds all functions associated with describing the different between two populations of microsatellites. We offer three different statistics: `mean`, `deviation`, and `frequency`. The latter statistic describes the frequency of the mean repeat length. The method of importance here is `summary_factory`, which creates a compiled function to compute a vector of summary statistics to use to compare two populations.
+The `distance` module holds all functions associated with finding the average distance and/or likelihood between an observed distribution in (length, frequency) tuple form, and the result of several `kumulaau.evolve` calls. *The following paragraphs explain the mechanics behind our ABC approach for approximating likelihood. The most important functions (as far as a user is concerned) out of this package are `cosine_delta` and `euclidean_delta` which allow one to use the angular distance or Euclidean distance to quantify difference between an observation and simulation.*
 
-```python
-from kumulaau import distance
-
-summarizer = distance.summary_factory(['mean', 'deviation', 'frequency'], [3, 30])
-```
-
-*The following paragraphs describe the internals behind finding the likelihood of some parameter set $\theta$ given observations.* This is split into two phases: a shape definition phase and a matrix population phase. 
-
-The shape definition phase is specified by `generate_hdo`, which returns a binary match matrix $H$ (rows = `kumulaau.evolve` result, columns = observed distribution, enter 1 if the computed distance falls below some $\epsilon$, otherwise 0), a distance matrix $D$ (rows = `kumulaau.evolve` result, columns = observed distribution, enter distance between a simulation and observation), and a sparse observation matrix $O$ (rows = repeat length, columns = observation, enter frequency of repeat length associated with that observation). In this phase, only the $O$ matrix is populated while the $H$ and $D$ matrices's shape is defined. This call accepts our observations in base representation, the number of `kumulaau.evolve` instances desired (*simulation_n*), and the bounds of our repeat length space (*bounds*). This call returns a namespace holding all matrices, as well as the observations and bounds used to create these matrices.
+We find the average distance and/or likelihood or some parameter set $\theta$ given observations with two phases: a shape definition phase and a matrix population phase. 
 
 The matrix population phase fills in the entries of the $H​$ and $D​$ matrices, and is specified by the `populate_hd` call. There are five parameters required here: the result from our `generate_hdo` call, a function that returns the result of a `kumulaau.evolve` call given some parameter set $\theta​$ (*sample*) and common ancestor length $\ell​$, a function that computes the distance between an observed distribution and a `kumulaau.evolve` call (*delta*), the parameter set $\theta​$ of interest (*theta_proposed*), and an $\epsilon​$ term that defines what a match is. What follows is:
 
-1. We collect the result of calling $sample(\theta_{proposed}, \ell)$ *simulation_n* times. $\ell$ is treated as a nuisance parameter and is sampled randomly from the lengths in our observations.
+1. We collect the result of calling $sample(\theta_{proposed}, \ell)$ *simulation_n* times. 
 2. We iterate through each generated sample and observed sample, compute the distance to save to $D$, and fill our $H$ matrix accordingly (1 if $D$ entry $< \epsilon​$, 0 otherwise).
 3. The expected distance (mean of all entries in $D$), the $D$ matrix itself, and the $H$ matrix itself are returned in a namespace.
 
@@ -144,8 +139,8 @@ There exists only one method associated with this module: `run`, which defines a
 | Parameter     | Description                                                  |
 | ------------- | ------------------------------------------------------------ |
 | *walk*        | Function that accepts some parameter set and returns another parameter set. This is used to jump between different parameter sets, and the sensitivity is to be specified by the user. This must have a signature of `walk(theta)`. |
-| *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$ and some common ancestor $\ell$. This must have a signature of `sample(theta, i_0: Sequence)`. |
-| *summarize*       | Function that computes a summary vector of some population. |
+| *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$. This must have a signature of `sample(theta)`. |
+| *delta*      | Function that computes the distance between the result of a sample and an observation. See above for function signature. |
 | *log_handler* | Function that handles what occurs with the Markov chain and results at a specific iteration $i$. This must have a signature of `log_handler(x: List, i: int)`. |
 | *theta\_0*    | Initial starting point to use with MCMC.                     |
 | *observed*    | Observations in base representation.                         |
@@ -158,23 +153,24 @@ Below represents a MWE to utilize the `run` method.
 from kumulaau import *
 
 class MyParameter(Parameter):
-    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+    def __init__(self, i_0:int, n: int, f: float, c: float, d: float, kappa: int, omega: int):
         # Requirement: Call of base constructor uses keyword arguments.
-        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
+        super().__init__(i_0=i_0, n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
     def validity(self):
-        return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa < self.omega
+        return self.n * self.c > 0 and self.f * self.d >= 0 and 0 < self.kappa <= self.i_0 <= self.omega
     
-def sample(theta, i_0):
+def sample(theta):
     topology = model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega)
-    return model.evolve(topology, i_0)  # Must return the result of evolve call.
+    return model.evolve(topology, theta.i_0)  # Must return the result of evolve call.
 
 @MyParameter.walkfunction
 def walk(theta):
     from numpy.random import normal
     from numpy import nextafter
 
-    return MyParameter(n=theta.n,  # No change in N.
+    return MyParameter(i_0=theta.i_0,  # No change in I_0.
+                       n=theta.n,  # No change in N.
                        f=theta.f,  # No change in F.
                        c=max(normal(theta.c, 0.0003), nextafter(0, 1)),
                        d=max(normal(theta.d, 5.5e-5), 0),
@@ -193,13 +189,10 @@ loci = ['D16S539' for _ in uid]
 observations = observed.extract_alfred_tuples(zip(uid, loci))
 
 # Define our starting point.
-theta_0 = MyParameter(n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
-
-# Create our summarizer using the mean and deviation.
-summarize = kumulaau.distance.summary_factory(['mean', 'deviation'], [3, 30])
+theta_0 = MyParameter(i_0=15, n=100, f=100, c=0.001, d=0.0001, kappa=3, omega=30)
 
 # Run our MCMC!
-abc.run(walk=walk, sample=sample, summarize=summarize, log_handler=log_handler,
+abc.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
         theta_0=theta_0, observed=observations, epsilon=0.4, boundaries=[0, 1000])
 ```
 
@@ -212,8 +205,8 @@ There exists only one method associated with this module: `run`, which defines a
 | Parameter     | Description                                                  |
 | ------------- | ------------------------------------------------------------ |
 | *walk*        | Function that accepts some parameter set and returns another parameter set. This is used to jump between different parameter sets, and the sensitivity is to be specified by the user. This must have a signature of `walk(theta)`. |
-| *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$ and some common ancestor $\ell$. This must have a signature of `sample(theta, i_0: Sequence)`. |
-| *summarize*       | Function that computes a summary vector of some population. |
+| *sample*      | Function that produces a `kumulaau.evolve` result, given a parameter set $\theta$. This must have a signature of `sample(theta)`. |
+| *delta*      | Function that computes the distance between the result of a sample and an observation. See above for function signature. |
 | *log_handler* | Function that handles what occurs with the Markov chain and results at a specific iteration $i$. This must have a signature of `log_handler(x: List, i: int)`. |
 | *theta\_0*    | Initial starting point to use with MCMC.                     |
 | *observed*    | Observations in base representation.                         |
@@ -227,7 +220,7 @@ There exists only one method associated with this module: `run`, which defines a
 .
 
 # Run our MCMC!
-ele.run(walk=walk, sample=sample, summarize=summarize, log_handler=log_handler,
+ele.run(walk=walk, sample=sample, delta=distance.cosine_delta, log_handler=log_handler,
         theta_0=theta_0, observed=observations, r=0.4, bin_n=500, boundaries=[0, 1000])
 ```
 
@@ -251,7 +244,7 @@ Given that the observations associated with a specific posterior run will never 
 It is advised to use this class with a context manager as such, to ensure database consistency:
 
 ```python
-MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+MODEL_SQL = "I_0 INT, N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 MODEL_NAME = "ABC1T0S0I"
 
 with RecordSQLite('data/results', MODEL_NAME, MODEL_SQL, False) as log:

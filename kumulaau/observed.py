@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import List, Iterable, Callable
+from typing import List, Iterable, Callable, Sequence
 from numpy import ndarray, array
 from argparse import Namespace
 from sqlite3 import Cursor
@@ -83,28 +83,26 @@ def tuples_to_dictionaries(tuples: Iterable) -> List:
     return [{int(a[0]): float(a[1]) for a in b} for b in tuples]
 
 
-def tuples_to_distribution_vector(tuples: Iterable, sample_n: int) -> ndarray:
-    """ Generate the distribution vector representation (row = observation, column = distribution) using the tuple
+def tuples_to_sparse_matrix(tuples: Iterable, bounds: Sequence) -> ndarray:
+    """ Generate the sparse matrix representation (column = repeat length, row = observation) using the tuple
     representation and user-defined boundaries.
 
     :param tuples: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param sample_n: Number of samples to generate per distribution.
+    :param bounds: Upper and lower bound (in that order) of the repeat unit space.
     :return: Array of numpy arrays holding a set of repeat lengths.
     """
-    from numpy import repeat
+    from numpy import zeros
 
-    return array([repeat(array(list(observation.keys())), array([int(a * sample_n) for a in observation.values()]))
-                  for observation in tuples_to_dictionaries(tuples)])
+    # Generate a dictionary representation.
+    observation_dictionary = tuples_to_dictionaries(tuples)
 
+    # Fit our observed distribution into a sparse frequency vector.
+    observations = array([zeros(bounds[1] - bounds[0] + 1) for _ in tuples])
+    for j, observation in enumerate(observation_dictionary):
+        for repeat_unit in observation.keys():
+            observations[j, repeat_unit - bounds[0] + 1] = observation[repeat_unit]
 
-def tuples_to_pool(tuples: Iterable, sample_n: int) -> List:
-    """ Using the tuples representation, parse all repeat lengths that exist in this specific observation.
-
-    :param tuples: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
-    :param sample_n: Number of samples to generate per distribution.
-    :return: A 1D list of all repeat lengths associated with this observation.
-    """
-    return [a for b in tuples_to_distribution_vector(tuples, sample_n) for a in b]
+    return observations
 
 
 def create_record_uid_loci_table(cursor: Cursor, table_name: str, pk_name_type: str) -> None:

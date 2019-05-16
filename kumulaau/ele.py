@@ -55,13 +55,13 @@ def _likelihood_from_v(v: ndarray) -> float:
     return 0 if col_sum == 0 else exp(col_sum)
 
 
-def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Callable, theta_0,
+def run(walk: Callable, sample: Callable, delta: Callable, log_handler: Callable, theta_0,
         observed: Sequence, simulation_n: int, boundaries: Sequence, r: float, bin_n: int) -> None:
     """ Our approach: a weighted regression-based likelihood approximator using MCMC to walk around our posterior
     distribution. My interpretation of this approach is given below:
 
     1) We start with some initial guess theta_0. Right off the bat, we move to another theta from theta_0.
-    2) For 'iterations_bounds[1] - iterations_bounds[0]' iterations...
+    2) For 'boundaries[1] - boundaries[0]' iterations...
         a) For 'simulation_n' iterations...
             i) We simulate a population using the given theta.
             ii) For each observed frequency ... 'D'
@@ -72,7 +72,7 @@ def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Call
 
     :param walk: Function that accepts some parameter set and returns another parameter set.
     :param sample: Function that produces a collection of repeat lengths (i.e. the model function).
-    :param summarize: Function that computes a vector of summary statistics to describe a sample.
+    :param delta: Frequency distribution distance function. 0 = exact match, 1 = maximally dissimilar.
     :param log_handler: Function that handles what occurs with the current Markov chain and results.
     :param theta_0: Initial starting point.
     :param observed: 2D list of (int, float) tuples representing the (repeat length, frequency) tuples.
@@ -104,7 +104,7 @@ def run(walk: Callable, sample: Callable, summarize: Callable, log_handler: Call
 
         # Generate our D matrix.
         d = zeros((simulation_n, len(observed)), dtype='float64')
-        populate_d(d, observed, sample, summarize, theta_proposed)
+        populate_d(d, observed, sample, delta, theta_proposed, [theta_proposed.kappa, theta_proposed.omega])
 
         # Compute our likelihood vector.
         v = _generate_v(d, r, bin_n)

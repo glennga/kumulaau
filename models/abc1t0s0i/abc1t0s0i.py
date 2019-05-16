@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from argparse import Namespace
-from typing import Sequence
 from numpy import ndarray
 from kumulaau import *
 
@@ -8,13 +7,14 @@ from kumulaau import *
 MODEL_NAME = "ABC1T0S0I"
 
 # The model SQL associated with model database.
-MODEL_SQL = "N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
+MODEL_SQL = "I_0 INT, N INT, F FLOAT, C FLOAT, D FLOAT, KAPPA INT, OMEGA INT"
 
 
 class Parameter1T0S0I(Parameter):
-    def __init__(self, n: int, f: float, c: float, d: float, kappa: int, omega: int):
+    def __init__(self, i_0: int, n: int, f: float, c: float, d: float, kappa: int, omega: int):
         """ Constructor. Here we set our parameters.
 
+        :param i_0: Common ancestor repeat length (where to start mutating from).
         :param n: Population size, used for determining the number of generations between events.
         :param f: Scaling factor for the total mutation rate. Smaller = shorter time to coalescence.
         :param c: Constant bias for the upward mutation rate.
@@ -22,7 +22,7 @@ class Parameter1T0S0I(Parameter):
         :param kappa: Lower bound of repeat lengths.
         :param omega: Upper bound of repeat lengths.
         """
-        super().__init__(n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
+        super().__init__(i_0=i_0, n=n, f=f, c=c, d=d, kappa=kappa, omega=omega)
 
     def validity(self) -> bool:
         """ Determine if a current parameter set is valid.
@@ -33,17 +33,16 @@ class Parameter1T0S0I(Parameter):
             self.f >= 0 and \
             self.c > 0 and \
             self.d >= 0 and \
-            0 < self.kappa < self.omega
+            0 < self.kappa <= self.i_0 <= self.omega
 
 
-def sample_1T0S0I(theta: Parameter1T0S0I, i_0: Sequence) -> ndarray:
+def sample_1T0S0I(theta: Parameter1T0S0I) -> ndarray:
     """ Generate a list of lengths of our 1T (one total) 0S (zero splits) 0I (zero intermediates) model.
 
     :param theta: Parameter1T0S0I set to use with tree tracing.
-    :param i_0: Seed lengths associated with tree.
     :return: List of repeat lengths.
     """
-    return model.evolve(model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), i_0)
+    return model.evolve(model.trace(theta.n, theta.f, theta.c, theta.d, theta.kappa, theta.omega), theta.i_0)
 
 
 @Parameter1T0S0I.walkfunction
@@ -56,7 +55,8 @@ def walk_1T0S0I(theta, walk_params) -> Parameter1T0S0I:
     """
     from numpy.random import normal
 
-    return Parameter1T0S0I(n=round(normal(theta.n, walk_params.n)),
+    return Parameter1T0S0I(i_0=round(normal(theta.i_0, walk_params.i_0)),
+                           n=round(normal(theta.n, walk_params.n)),
                            f=normal(theta.f, walk_params.f),
                            c=normal(theta.c, walk_params.c),
                            d=normal(theta.d, walk_params.d),
@@ -76,17 +76,19 @@ def get_arguments() -> Namespace:
     list(map(lambda a: parser.add_argument(a[0], help=a[1], type=a[2], nargs=a[3], default=a[4], choices=a[5]), [
         ['-mdb', 'Location of the database to record to.', str, None, 'data/abc1t0s0i.db', None],
         ['-observations', 'String of tuple representation of observations.', str, None, None, None],
-        ['-summary', 'Summary statistics to use.', str, '*', None, ['mean', 'deviation', 'frequency']],
+        ['-delta', 'Distance function to use.', str, None, None, ['cosine', 'euclidean']],
         ['-simulation_n', 'Number of simulations to use to obtain a distance.', int, None, None, None],
         ['-iterations_n', 'Number of iterations to run MCMC for.', int, None, None, None],
         ['-epsilon', "Maximum acceptance value for distance between [0, 1].", float, None, None, None],
         ['-flush_n', 'Number of iterations to run MCMC before flushing to disk.', int, None, None, None],
+        ['-i_0_start', 'Starting ancestor repeat length.', int, None, None, None],
         ['-n_start', 'Starting sample size (population size).', int, None, None, None],
         ['-f_start', 'Starting scaling factor for total mutation rate.', float, None, None, None],
         ['-c_start', 'Starting constant bias for the upward mutation rate.', float, None, None, None],
         ['-d_start', 'Starting linear bias for the downward mutation rate.', float, None, None, None],
         ['-kappa_start', 'Starting lower bound of repeat lengths.', int, None, None, None],
         ['-omega_start', 'Start upper bound of repeat lengths.', int, None, None, None],
+        ['-i_0_sigma', 'Step size of i_0 when changing parameters.', float, None, None, None],
         ['-n_sigma', 'Step size of n when changing parameters.', float, None, None, None],
         ['-f_sigma', 'Step size of f when changing parameters.', float, None, None, None],
         ['-c_sigma', 'Step size of c when changing parameters.', float, None, None, None],
@@ -99,6 +101,7 @@ def get_arguments() -> Namespace:
 
 
 if __name__ == '__main__':
+    from importlib import import_module
     from ast import literal_eval
 
     arguments = get_arguments()  # Parse our arguments.
@@ -117,7 +120,7 @@ if __name__ == '__main__':
         # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_1T0S0I(a, Parameter1T0S0I.from_namespace(arguments, lambda b: b + '_sigma'))
         log = lumberjack.handler_factory(arguments.flush_n)
-        summarize = kumulaau.distance.summary_factory(arguments.summary, [arguments.kappa_start, arguments.omega_start])
+        delta = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
 
         # Determine our starting point and boundaries.
         if is_new_run:
@@ -129,6 +132,6 @@ if __name__ == '__main__':
             boundaries = [0 + offset, arguments.iterations_n + offset]
 
         # Run our MCMC!
-        kumulaau.abc.run(walk=walk, sample=sample_1T0S0I, summarize=summarize, log_handler=log,
+        kumulaau.abc.run(walk=walk, sample=sample_1T0S0I, delta=delta, log_handler=log,
                          theta_0=theta_0, observed=observations, simulation_n=arguments.simulation_n,
                          boundaries=boundaries, epsilon=arguments.epsilon)

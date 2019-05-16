@@ -33,12 +33,8 @@ R=0.5
 # Number of bins used to construct histogram.
 BIN_N=500
 
-# Summary statistics to use.
-SUMMARY=(
-	"mean"
-	"deviation"
-	"frequency"
-)
+# Distance function to use.
+DELTA=cosine
 
 # Number of iterations to run a single MCMC python script for.
 ITERATIONS_N=1001
@@ -47,6 +43,7 @@ ITERATIONS_N=1001
 FLUSH_N=500
 
 # Starting parameters for our MCMC given below (kept same across all MCMCs).
+I_0_START=15  # Common ancestor repeat length.
 N_B_START=10  # Starting population size for ancestor.
 N_S1_START=10  # Starting population size for split 1.
 N_S2_START=10  # Starting population size for split 2.
@@ -62,6 +59,7 @@ KAPPA_START=3  # Lower bound of repeat lengths.
 OMEGA_START=30  # Upper bound of repeat lengths.
 
 # Step size parameters for MCMC walking (kept same across all MCMCs).
+I_0_SIGMA=1.0  # Common ancestor repeat length.
 N_B_SIGMA=5.0  # Starting population size for ancestor.
 N_S1_SIGMA=5.0  # Starting population size for split 1.
 N_S2_SIGMA=5.0  # Starting population size for split 2.

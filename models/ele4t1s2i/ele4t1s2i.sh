@@ -17,9 +17,10 @@ python3 ${SCRIPT_DIR}/ele4t1s2i.py \
 	-simulation_n ${SIMULATION_N} \
 	-r ${R} \
 	-bin_n ${BIN_N} \
-	-summary ${SUMMARY[*]} \
+	-delta ${DELTA} \
 	-iterations_n ${ITERATIONS_N} \
 	-flush_n ${FLUSH_N} \
+	-i_0_start ${I_0_START} -i_0_sigma ${I_0_SIGMA} \
 	-n_b_start ${N_B_START} -n_b_sigma ${N_B_SIGMA} \
 	-n_s1_start ${N_S1_START} -n_s1_sigma ${N_S1_SIGMA} \
 	-n_s2_start ${N_S2_START} -n_s2_sigma ${N_S2_SIGMA} \
@@ -44,8 +45,9 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
 		-simulation_n ${SIMULATION_N} \
 		-r ${R} \
 		-bin_n ${BIN_N} \
-		-summary ${SUMMARY[*]} \
+		-delta ${DELTA} \
 		-iterations_n ${ITERATIONS_N} \
+		-i_0_sigma ${I_0_SIGMA} \
 		-n_b_sigma ${N_B_SIGMA} \
 		-n_s1_sigma ${N_S1_SIGMA} \
 		-n_s2_sigma ${N_S2_SIGMA} \
@@ -57,8 +59,8 @@ for ((i=2; i<${MCMC_LINKS}; i++)); do
 		-alpha_sigma ${ALPHA_SIGMA} \
 		-c_sigma ${C_SIGMA} \
 		-d_sigma ${D_SIGMA} \
-		-kappa_start ${KAPPA_START} -kappa_sigma ${KAPPA_SIGMA} \
-		-omega_start ${OMEGA_START} -omega_sigma ${OMEGA_SIGMA}
+		-kappa_sigma ${KAPPA_SIGMA} \
+		-omega_sigma ${OMEGA_SIGMA}
     clean_line
 done
 
