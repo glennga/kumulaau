@@ -194,7 +194,7 @@ if __name__ == '__main__':
         # Construct the walk, summary, and log functions based on our given arguments.
         walk = lambda a: walk_4T1S2I(a, Parameter4T1S2I.from_namespace(arguments, lambda b: b + '_sigma'))
         log = lumberjack.handler_factory(arguments.flush_n)
-        delta = getattr(import_module('kumulaau.distance'), arguments.function + '_delta')
+        delta = getattr(import_module('kumulaau.distance'), arguments.delta + '_delta')
 
         # Determine our starting point and boundaries.
         if is_new_run:
